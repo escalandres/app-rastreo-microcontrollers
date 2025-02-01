@@ -53,6 +53,22 @@ void setAlarmFired() {
   alarmFired = true;
 }
 
+void configureAlarm(){
+  rtc.clearAlarm(1);
+  rtc.clearAlarm(2);
+  // turn off alarm 2 (in case it isn't off already)
+  // again, this isn't done at reboot, so a previously set alarm could easily go overlooked
+  rtc.disableAlarm(1);
+  rtc.disableAlarm(2);
+  
+  // stop oscillating signals at SQW Pin
+  // otherwise setAlarm1 will fail
+  //rtc.writeSqwPinMode(DS3231_OFF);
+
+  //Set Alarm to be trigged in X 
+  rtc.setAlarm1( rtc.now() + TimeSpan(50), DS3231_A1_Second); // this mode triggers the alarm when the seconds match.
+}
+
 void setup() {
   // put your setup code here, to run once:
   Wire.begin();
@@ -81,28 +97,21 @@ void setup() {
   }
 
    
-    //rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
+    rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
               // al momento de la compilacion. Comentar esta linea
              // y volver a subir para normal operacion
 
-    rtc.adjust(DateTime(2025, 1, 29, 22, 30, 0));  // año, mes, día, hora, minuto, segundo
-    rtc.disabled32K();
-    // set alarm 1, 2 flag to false (so alarm 1, 2 didn't happen so far)
-    // if not done, this easily leads to problems, as both register aren't reset on reboot/recompile
-    rtc.clearAlarm(1);
-    rtc.clearAlarm(2);
-    // turn off alarm 2 (in case it isn't off already)
-    // again, this isn't done at reboot, so a previously set alarm could easily go overlooked
-    rtc.disableAlarm(1);
-    rtc.disableAlarm(2);
+    //rtc.adjust(DateTime(2025, 1, 31, 16, 30, 0));  // año, mes, día, hora, minuto, segundo
+    rtc.disable32K();
     
     // stop oscillating signals at SQW Pin
     // otherwise setAlarm1 will fail
     rtc.writeSqwPinMode(DS3231_OFF);
 
     //Set Alarm to be trigged in X 
-    rtc.setAlarm1( rtc.now() + TimeSpan(10), DS3231_A1_Second); // this mode triggers the alarm when the seconds match.
-    
+    //rtc.setAlarm1( rtc.now() + TimeSpan(50), DS3231_A1_Second); // this mode triggers the alarm when the seconds match.
+    configureAlarm();
+
     //Create Trigger
     //attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
 
@@ -128,7 +137,7 @@ void loop() {
 
   if(alarmFired){
     SendMessage();
-
+    configureAlarm();
     LowPower.idle();
     //LowPower.sleep();
     //LowPower.deepSleep();
@@ -198,8 +207,16 @@ String createMeesageToSend(){
   generarCoordenadasAleatorias(estadoIndex, &lat, &lon);
 
   DateTime now = rtc.now();
-  char format[20];
-  String currentTime = now().toString(format);
+  //char format[20] = "yyyy-MM-dd hh:mm:ss";
+  //String currentTime = _now.toString(format);
+  //String currentTime = _now.toString(format);
+  char buffer[20];
+  sprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d", 
+          now.year(), now.month(), now.day(), 
+          now.hour(), now.minute(), now.second());
+  
+  String currentTime = String(buffer);
+
 
   // Crear un documento JSON
   StaticJsonDocument<200> doc;
@@ -207,7 +224,7 @@ String createMeesageToSend(){
   // Rellenar los valores
   doc["id"] = ID;
   doc["lat"] = lat;
-  doc["lng"] = lng;
+  doc["lon"] = lon;
   doc["time"] = currentTime;
  
   // Serializar el documento JSON a un string
