@@ -67,6 +67,8 @@ void configureAlarm(){
 
   //Set Alarm to be trigged in X 
   rtc.setAlarm1( rtc.now() + TimeSpan(50), DS3231_A1_Second); // this mode triggers the alarm when the seconds match.
+
+  alarmFired = false;
 }
 
 void setup() {
@@ -123,9 +125,9 @@ void setup() {
     LowPower.begin();
     // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
     // Last parameter (LowPowerMode) should match with the low power state used
-    LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, IDLE_MODE);
+    //LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, IDLE_MODE);
     //LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, SLEEP_MODE);
-    //LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE);
+    LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE);
     //LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, SHUTDOWN_MODE);
 }
 
@@ -138,9 +140,9 @@ void loop() {
   if(alarmFired){
     SendMessage();
     configureAlarm();
-    LowPower.idle();
+    //LowPower.idle();
     //LowPower.sleep();
-    //LowPower.deepSleep();
+    LowPower.deepSleep();
     //LowPower.shutdown();
   }
   if (SIM800L.available() > 0){
