@@ -16,6 +16,8 @@ TinyGPS gps;
 const int SQW_PIN = PA0;
 const int STM_LED = PC13;
 const int LED = PA6;
+const int TEST_LED = PA7;
+const int YELLOW_LED = PA15;
 const int PUSH_BTN = PB0;
 
 /* Constantes y Variables Globales */
@@ -89,6 +91,8 @@ void setup() {
   pinMode(PUSH_BTN, INPUT);
   pinMode(STM_LED, OUTPUT);
   pinMode(LED, OUTPUT);
+  pinMode(TEST_LED, OUTPUT);
+  pinMode(YELLOW_LED, OUTPUT);
 
   digitalWrite(STM_LED, LOW);
   digitalWrite(LED, HIGH);
@@ -196,23 +200,36 @@ String _readSerial() {
 
 String createMeesageToSend(){
   //Crear la semilla para el numero aleatorio
-  randomSeed(millis());
+  //randomSeed(millis());
 
   // Elegir un estado al azar de los definidos (por ejemplo, 0 = CDMX)
-  int estadoIndex = random(0, 7);  // De 0 a 6 (7 estados)
+  //int estadoIndex = random(0, 7);  // De 0 a 6 (7 estados)
   
   // Variables para almacenar las coordenadas
   //float lat, lon;
   
   // Generar las coordenadas aleatorias para el estado elegido
   //generarCoordenadasAleatorias(estadoIndex, &lat, &lon);
+  digitalWrite(YELLOW_LED,HIGH);
+  delay(2000);
+  digitalWrite(YELLOW_LED,LOW);
+  delay(1000);
+  digitalWrite(YELLOW_LED,HIGH);
+  delay(1000);
+  digitalWrite(YELLOW_LED,LOW);
 
   String lat, lon;
   //lat = "19.367132";
   //lon = "-99.126199";
   leerGPS(&lat, &lon);
 
-  //if(lat)
+  digitalWrite(YELLOW_LED,HIGH);
+  delay(1000);
+  digitalWrite(YELLOW_LED,LOW);
+  delay(2000);
+  digitalWrite(YELLOW_LED,HIGH);
+  delay(1000);
+  digitalWrite(YELLOW_LED,LOW);
 
   DateTime now = rtc.now();
   //char format[20] = "yyyy-MM-dd hh:mm:ss";
@@ -223,6 +240,20 @@ String createMeesageToSend(){
           now.year(), now.month(), now.day(), 
           now.hour(), now.minute(), now.second());
   
+  digitalWrite(YELLOW_LED,HIGH);
+  delay(500);
+  digitalWrite(YELLOW_LED,LOW);
+  delay(500);
+  digitalWrite(YELLOW_LED,HIGH);
+  delay(500);
+  digitalWrite(YELLOW_LED,LOW);
+  delay(1000);
+  digitalWrite(YELLOW_LED,LOW);
+  delay(2000);
+  digitalWrite(YELLOW_LED,HIGH);
+  delay(1000);
+  digitalWrite(YELLOW_LED,LOW);
+
   String currentTime = String(buffer);
 
 
@@ -252,19 +283,38 @@ void generarCoordenadasAleatorias(int estadoIndex, float* lat, float* lon) {
 }
 
 void leerGPS(String* lat, String* lon) {
-  
- while (NEO6M.available()) {
+  digitalWrite(TEST_LED,HIGH);
+  unsigned long startTime = millis();
+  while (NEO6M.available() && (millis() - startTime) < 2000) {  // 2 segundos de límite
     int c = NEO6M.read();
     if (gps.encode(c)) {
       // Si hay datos disponibles, extraer la latitud y longitud
       float _lat, _lon;
       gps.f_get_position(&_lat, &_lon);
+      // Verificar si las coordenadas son válidas
+      if (isnan(_lat) || isnan(_lon)) {
+        continue;  // Si no son válidas, intentar de nuevo
+      }
       // Formatear los datos como string
       *lat = String(_lat, 6);
       *lon = String(_lon, 6);
+      digitalWrite(TEST_LED,LOW);
+      delay(1000);
+      digitalWrite(TEST_LED,HIGH);
+      delay(3000);
+      digitalWrite(TEST_LED,LOW);
+      return;  // Salir de la función si se obtuvieron las coordenadas
     }
   }
+  digitalWrite(TEST_LED,LOW);
+  delay(1000);
+  digitalWrite(TEST_LED,HIGH);
+  delay(1000);
+  digitalWrite(TEST_LED,LOW);
+  *lat = "";  // Limpiar valores si no se obtuvo nada
+  *lon = "";
 }
+
 
 
 
