@@ -17,7 +17,7 @@ const int SQW_PIN = PA0;
 const int STM_LED = PC13;
 const int LED = PA6;
 const int TEST_LED = PA7;
-const int YELLOW_LED = PA15;
+const int YELLOW_LED = PB1;
 const int PUSH_BTN = PB0;
 
 /* Constantes y Variables Globales */
@@ -162,9 +162,27 @@ void SendMessage()
   //Serial.println ("Sending Message");
   SIM800L.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
   delay(200);
+  if (SIM800L.find("OK")) {
+    Serial.println("Set Text Mode: OK");
+    activeRedLed(3);
+  } else {
+      Serial.println("Set Text Mode: ERROR");
+      activeYellowLed(3);
+      SIM800L.println("AT+CFUN=1,1"); // Restart module
+      delay(2000); // Allow time for restart
+  }
+  
   //Serial.println ("Set SMS Number");
   SIM800L.println("AT+CMGS=\"" + number + "\"\r"); //Mobile phone number to send message
   delay(200);
+  if (SIM800L.find(">")) {
+    Serial.println("Set Number: OK");
+  } else {
+    Serial.println("Set Number: ERROR");
+    SIM800L.println("AT+CFUN=1,1"); // Restart module
+    delay(2000); // Allow time for restart
+  }
+
   String SMS = createMeesageToSend();
   SIM800L.println(SMS);
   delay(100);
@@ -176,6 +194,7 @@ void SendMessage()
   digitalWrite(STM_LED,HIGH);
   digitalWrite(LED,LOW);
 }
+
 void RecieveMessage()
 {
   Serial.println ("SIM800L Read an SMS");
@@ -185,6 +204,7 @@ void RecieveMessage()
   delay(200);
   Serial.write ("Unread Message done");
 }
+
 String _readSerial() {
   _timeout = 0;
   while  (!SIM800L.available() && _timeout < 12000  )
@@ -199,37 +219,20 @@ String _readSerial() {
 
 
 String createMeesageToSend(){
-  //Crear la semilla para el numero aleatorio
-  //randomSeed(millis());
-
-  // Elegir un estado al azar de los definidos (por ejemplo, 0 = CDMX)
-  //int estadoIndex = random(0, 7);  // De 0 a 6 (7 estados)
   
   // Variables para almacenar las coordenadas
-  //float lat, lon;
+  float lat, lon;
   
   // Generar las coordenadas aleatorias para el estado elegido
-  //generarCoordenadasAleatorias(estadoIndex, &lat, &lon);
-  digitalWrite(YELLOW_LED,HIGH);
-  delay(2000);
-  digitalWrite(YELLOW_LED,LOW);
-  delay(1000);
-  digitalWrite(YELLOW_LED,HIGH);
-  delay(1000);
-  digitalWrite(YELLOW_LED,LOW);
+  generarCoordenadasAleatorias(&lat, &lon);
+  activeYellowLed(1);
 
-  String lat, lon;
+  //String lat, lon;
   //lat = "19.367132";
   //lon = "-99.126199";
-  leerGPS(&lat, &lon);
+  //leerGPS(&lat, &lon);
 
-  digitalWrite(YELLOW_LED,HIGH);
-  delay(1000);
-  digitalWrite(YELLOW_LED,LOW);
-  delay(2000);
-  digitalWrite(YELLOW_LED,HIGH);
-  delay(1000);
-  digitalWrite(YELLOW_LED,LOW);
+  activeYellowLed(2);
 
   DateTime now = rtc.now();
   //char format[20] = "yyyy-MM-dd hh:mm:ss";
@@ -240,22 +243,9 @@ String createMeesageToSend(){
           now.year(), now.month(), now.day(), 
           now.hour(), now.minute(), now.second());
   
-  digitalWrite(YELLOW_LED,HIGH);
-  delay(500);
-  digitalWrite(YELLOW_LED,LOW);
-  delay(500);
-  digitalWrite(YELLOW_LED,HIGH);
-  delay(500);
-  digitalWrite(YELLOW_LED,LOW);
-  delay(1000);
-  digitalWrite(YELLOW_LED,LOW);
-  delay(2000);
-  digitalWrite(YELLOW_LED,HIGH);
-  delay(1000);
-  digitalWrite(YELLOW_LED,LOW);
-
   String currentTime = String(buffer);
 
+  activeYellowLed(3);
 
   // Crear un documento JSON
   StaticJsonDocument<200> doc;
@@ -274,7 +264,12 @@ String createMeesageToSend(){
 }
 
 // Función para generar coordenadas aleatorias dentro de un estado específico
-void generarCoordenadasAleatorias(int estadoIndex, float* lat, float* lon) {
+void generarCoordenadasAleatorias(float* lat, float* lon) {
+  //Crear la semilla para el numero aleatorio
+  randomSeed(millis());
+
+  // Elegir un estado al azar de los definidos (por ejemplo, 0 = CDMX)
+  int estadoIndex = random(0, 7);  // De 0 a 6 (7 estados)
   Estado estado = estadosCentroMexico[estadoIndex];
   
   // Generar latitud y longitud aleatorias dentro del rango del estado
@@ -298,25 +293,102 @@ void leerGPS(String* lat, String* lon) {
       // Formatear los datos como string
       *lat = String(_lat, 6);
       *lon = String(_lon, 6);
+      activeRedLed(1);
+      return;  // Salir de la función si se obtuvieron las coordenadas
+    }
+  }
+  activeRedLed(2);
+  *lat = "";  // Limpiar valores si no se obtuvo nada
+  *lon = "";
+}
+
+void activeYellowLed(int option){
+  switch(option){
+    case 1:
+      digitalWrite(YELLOW_LED,HIGH);
+      delay(2000);
+      digitalWrite(YELLOW_LED,LOW);
+      delay(1000);
+      digitalWrite(YELLOW_LED,HIGH);
+      delay(1000);
+      digitalWrite(YELLOW_LED,LOW);
+      break;
+
+    case 2:
+      digitalWrite(YELLOW_LED,HIGH);
+      delay(1000);
+      digitalWrite(YELLOW_LED,LOW);
+      delay(2000);
+      digitalWrite(YELLOW_LED,HIGH);
+      delay(1000);
+      digitalWrite(YELLOW_LED,LOW);
+      break;
+
+    case 3:
+      digitalWrite(YELLOW_LED,HIGH);
+      delay(500);
+      digitalWrite(YELLOW_LED,LOW);
+      delay(500);
+      digitalWrite(YELLOW_LED,HIGH);
+      delay(500);
+      digitalWrite(YELLOW_LED,LOW);
+      delay(1000);
+      digitalWrite(YELLOW_LED,LOW);
+      delay(2000);
+      digitalWrite(YELLOW_LED,HIGH);
+      delay(1000);
+      digitalWrite(YELLOW_LED,LOW);
+      break;
+
+  }
+}
+
+void activeRedLed(int option){
+  switch(option){
+    case 1:
+      digitalWrite(TEST_LED,HIGH);
+      delay(1000);
       digitalWrite(TEST_LED,LOW);
       delay(1000);
       digitalWrite(TEST_LED,HIGH);
       delay(3000);
       digitalWrite(TEST_LED,LOW);
-      return;  // Salir de la función si se obtuvieron las coordenadas
-    }
+
+      break;
+
+    case 2:
+      digitalWrite(TEST_LED,HIGH);
+      delay(500);
+      digitalWrite(TEST_LED,LOW);
+      delay(500);
+      digitalWrite(TEST_LED,HIGH);
+      delay(500);
+      digitalWrite(TEST_LED,LOW);
+      delay(500);
+      digitalWrite(TEST_LED,HIGH);
+      delay(500);
+      digitalWrite(TEST_LED,LOW);
+      break;
+
+    case 3:
+      digitalWrite(TEST_LED,HIGH);
+      delay(3000);
+      digitalWrite(TEST_LED,LOW);
+      delay(500);
+      digitalWrite(TEST_LED,HIGH);
+      delay(500);
+      digitalWrite(TEST_LED,LOW);
+      delay(500);
+      digitalWrite(TEST_LED,HIGH);
+      delay(500);
+      digitalWrite(TEST_LED,LOW);
+      delay(500);
+      digitalWrite(TEST_LED,HIGH);
+      delay(3000);
+      digitalWrite(TEST_LED,LOW);
+      break;
+
   }
-  digitalWrite(TEST_LED,LOW);
-  delay(1000);
-  digitalWrite(TEST_LED,HIGH);
-  delay(1000);
-  digitalWrite(TEST_LED,LOW);
-  *lat = "";  // Limpiar valores si no se obtuvo nada
-  *lon = "";
 }
-
-
-
-
 
 
