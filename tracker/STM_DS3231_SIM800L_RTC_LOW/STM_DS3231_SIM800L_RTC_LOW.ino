@@ -19,8 +19,8 @@ const int PUSH_BTN = PB0;
 const String ID = "48273619";
 int _timeout;
 String _buffer;
-//String number = "+525620577634";
-String number = "+525554743913";
+String number = "+525620577634";
+//String number = "+525554743913";
 // Estructura para representar los límites geográficos de cada estado
 struct Estado {
   float latMin, latMax;
@@ -126,8 +126,8 @@ void setup() {
     // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
     // Last parameter (LowPowerMode) should match with the low power state used
     //LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, IDLE_MODE);
-    //LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, SLEEP_MODE);
-    LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE);
+    LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, SLEEP_MODE);
+    //LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE);
     //LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, SHUTDOWN_MODE);
 }
 
@@ -141,8 +141,8 @@ void loop() {
     SendMessage();
     configureAlarm();
     //LowPower.idle();
-    //LowPower.sleep();
-    LowPower.deepSleep();
+    LowPower.sleep();
+    //LowPower.deepSleep();
     //LowPower.shutdown();
   }
   if (SIM800L.available() > 0){
