@@ -3,7 +3,6 @@
 #include <Wire.h>
 #include <HardwareSerial.h>
 #include <RTClib.h>
-//#include <ArduinoJson.h>
 #include <low_power.h>
 #include <STM32LowPower.h>
 #include <TinyGPS.h>
@@ -25,7 +24,7 @@ float latitude, longitude;
 const String ID = "48273619";
 int _timeout;
 String _buffer;
-//String number = "+525545464585"; //Mio
+
 const String number = "+525620577634"; //Oxxo Cel
 //String number = "+525554743913"; //Telcel
 
@@ -35,10 +34,10 @@ unsigned short sentences, failed_checksum;
 
 
 // Definir el puerto serial SIM800L
-//HardwareSerial SIM800L(PA3, PA2);
-//HardwareSerial NEO6M(PA10, PA9);
-HardwareSerial SIM800L(PA10, PA9);
-HardwareSerial NEO6M(PA3, PA2);
+HardwareSerial SIM800L(PA3, PA2);
+HardwareSerial NEO6M(PA10, PA9);
+//HardwareSerial SIM800L(PA10, PA9);
+//HardwareSerial NEO6M(PA3, PA2);
 
 void setAlarmFired() {
   alarmFired = true;
@@ -91,36 +90,35 @@ void setup() {
         // this will adjust to the date and time at compilation
         rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
-
    
-    rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
-              // al momento de la compilacion. Comentar esta linea
-             // y volver a subir para normal operacion
+  rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
+            // al momento de la compilacion. Comentar esta linea
+            // y volver a subir para normal operacion
 
-    //rtc.adjust(DateTime(2025, 1, 31, 16, 30, 0));  // año, mes, día, hora, minuto, segundo
-    rtc.disable32K();
-    
-    // stop oscillating signals at SQW Pin
-    // otherwise setAlarm1 will fail
-    rtc.writeSqwPinMode(DS3231_OFF);
+  //rtc.adjust(DateTime(2025, 1, 31, 16, 30, 0));  // año, mes, día, hora, minuto, segundo
+  rtc.disable32K();
+  
+  // stop oscillating signals at SQW Pin
+  // otherwise setAlarm1 will fail
+  rtc.writeSqwPinMode(DS3231_OFF);
 
-    //Set Alarm to be trigged in X 
-    //rtc.setAlarm1( rtc.now() + TimeSpan(50), DS3231_A1_Second); // this mode triggers the alarm when the seconds match.
-    configureAlarm();
+  //Set Alarm to be trigged in X 
+  //rtc.setAlarm1( rtc.now() + TimeSpan(50), DS3231_A1_Second); // this mode triggers the alarm when the seconds match.
+  configureAlarm();
 
-    //Create Trigger
-    //attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
+  //Create Trigger
+  //attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
 
-    delay(2000);
-    digitalWrite(STM_LED,HIGH);
-    digitalWrite(LED,LOW);
+  delay(2000);
+  digitalWrite(STM_LED,HIGH);
+  digitalWrite(LED,LOW);
 
-    // Configure low power
-    LowPower.begin();
-    // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
-    // Last parameter (LowPowerMode) should match with the low power state used
-    LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, SLEEP_MODE);
-    //LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE);
+  // Configure low power
+  LowPower.begin();
+  // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
+  // Last parameter (LowPowerMode) should match with the low power state used
+  //LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, SLEEP_MODE);
+  LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE);
 }
 
 void loop() {
@@ -137,10 +135,6 @@ void loop() {
 
   if(alarmFired){
 
-    // while (SIM800L.available()) {
-    //   Serial.write(SIM800L.read());  // Limpia el buffer
-    // }
-
     String datosGPS = leerYGuardarGPS();
 
     // if (datosGPS != coordenadasSinDatos) {
@@ -153,18 +147,9 @@ void loop() {
     //   SendMessageNoData();
     // }
 
-    // // Limpia el buffer interno del puerto SIM800L
-    // while (SIM800L.available()) {
-    //     SIM800L.read(); // Lee y descarta cada byte disponible
-    // }
-
-    // // Limpia el buffer interno del puerto NEO6M
-    // while (NEO6M.available()) {
-    //     NEO6M.read(); // Lee y descarta cada byte disponible
-    // }
     configureAlarm();
-    LowPower.sleep();
-    //LowPower.deepSleep();
+    //LowPower.sleep();
+    LowPower.deepSleep();
   }
   
 }
@@ -295,13 +280,13 @@ String leerYGuardarGPS() {
     delay(1000);
     digitalWrite(YELLOW_LED, LOW);
     // Si las coordenadas no son válidas, asignar valores predeterminados
-    if (isnan(_lat) || isnan(_lon)) {
-        _lat = 0.0;
-        _lon = 0.0;
+    if (isnan(latitude) || isnan(longitude)) {
+        latitude = 0.0;
+        longitude= 0.0;
     }
     //return "\"lat\":\"" + _lat + "\",\"lon\":\"" + _lon + "\"";
-     enviarMensaje("\"lat\":\"" + String(latitude,6) + "\",\"lon\":\"" + String(longitude,6) + "\"");
-    return "\"latz\":\"" + String(latitude,6) + "\",\"lon\":\"" + String(longitude,6) + "\"";
+    //  enviarMensaje("\"lat\":\"" + String(latitude,6) + "\",\"lon\":\"" + String(longitude,6) + "\"");
+    return "\"lat\":\"" + String(latitude,6) + "\",\"lon\":\"" + String(longitude,6) + "\"";
 }
 
 void activeYellowLed(int option){
