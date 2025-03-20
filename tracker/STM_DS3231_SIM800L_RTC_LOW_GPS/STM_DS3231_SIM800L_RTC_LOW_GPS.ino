@@ -154,6 +154,20 @@ void loop() {
   
 }
 
+String readSIM800LResponse(unsigned long timeout = 2000) {
+  String response = "";
+  unsigned long startTime = millis();
+
+  while (millis() - startTime < timeout) {
+    while (SIM800L.available()) {
+      char c = SIM800L.read();
+      response += c;
+    }
+  }
+
+  return response;
+}
+
 void SendMessageNoData()
 {
   digitalWrite(RED_LED,HIGH);
@@ -200,6 +214,9 @@ void SendMessage(String datosGPS)
   digitalWrite(STM_LED, LOW);
   digitalWrite(LED, HIGH);
   
+  String cellTowerInfo = "";
+  cellTowerInfo = getCellInfo();
+
   //Serial.println ("Sending Message");
   SIM800L.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
   delay(1500);
@@ -208,7 +225,7 @@ void SendMessage(String datosGPS)
   SIM800L.println("AT+CMGS=\"" + number + "\"\r"); //Mobile phone number to send message
   delay(1200);
 
-  String SMS = createMeesageToSend(datosGPS);
+  String SMS = createMessageToSend(datosGPS, cellTowerInfo);
   SIM800L.println(SMS);
   delay(100);
   SIM800L.println((char)26);// ASCII code of CTRL+Z
@@ -233,7 +250,7 @@ String _readSerial() {
 }
 
 
-String createMeesageToSend(String datosGPS){
+String createMessageToSend(String datosGPS, String cellTowerInfo){
 
   activeYellowLed(2);
 
@@ -251,6 +268,7 @@ String createMeesageToSend(String datosGPS){
   String output = "{";
     output += "\"id\":\"" + ID + "\",";
     output += "\"time\":\"" + currentTime + "\",";
+    output += "\"cellTowerInfo\":" + cellTowerInfo + ",";
     output += datosGPS;
     output += "}";
   
@@ -287,6 +305,99 @@ String leerYGuardarGPS() {
     //return "\"lat\":\"" + _lat + "\",\"lon\":\"" + _lon + "\"";
     //  enviarMensaje("\"lat\":\"" + String(latitude,6) + "\",\"lon\":\"" + String(longitude,6) + "\"");
     return "\"lat\":\"" + String(latitude,6) + "\",\"lon\":\"" + String(longitude,6) + "\"";
+}
+
+String getCellInfo() {
+  String lac = "";
+  String cellId = "";
+  String operatorName = "";
+  String mcc = "";
+  String mnc = "";
+
+  // Configurar el modo extendido para incluir LAC y Cell ID
+  flushSIM800L();
+  SIM800L.println("AT+CREG=2");
+  delay(500);
+
+  // Solicitar información de registro
+  flushSIM800L();
+  SIM800L.println("AT+CREG?");
+  String cregResponse = readSIM800LResponse();
+
+  // Serial.println("Respuesta AT+CREG?: " + cregResponse);
+
+  int lacStart = cregResponse.indexOf("\"");
+  int lacEnd = cregResponse.indexOf("\"", lacStart + 1);
+  int cellIdStart = cregResponse.indexOf("\"", lacEnd + 1);
+  int cellIdEnd = cregResponse.indexOf("\"", cellIdStart + 1);
+
+  if (lacStart != -1 && lacEnd != -1 && cellIdStart != -1 && cellIdEnd != -1) {
+    lac = cregResponse.substring(lacStart + 1, lacEnd);
+    cellId = cregResponse.substring(cellIdStart + 1, cellIdEnd);
+  } else {
+    Serial.println("Error al parsear LAC y Cell ID");
+  }
+
+  // Convertir de HEX a DEC si es necesario
+  lac = hexToDec(lac);
+  cellId = hexToDec(cellId);
+
+  // Obtener el operador actual
+  flushSIM800L();
+  SIM800L.println("AT+COPS?");
+  String copsResponse = readSIM800LResponse();
+
+  // Serial.println("Respuesta AT+COPS?: " + copsResponse);
+
+  int nameStart = copsResponse.indexOf("\"");
+  int nameEnd = copsResponse.indexOf("\"", nameStart + 1);
+
+  if (nameStart != -1 && nameEnd != -1) {
+    operatorName = copsResponse.substring(nameStart + 1, nameEnd);
+  } else {
+    operatorName = "Desconocido";
+  }
+
+  // Determinar MCC y MNC de manera manual (o usando una tabla si tienes más operadores)
+  if (operatorName == "TELCEL") {
+    mcc = "334";
+    mnc = "020";
+  } else if (operatorName == "MOVISTAR") {
+    mcc = "334";
+    mnc = "030";
+  } else if (operatorName == "AT&T") {
+    mcc = "334";
+    mnc = "050";
+  } else {
+    mcc = "000";
+    mnc = "000";
+  }
+
+  // Construir JSON manualmente
+  String json = "{";
+  json += "\"lac\":\"" + lac + "\",";
+  json += "\"cellId\":\"" + cellId + "\",";
+  json += "\"operator\":\"" + operatorName + "\",";
+  json += "\"mcc\":\"" + mcc + "\",";
+  json += "\"mnc\":\"" + mnc + "\"";
+  json += "}";
+
+  enviarMensaje(" ---Torre celular--- ");
+  enviarMensaje(json);
+  return json;
+}
+
+String hexToDec(String hexStr) {
+  long decVal = strtol(hexStr.c_str(), NULL, 16);
+  return String(decVal);
+}
+
+
+
+void flushSIM800L() {
+  while (SIM800L.available()) {
+    SIM800L.read();
+  }
 }
 
 void activeYellowLed(int option){
