@@ -349,26 +349,23 @@ String getCellInfo() {
 
   // Serial.println("Respuesta AT+COPS?: " + copsResponse);
 
-  int nameStart = copsResponse.indexOf("\"");
-  int nameEnd = copsResponse.indexOf("\"", nameStart + 1);
+  int opStart = copsResponse.indexOf("\"");
+  int opEnd = copsResponse.indexOf("\"", opStart + 1);
 
-  if (nameStart != -1 && nameEnd != -1) {
-    operatorName = copsResponse.substring(nameStart + 1, nameEnd);
+  if (opStart != -1 && opEnd != -1) {
+    String operatorCode = copsResponse.substring(opStart + 1, opEnd); // Ej: 334020
+
+    if (operatorCode.length() >= 5) {
+      mcc = operatorCode.substring(0, 3);
+      mnc = operatorCode.substring(3);
+    } else {
+      mcc = "000";
+      mnc = "000";
+    }
+
+    operatorName = operatorCode;  // O si quieres, mantén el nombre original
   } else {
     operatorName = "Desconocido";
-  }
-
-  // Determinar MCC y MNC de manera manual (o usando una tabla si tienes más operadores)
-  if (operatorName == "TELCEL") {
-    mcc = "334";
-    mnc = "020";
-  } else if (operatorName == "MOVISTAR") {
-    mcc = "334";
-    mnc = "030";
-  } else if (operatorName == "AT&T") {
-    mcc = "334";
-    mnc = "050";
-  } else {
     mcc = "000";
     mnc = "000";
   }
