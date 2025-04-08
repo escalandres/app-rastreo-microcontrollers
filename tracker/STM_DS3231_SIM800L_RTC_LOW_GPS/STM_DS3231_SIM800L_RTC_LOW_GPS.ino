@@ -35,9 +35,9 @@ unsigned short sentences, failed_checksum;
 
 // Definir el puerto serial SIM800L
 HardwareSerial SIM800L(PA3, PA2);
-HardwareSerial NEO6M(PA10, PA9);
+HardwareSerial NEO8M(PA10, PA9);
 //HardwareSerial SIM800L(PA10, PA9);
-//HardwareSerial NEO6M(PA3, PA2);
+//HardwareSerial NEO8M(PA3, PA2);
 
 void setAlarmFired() {
   alarmFired = true;
@@ -51,7 +51,7 @@ void configureAlarm(){
   rtc.disableAlarm(1);
   rtc.disableAlarm(2);
   
-  // stop oscillating signals at SQW Pin
+  // stop oscillating signals at SQW Pin9600
   // otherwise setAlarm1 will fail
   //rtc.writeSqwPinMode(DS3231_OFF);
 
@@ -68,7 +68,7 @@ void setup() {
   //Serial.begin(9600);
   _buffer.reserve(50);
   SIM800L.begin(115200);
-  NEO6M.begin(9600);
+  NEO8M.begin(9600);
 
   /* COnfiguracion de puertos */
   pinMode(SQW_PIN, INPUT_PULLUP);
@@ -122,16 +122,16 @@ void setup() {
 }
 
 void loop() {
-  while (NEO6M.available()) // Leer datos del GPS
-  {
-    int c = NEO6M.read();
+  // while (NEO8M.available()) // Leer datos del GPS
+  // {
+  //   int c = NEO8M.read();
 
-    if (gps.encode(c)) // Si se recibe una sentencia válida
-    {
-      gps.f_get_position(&latitude, &longitude);
-      gps.stats(&chars, &sentences, &failed_checksum);
-    }
-  }
+  //   if (gps.encode(c)) // Si se recibe una sentencia válida
+  //   {
+  //     gps.f_get_position(&latitude, &longitude);
+  //     gps.stats(&chars, &sentences, &failed_checksum);
+  //   }
+  // }
 
   if(alarmFired){
 
@@ -282,8 +282,12 @@ String leerYGuardarGPS() {
     float _lat, _lon = NAN;
     digitalWrite(YELLOW_LED, HIGH);
     unsigned long startTime = millis();
-    while (NEO6M.available() && (millis() - startTime) < 5000) {
-        int c = NEO6M.read();
+    String a = " NEO8M.AV " + String(NEO8M.available());
+    enviarMensaje(a);
+    while (NEO8M.available() && (millis() - startTime) < 5000) {
+        int c = NEO8M.read();
+        enviarMensaje(" NEO8M.AV " + String(c));
+        enviarMensaje(" NEO8M.AV " + String(gps.encode(c)));
         if (gps.encode(c)) {
             digitalWrite(RED_LED,HIGH);
             gps.f_get_position(&latitude, &longitude);
@@ -374,7 +378,6 @@ String getCellInfo() {
   String json = "{";
   json += "\"lac\":\"" + lac + "\",";
   json += "\"cellId\":\"" + cellId + "\",";
-  json += "\"operator\":\"" + operatorName + "\",";
   json += "\"mcc\":\"" + mcc + "\",";
   json += "\"mnc\":\"" + mnc + "\"";
   json += "}";
