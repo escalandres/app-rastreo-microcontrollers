@@ -11,11 +11,11 @@ const char* SSID = "IZZI-53E3";
 const char* PASSWORD = "PASSWORD";
 
 /* Declaracion de puertos del ESP */
-const int LED = 8;
+const int LED = 2;
 const int READ_BTN = 4;
 
 // Servidor al cual se hará la petición POST
-const String SERVER = "http://192.168.0.5:5322";
+const String SERVER = "http://192.168.0.6:5322";
 const String URL = SERVER + "/api/tracker/post-test";
 
 int _timeout;
@@ -27,7 +27,7 @@ void setup() {
   Serial.begin(9600); // Serial para debug
   SIM800L.begin(9600, SERIAL_8N1, 17, 16);
   // Configurar el pin del LED como salida
-  pinMode(READ_BTN, INPUT);
+  //pinMode(READ_BTN, INPUT);
   pinMode(LED, OUTPUT);
   digitalWrite(LED, HIGH);
   // Conectar a la red WiFi
@@ -51,10 +51,6 @@ void setup() {
   digitalWrite(LED, LOW);
 }
 void loop() {
-  if (digitalRead(READ_BTN) == 1) {
-    Serial.println("lEYENDO mensajeS SMS a prueba");
-    RecieveMessage();
-  }
   if (Serial.available() > 0) {
     String message = Serial.readString();
     Serial.println("Ahol: " + message);
@@ -189,9 +185,23 @@ void borrarTodosMensajes(){
   Serial.println("Borrando todos los mensajes"); // Para borrar todos los mensajes 
   SIM800L.println("AT+CMGD=0"); // Borra todos los mensajes 
   delay(1000); // Esperar respuesta 
+  SIM800L.println("AT+CMGDA=\"DEL ALL\""); // Borra todos los mensajes
+  delay(1000);
+  SIM800L.println("AT+CMGDA=\"DEL UNREAD\""); // Borra todos los mensajes
+  delay(1000);
   while (SIM800L.available()) { 
     String response = SIM800L.readString(); 
     Serial.println(response); // Imprimir la respuesta del módulo 
   }
   Serial.println("Mensajes borrados"); 
+}
+
+void encenderLed(){
+  digitalWrite(LED, HIGH);
+  delay(2000);
+  digitalWrite(LED, LOW);
+  delay(2000);
+  digitalWrite(LED, HIGH);
+  delay(2000);
+  digitalWrite(LED, LOW);
 }

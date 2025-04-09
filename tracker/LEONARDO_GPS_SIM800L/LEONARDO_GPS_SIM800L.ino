@@ -31,6 +31,7 @@ void setup()
 
 void loop()
 {
+  Serial.println("Neo: " + String(Serial2.available()));
   while (Serial2.available()) // Leer datos del GPS
   {
     int c = Serial2.read();
@@ -70,28 +71,28 @@ void loop()
       gps.stats(&chars, &sentences, &failed_checksum);
     }
   }
+  Serial.println("Leyendo......................");
+  // if (digitalRead(PUSH_BTN) == HIGH && (contador == 0))
+  // {
+  //   Serial.println("Configurando SIM800L");
+  //   Serial.println("Enviando SMS...");
 
-  if (digitalRead(PUSH_BTN) == HIGH && (contador == 0))
-  {
-    Serial.println("Configurando SIM800L");
-    Serial.println("Enviando SMS...");
+  //   // Configuración del SIM800L
+  //   Serial1.println("AT+CMGF=1"); // Configura el SIM800L en modo texto
+  //   delay(200);
 
-    // Configuración del SIM800L
-    Serial1.println("AT+CMGF=1"); // Configura el SIM800L en modo texto
-    delay(200);
+  //   Serial1.println("AT+CMGS=\"" + number + "\"\r"); // Número de teléfono
+  //   delay(200);
 
-    Serial1.println("AT+CMGS=\"" + number + "\"\r"); // Número de teléfono
-    delay(200);
+  //   // Formatear mensaje SMS
+  //   char buffer[50];
+  //   snprintf(buffer, sizeof(buffer), "\"lat\":\"%.6f\",\"lon\":\"%.6f\"", latitude, longitude);
+  //   String SMS = String(buffer);
 
-    // Formatear mensaje SMS
-    char buffer[50];
-    snprintf(buffer, sizeof(buffer), "\"lat\":\"%.6f\",\"lon\":\"%.6f\"", latitude, longitude);
-    String SMS = String(buffer);
-
-    Serial1.println(SMS); // Envía el mensaje
-    delay(100);
-    Serial1.write((char)26); // Código ASCII de CTRL+Z
-    delay(200);
-    Serial.println("Mensaje Enviado!");
-  }
+  //   Serial1.println(SMS); // Envía el mensaje
+  //   delay(100);
+  //   Serial1.write((char)26); // Código ASCII de CTRL+Z
+  //   delay(200);
+  //   Serial.println("Mensaje Enviado!");
+  // }
 }
