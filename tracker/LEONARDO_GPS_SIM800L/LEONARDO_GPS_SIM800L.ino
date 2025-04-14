@@ -1,98 +1,119 @@
-#include <TinyGPS.h> // Incluimos TinyGPS
+#include <TinyGPS.h> // Librería TinyGPS
+#include <TinyGPSPlus.h> // Librería TinyGPS++
 
-TinyGPS gps; // Declaramos el objeto gps
+TinyGPSPlus gps1; // Objeto GPS
 
-#define PUSH_BTN 9
-int contador = 0;
-
-const String number = "+525620577634";
+TinyGPS gps; // Objeto GPS
 
 float latitude, longitude;
-// Declaramos las variables para la obtención de datos
 int year;
 byte month, day, hour, minute, second, hundredths;
 unsigned long chars;
 unsigned short sentences, failed_checksum;
 
+float latitude1, longitude1;
+int year1;
+byte month1, day1, hour1, minute1, second1, hundredths1;
+unsigned long chars1;
+unsigned short sentences1, failed_checksum1;
+
+
 void setup()
 {
-  Serial.begin(9600);       // Serial principal (PC)
-  Serial1.begin(115200);    // SIM800L (TX1=18, RX1=19)
-  Serial2.begin(9600);      // GPS (TX2=16, RX2=17)
-
-  pinMode(PUSH_BTN, INPUT);
-
-  // Imprimimos información inicial
-  Serial.println("");
-  Serial.println("GPS GY-GPS6MV2 Leantec");
-  Serial.println(" ---Buscando senal--- ");
-  Serial.println("");
+  Serial.begin(9600);       // Comunicación con el monitor serial
+  Serial2.begin(9600);      // GPS (TX2 = 16, RX2 = 17)
+  Serial1.begin(9600);
+  Serial.println("Inicializando GPS...");
 }
 
 void loop()
 {
-  Serial.println("Neo: " + String(Serial2.available()));
-  while (Serial2.available()) // Leer datos del GPS
-  {
-    int c = Serial2.read();
+  while (Serial1.available()) {
+    char c = Serial1.read(); // Leer carácter del GPS
+    gps1.encode(c);           // Procesar el carácter
+    
+    if (gps1.location.isValid()) { // Si hay una ubicación válida
+      Serial.println(".......... Leyendo NEO-M8N ..............");
 
-    if (gps.encode(c)) // Si se recibe una sentencia válida
-    {
+      Serial.print("📍 Latitud: ");
+      Serial.println(gps1.location.lat(), 6);
+      Serial.print("📍 Longitud: ");
+      Serial.println(gps1.location.lng(), 6);
+
+      Serial.print("📅 Fecha: ");
+      Serial.print(gps1.date.day());
+      Serial.print("/");
+      Serial.print(gps1.date.month());
+      Serial.print("/");
+      Serial.println(gps1.date.year());
+
+      Serial.print("🕒 Hora (UTC): ");
+      Serial.print(gps1.time.hour());
+      Serial.print(":");
+      Serial.print(gps1.time.minute());
+      Serial.print(":");
+      Serial.println(gps1.time.second());
+
+      Serial.print("📡 Satélites conectados: ");
+      Serial.println(gps1.satellites.value());
+
+      Serial.print("🚗 Velocidad (km/h): ");
+      Serial.println(gps1.speed.kmph());
+
+      Serial.print("🧭 Rumbo (grados): ");
+      Serial.println(gps1.course.deg());
+
+      Serial.println("----------------------------------");
+    }
+
+  }
+
+  while (Serial2.available()) {
+    char c = Serial2.read();     // Leer caracter del GPS
+    if (gps.encode(c)) {         // Si se recibió una sentencia completa y válida
+      Serial.println(".......... Leyendo NEO-6M ..............");
       gps.f_get_position(&latitude, &longitude);
-      Serial.print("Latitud/Longitud: ");
-      Serial.print(latitude, 5);
-      Serial.print(", ");
-      Serial.println(longitude, 5);
 
+      if (latitude == 1000.0 && longitude == 1000.0) {
+        Serial.println("⛔ No hay señal GPS todavía. Esperando...");
+        return;
+      }
+
+      // Información disponible: mostrarla
       gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths);
-      Serial.print("Fecha: ");
-      Serial.print(day, DEC);
+
+      Serial.println("✅ Señal GPS detectada:");
+      Serial.print("📍 Latitud: ");
+      Serial.println(latitude, 6);
+      Serial.print("📍 Longitud: ");
+      Serial.println(longitude, 6);
+
+      Serial.print("📅 Fecha: ");
+      Serial.print(day);
       Serial.print("/");
-      Serial.print(month, DEC);
+      Serial.print(month);
       Serial.print("/");
-      Serial.print(year);
-      Serial.print(" Hora: ");
-      Serial.print(hour, DEC);
+      Serial.println(year);
+
+      Serial.print("🕒 Hora (UTC): ");
+      Serial.print(hour);
       Serial.print(":");
-      Serial.print(minute, DEC);
+      Serial.print(minute);
       Serial.print(":");
-      Serial.print(second, DEC);
-      Serial.print(".");
-      Serial.println(hundredths, DEC);
-      Serial.print("Altitud (metros): ");
-      Serial.println(gps.f_altitude());
-      Serial.print("Rumbo (grados): ");
-      Serial.println(gps.f_course());
-      Serial.print("Velocidad (km/h): ");
-      Serial.println(gps.f_speed_kmph());
-      Serial.print("Satelites: ");
+      Serial.println(second);
+
+      Serial.print("📡 Satélites conectados: ");
       Serial.println(gps.satellites());
-      Serial.println();
-      gps.stats(&chars, &sentences, &failed_checksum);
+
+      Serial.print("🚗 Velocidad (km/h): ");
+      Serial.println(gps.f_speed_kmph());
+
+      Serial.print("🧭 Rumbo (grados): ");
+      Serial.println(gps.f_course());
+
+      Serial.println("----------------------------------");
     }
   }
-  Serial.println("Leyendo......................");
-  // if (digitalRead(PUSH_BTN) == HIGH && (contador == 0))
-  // {
-  //   Serial.println("Configurando SIM800L");
-  //   Serial.println("Enviando SMS...");
 
-  //   // Configuración del SIM800L
-  //   Serial1.println("AT+CMGF=1"); // Configura el SIM800L en modo texto
-  //   delay(200);
-
-  //   Serial1.println("AT+CMGS=\"" + number + "\"\r"); // Número de teléfono
-  //   delay(200);
-
-  //   // Formatear mensaje SMS
-  //   char buffer[50];
-  //   snprintf(buffer, sizeof(buffer), "\"lat\":\"%.6f\",\"lon\":\"%.6f\"", latitude, longitude);
-  //   String SMS = String(buffer);
-
-  //   Serial1.println(SMS); // Envía el mensaje
-  //   delay(100);
-  //   Serial1.write((char)26); // Código ASCII de CTRL+Z
-  //   delay(200);
-  //   Serial.println("Mensaje Enviado!");
-  // }
+  delay(500); // Esperar un poco antes del siguiente chequeo
 }

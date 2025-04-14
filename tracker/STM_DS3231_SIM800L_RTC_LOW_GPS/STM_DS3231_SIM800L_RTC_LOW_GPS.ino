@@ -6,10 +6,12 @@
 #include <low_power.h>
 #include <STM32LowPower.h>
 #include <TinyGPS.h>
+#include <TinyGPSPlus.h> // Librería TinyGPS++
 
 volatile bool alarmFired = false;
 RTC_DS3231 rtc;
 TinyGPS gps;
+TinyGPSPlus gps1; // Objeto GPS
 
 /* Declaracion de puertos del STM32F103C8T6 */
 const int SQW_PIN = PA0;
@@ -25,8 +27,8 @@ const String ID = "48273619";
 int _timeout;
 String _buffer;
 
-const String number = "+525620577634"; //Oxxo Cel
-//String number = "+525554743913"; //Telcel
+//const String number = "+525620577634"; //Oxxo Cel
+const String number = "+525554743913"; //Telcel
 
 const String coordenadasSinDatos = "\"lat\":\"\",\"lon\":\"\""; // Asignar directamente el texto
 unsigned long chars;
@@ -275,41 +277,79 @@ String createMessageToSend(String datosGPS, String cellTowerInfo){
   return output;
 }
 
+// String leerYGuardarGPS() {
+//   activeRedLed(2);
+//   enviarMensaje(" ---Buscando senal--- ");
+//     //String lat = "", lon = "";
+//     float _lat, _lon = NAN;
+//     digitalWrite(YELLOW_LED, HIGH);
+//     unsigned long startTime = millis();
+//     //String a = " NEO8M.AV " + String(NEO8M.available());
+//     //enviarMensaje(a);
+//     //while (NEO8M.available() && (millis() - startTime) < 5000) {
+//     while (NEO8M.available()) {
+//         char c = NEO8M.read();
+//         enviarMensaje(" NEO8M.AV: " + String(c));
+//         enviarMensaje(" encode NEO8M.AV " + String(gps.encode(c)));
+//         if (gps.encode(c)) {
+//             digitalWrite(RED_LED,HIGH);
+//             gps.f_get_position(&latitude, &longitude);
+//             enviarMensaje("Datos:" + String(latitude,6) + ". "+String(longitude,6));
+//             if (latitude == 1000.0 && longitude == 1000.0) {
+//                 break;
+//             }
+//         }
+//     }
+
+//     //digitalWrite(RED_LED,LOW);
+//     delay(1000);
+//     digitalWrite(YELLOW_LED, LOW);
+//     // Si las coordenadas no son válidas, asignar valores predeterminados
+//     // if (isnan(latitude) || isnan(longitude)) {
+//     //     latitude = 0.0;
+//     //     longitude= 0.0;
+//     // }
+//     //return "\"lat\":\"" + _lat + "\",\"lon\":\"" + _lon + "\"";
+//     //  enviarMensaje("\"lat\":\"" + String(latitude,6) + "\",\"lon\":\"" + String(longitude,6) + "\"");
+//     return "\"lat\":\"" + String(latitude,6) + "\",\"lon\":\"" + String(longitude,6) + "\"";
+// }
+
 String leerYGuardarGPS() {
   activeRedLed(2);
   enviarMensaje(" ---Buscando senal--- ");
-    //String lat = "", lon = "";
-    float _lat, _lon = NAN;
-    digitalWrite(YELLOW_LED, HIGH);
-    unsigned long startTime = millis();
-    String a = " NEO8M.AV " + String(NEO8M.available());
-    enviarMensaje(a);
-    while (NEO8M.available() && (millis() - startTime) < 5000) {
-        int c = NEO8M.read();
-        enviarMensaje(" NEO8M.AV " + String(c));
-        enviarMensaje(" NEO8M.AV " + String(gps.encode(c)));
-        if (gps.encode(c)) {
-            digitalWrite(RED_LED,HIGH);
-            gps.f_get_position(&latitude, &longitude);
-            enviarMensaje("Datos:" + String(latitude,6) + ". "+String(longitude,6));
-            if (!isnan(latitude) && !isnan(longitude)) {
-                break;
-            }
-        }
-    }
 
-    digitalWrite(RED_LED,LOW);
-    delay(1000);
-    digitalWrite(YELLOW_LED, LOW);
-    // Si las coordenadas no son válidas, asignar valores predeterminados
-    if (isnan(latitude) || isnan(longitude)) {
-        latitude = 0.0;
-        longitude= 0.0;
+  String _latitude = "";
+  String _longitude = "";
+
+  digitalWrite(YELLOW_LED, HIGH);
+  unsigned long startTime = millis();
+
+  while ((millis() - startTime) < 5000) {
+    while (NEO8M.available()) {
+      char c = NEO8M.read();
+      gps1.encode(c);
+      if (gps1.location.isValid()) {
+        digitalWrite(RED_LED,HIGH);
+        _latitude = String(gps1.location.lat(), 6);
+        _longitude = String(gps1.location.lng(), 6);
+        enviarMensaje("Datos:" + _latitude + ". " + _longitude);
+        goto FIN;
+      }
     }
-    //return "\"lat\":\"" + _lat + "\",\"lon\":\"" + _lon + "\"";
-    //  enviarMensaje("\"lat\":\"" + String(latitude,6) + "\",\"lon\":\"" + String(longitude,6) + "\"");
-    return "\"lat\":\"" + String(latitude,6) + "\",\"lon\":\"" + String(longitude,6) + "\"";
+  }
+
+FIN:
+  delay(1000);
+  digitalWrite(YELLOW_LED, LOW);
+
+  if (_latitude == "" || _longitude == "") {
+    _latitude = "0.0";
+    _longitude = "0.0";
+  }
+
+  return "\"lat\":\"" + _latitude + "\",\"lon\":\"" + _longitude + "\"";
 }
+
 
 String getCellInfo() {
   String lac = "";
