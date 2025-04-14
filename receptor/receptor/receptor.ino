@@ -7,8 +7,8 @@
 HardwareSerial SIM800L(1);
 
 // Datos de la red WiFi
-const char* SSID = "IZZI-53E3";
-const char* PASSWORD = "F0AF853B53E3";
+const char* SSID = "WIFI";
+const char* PASSWORD = "PASSWORD";
 
 /* Declaracion de puertos del ESP */
 const int LED = 2;
