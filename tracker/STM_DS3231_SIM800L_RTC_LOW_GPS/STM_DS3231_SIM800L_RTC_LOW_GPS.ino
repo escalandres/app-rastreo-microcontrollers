@@ -12,7 +12,8 @@ RTC_DS3231 rtc;
 TinyGPSPlus gps1; // Objeto GPS
 
 /* Declaracion de puertos del STM32F103C8T6 */
-const int SQW_PIN = PA0;
+// const int SQW_PIN = PA0;
+const int SQW_PIN = PB0;
 const int STM_LED = PC13;
 const int LED = PA6;
 const int RED_LED = PA7;
@@ -134,9 +135,6 @@ void loop() {
 
     String datosGPS = leerYGuardarGPS();
 
-    // if (datosGPS != coordenadasSinDatos) {
-    //   SendMessage(datosGPS);
-    // }
     SendMessage(datosGPS);
 
     configureAlarm();
@@ -360,6 +358,11 @@ String leerYGuardarGPS() {
 
   digitalWrite(YELLOW_LED, LOW);
 
+  if(!ubicacionActualizada){
+    nuevaLat = latitude;
+    nuevaLon = longitude;
+  }
+
   if (nuevaLat == "" || nuevaLon == "") {
     nuevaLat = "0.0";
     nuevaLon = "0.0";
@@ -371,7 +374,7 @@ String leerYGuardarGPS() {
 String getCellInfo() {
   String lac = "";
   String cellId = "";
-  String operatorName = "";
+  //String operatorName = "";
   String mcc = "";
   String mnc = "";
 
@@ -424,9 +427,9 @@ String getCellInfo() {
       mnc = "000";
     }
 
-    operatorName = operatorCode;  // O si quieres, mantén el nombre original
+    //operatorName = operatorCode;  // O si quieres, mantén el nombre original
   } else {
-    operatorName = "Desconocido";
+    //operatorName = "Desconocido";
     mcc = "000";
     mnc = "000";
   }
