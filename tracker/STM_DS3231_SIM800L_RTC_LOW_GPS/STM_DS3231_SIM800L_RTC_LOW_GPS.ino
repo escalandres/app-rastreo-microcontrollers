@@ -23,13 +23,14 @@ String latitude, longitude;
 
 /* Constantes y Variables Globales */
 const String ID = "48273619";
+const String token = "7621148456:AAEp3MgQVO5qfpaf2T83QvnYm9QFSYs9yKI";
+const String chat_id = "94303788";
 int _timeout;
 String _buffer;
 
 //const String number = "+525620577634"; //Oxxo Cel
 const String number = "+525554743913"; //Telcel
 
-// const String coordenadasSinDatos = "\"lat\":\"\",\"lon\":\"\""; // Asignar directamente el texto
 unsigned long chars;
 unsigned short sentences, failed_checksum;
 
@@ -62,15 +63,12 @@ void configureAlarm(){
 void setup() {
   // put your setup code here, to run once:
   Wire.begin();
-  // Iniciar los puertos serial a una velocidad de 9600 baudios
-  //Serial.begin(9600);
   _buffer.reserve(50);
   SIM800L.begin(115200);
   NEO8M.begin(9600);
 
   /* COnfiguracion de puertos */
   pinMode(SQW_PIN, INPUT_PULLUP);
-  //pinMode(PUSH_BTN, INPUT);
   pinMode(STM_LED, OUTPUT);
   pinMode(LED, OUTPUT);
   pinMode(RED_LED, OUTPUT);
@@ -106,8 +104,10 @@ void setup() {
 
   //Create Trigger
   //attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
-
-  delay(2000);
+  
+  delay(15000);
+  //enviarMensaje("Rastreador encendido");
+  enviarMensajeTelegram("Rastreador encendido " + ID);
   digitalWrite(STM_LED,HIGH);
   digitalWrite(LED,LOW);
 
@@ -120,16 +120,6 @@ void setup() {
 }
 
 void loop() {
-  // while (NEO8M.available()) // Leer datos del GPS
-  // {
-  //   int c = NEO8M.read();
-
-  //   if (gps.encode(c)) // Si se recibe una sentencia válida
-  //   {
-  //     gps.f_get_position(&latitude, &longitude);
-  //     gps.stats(&chars, &sentences, &failed_checksum);
-  //   }
-  // }
 
   if(alarmFired){
 
@@ -178,6 +168,60 @@ void enviarMensaje(String SMS)
   digitalWrite(RED_LED,LOW);
 }
 
+void enviarMensajeTelegram(String SMS) {
+    digitalWrite(RED_LED, HIGH);
+
+    // Activar conexión GPRS
+    // SIM800L.println("AT+CGATT=1");
+    // delay(1000);
+    // SIM800L.println("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
+    // delay(1000);
+    // SIM800L.println("AT+SAPBR=1,1");
+    // delay(2000);
+    // SIM800L.println("AT+SAPBR=2,1");
+    // delay(1000);
+    SIM800L.println("AT+SAPBR=3,1,\"APN\",\"CMNET\"");
+    delay(1000);
+    SIM800L.println("AT+SAPBR=1,1");
+    delay(2000);
+
+
+    // Construir URL de la API de Telegram con texto codificado
+    String api_url = "https://api.telegram.org/bot" + token + "/sendMessage?chat_id=" + chat_id + "&text=" + urlencode(SMS);
+
+    // Inicializar HTTP
+    SIM800L.println("AT+HTTPINIT");
+    delay(200);
+    SIM800L.println("AT+HTTPPARA=\"CID\",1");
+    delay(200);
+    SIM800L.println("AT+HTTPPARA=\"URL\",\"" + api_url + "\"");
+    delay(200);
+    SIM800L.println("AT+HTTPACTION=0");
+    delay(5000); // Esperar la respuesta
+    SIM800L.println("AT+HTTPREAD");
+    String respuesta = _readSerial();
+    Serial.println("Respuesta del servidor: " + respuesta);
+
+    // Verificar si el mensaje fue enviado correctamente
+    if (respuesta.indexOf("200") > 0) {
+        Serial.println("✅ Mensaje enviado correctamente a Telegram");
+    } else {
+        Serial.println("⚠️ Error al enviar mensaje, revisa la URL o el estado de la conexión.");
+    }
+
+    // Finalizar conexión HTTP
+    SIM800L.println("AT+HTTPTERM");
+    delay(200);
+    SIM800L.println("AT+SAPBR=0,1");
+    delay(200);
+    digitalWrite(RED_LED, LOW);
+}
+
+String urlencode(String str) {
+    str.replace(" ", "%20");
+    return str;
+}
+
 void SendMessage(String datosGPS)
 {
   digitalWrite(STM_LED, LOW);
@@ -221,7 +265,7 @@ String _readSerial() {
 
 String createMessageToSend(String datosGPS, String cellTowerInfo){
 
-  activeYellowLed(2);
+  //activeYellowLed(2);
 
   DateTime now = rtc.now();
 
@@ -232,12 +276,13 @@ String createMessageToSend(String datosGPS, String cellTowerInfo){
   
   String currentTime = String(buffer);
 
-  activeYellowLed(3);
+  //activeYellowLed(3);
 
   String output = "{";
     output += "\"id\":\"" + ID + "\",";
     output += "\"time\":\"" + currentTime + "\",";
-    output += "\"cellTowerInfo\":" + cellTowerInfo + ",";
+    // output += "\"cellTowerInfo\":" + cellTowerInfo + ",";
+    output += cellTowerInfo + ",";
     output += datosGPS;
     output += "}";
   
@@ -286,7 +331,7 @@ String createMessageToSend(String datosGPS, String cellTowerInfo){
 
 //   String nuevaLat = "";
 //   String nuevaLon = "";
-//   String anteriorLat = latitude;  // Guardamos la última ubicación conocida
+//   String anteriorLat = latitude;  // Guardamos la última ubicacion conocida
 //   String anteriorLon = longitude;
 
 //   digitalWrite(YELLOW_LED, HIGH);
@@ -304,7 +349,7 @@ String createMessageToSend(String datosGPS, String cellTowerInfo){
 //         if (nuevaLat != anteriorLat || nuevaLon != anteriorLon) { // Solo actualizar si ha cambiado
 //           latitude = nuevaLat;
 //           longitude = nuevaLon;
-//           enviarMensaje("Ubicación actualizada: " + nuevaLat + ", " + nuevaLon);
+//           enviarMensaje("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
 //           break;
 //         }
 //       }
@@ -322,8 +367,8 @@ String createMessageToSend(String datosGPS, String cellTowerInfo){
 // }
 
 String leerYGuardarGPS() {
-  activeRedLed(2);
-  enviarMensaje(" ---Buscando señal--- ");
+  //ctiveRedLed(2);
+  //enviarMensaje(" ---Buscando señal--- ");
 
   String nuevaLat = "";
   String nuevaLon = "";
@@ -334,7 +379,7 @@ String leerYGuardarGPS() {
   unsigned long startTime = millis();
   int intentos = 0;
 
-  while ((millis() - startTime) < 10000 && intentos < 50 && !ubicacionActualizada) { 
+  while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) { 
     while (NEO8M.available()) {
       char c = NEO8M.read();
       gps1.encode(c);
@@ -347,7 +392,8 @@ String leerYGuardarGPS() {
           latitude = nuevaLat;
           longitude = nuevaLon;
           ubicacionActualizada = true;
-          enviarMensaje("Ubicación actualizada: " + nuevaLat + ", " + nuevaLon);
+          //enviarMensaje("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
+          enviarMensajeTelegram("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
           break;
         }
       }
@@ -383,7 +429,7 @@ String getCellInfo() {
   SIM800L.println("AT+CREG=2");
   delay(500);
 
-  // Solicitar información de registro
+  // Solicitar informacion de registro
   flushSIM800L();
   SIM800L.println("AT+CREG?");
   String cregResponse = readSIM800LResponse();
@@ -399,7 +445,7 @@ String getCellInfo() {
     lac = cregResponse.substring(lacStart + 1, lacEnd);
     cellId = cregResponse.substring(cellIdStart + 1, cellIdEnd);
   } else {
-    Serial.println("Error al parsear LAC y Cell ID");
+    //Serial.println("Error al parsear LAC y Cell ID");
   }
 
   // Convertir de HEX a DEC si es necesario
@@ -435,15 +481,21 @@ String getCellInfo() {
   }
 
   // Construir JSON manualmente
-  String json = "{";
-  json += "\"lac\":\"" + lac + "\",";
-  json += "\"cellId\":\"" + cellId + "\",";
+  // String json = "{";
+  // json += "\"lac\":\"" + lac + "\",";
+  // json += "\"cellId\":\"" + cellId + "\",";
+  // json += "\"mcc\":\"" + mcc + "\",";
+  // json += "\"mnc\":\"" + mnc + "\"";
+  // json += "}";
+
+
+  String json = "\"lac\":\"" + lac + "\",";
+  json += "\"cid\":\"" + cellId + "\",";
   json += "\"mcc\":\"" + mcc + "\",";
   json += "\"mnc\":\"" + mnc + "\"";
-  json += "}";
 
-  enviarMensaje(" ---Torre celular--- ");
-  enviarMensaje(json);
+  //enviarMensaje(" ---Torre celular--- ");
+  //enviarMensaje(json);
   return json;
 }
 
@@ -458,81 +510,81 @@ void flushSIM800L() {
   }
 }
 
-void activeYellowLed(int option){
-  switch(option){
-    case 1:
-      digitalWrite(YELLOW_LED,HIGH);
-      delay(2000);
-      digitalWrite(YELLOW_LED,LOW);
-      delay(1000);
-      digitalWrite(YELLOW_LED,HIGH);
-      delay(1000);
-      digitalWrite(YELLOW_LED,LOW);
-      break;
+// void activeYellowLed(int option){
+//   switch(option){
+//     case 1:
+//       digitalWrite(YELLOW_LED,HIGH);
+//       delay(2000);
+//       digitalWrite(YELLOW_LED,LOW);
+//       delay(1000);
+//       digitalWrite(YELLOW_LED,HIGH);
+//       delay(1000);
+//       digitalWrite(YELLOW_LED,LOW);
+//       break;
 
-    case 2:
-      digitalWrite(YELLOW_LED,HIGH);
-      delay(1000);
-      digitalWrite(YELLOW_LED,LOW);
-      delay(2000);
-      digitalWrite(YELLOW_LED,HIGH);
-      delay(1000);
-      digitalWrite(YELLOW_LED,LOW);
-      break;
+//     case 2:
+//       digitalWrite(YELLOW_LED,HIGH);
+//       delay(1000);
+//       digitalWrite(YELLOW_LED,LOW);
+//       delay(2000);
+//       digitalWrite(YELLOW_LED,HIGH);
+//       delay(1000);
+//       digitalWrite(YELLOW_LED,LOW);
+//       break;
 
-    case 3:
-      digitalWrite(YELLOW_LED,HIGH);
-      delay(500);
-      digitalWrite(YELLOW_LED,LOW);
-      delay(500);
-      digitalWrite(YELLOW_LED,HIGH);
-      delay(500);
-      digitalWrite(YELLOW_LED,LOW);
-      delay(1000);
-      digitalWrite(YELLOW_LED,LOW);
-      delay(2000);
-      digitalWrite(YELLOW_LED,HIGH);
-      delay(1000);
-      digitalWrite(YELLOW_LED,LOW);
-      break;
+//     case 3:
+//       digitalWrite(YELLOW_LED,HIGH);
+//       delay(500);
+//       digitalWrite(YELLOW_LED,LOW);
+//       delay(500);
+//       digitalWrite(YELLOW_LED,HIGH);
+//       delay(500);
+//       digitalWrite(YELLOW_LED,LOW);
+//       delay(1000);
+//       digitalWrite(YELLOW_LED,LOW);
+//       delay(2000);
+//       digitalWrite(YELLOW_LED,HIGH);
+//       delay(1000);
+//       digitalWrite(YELLOW_LED,LOW);
+//       break;
 
-  }
-}
+//   }
+// }
 
-void activeRedLed(int option){
-  switch(option){
-    case 1:
-      digitalWrite(RED_LED,HIGH);
-      delay(1000);
-      digitalWrite(RED_LED,LOW);
-      delay(1000);
-      digitalWrite(RED_LED,HIGH);
-      delay(1000);
-      digitalWrite(RED_LED,LOW);
+// void activeRedLed(int option){
+//   switch(option){
+//     case 1:
+//       digitalWrite(RED_LED,HIGH);
+//       delay(1000);
+//       digitalWrite(RED_LED,LOW);
+//       delay(1000);
+//       digitalWrite(RED_LED,HIGH);
+//       delay(1000);
+//       digitalWrite(RED_LED,LOW);
 
-      break;
+//       break;
 
-    case 2:
-      digitalWrite(RED_LED,HIGH);
-      delay(500);
-      digitalWrite(RED_LED,LOW);
-      delay(500);
-      digitalWrite(RED_LED,HIGH);
-      delay(500);
-      digitalWrite(RED_LED,LOW);
-      break;
+//     case 2:
+//       digitalWrite(RED_LED,HIGH);
+//       delay(500);
+//       digitalWrite(RED_LED,LOW);
+//       delay(500);
+//       digitalWrite(RED_LED,HIGH);
+//       delay(500);
+//       digitalWrite(RED_LED,LOW);
+//       break;
 
-    case 3:
-      digitalWrite(RED_LED,HIGH);
-      delay(1000);
-      digitalWrite(RED_LED,LOW);
-      delay(500);
-      digitalWrite(RED_LED,HIGH);
-      delay(500);
-      digitalWrite(RED_LED,LOW);
-      break;
+//     case 3:
+//       digitalWrite(RED_LED,HIGH);
+//       delay(1000);
+//       digitalWrite(RED_LED,LOW);
+//       delay(500);
+//       digitalWrite(RED_LED,HIGH);
+//       delay(500);
+//       digitalWrite(RED_LED,LOW);
+//       break;
 
-  }
-}
+//   }
+// }
 
 
