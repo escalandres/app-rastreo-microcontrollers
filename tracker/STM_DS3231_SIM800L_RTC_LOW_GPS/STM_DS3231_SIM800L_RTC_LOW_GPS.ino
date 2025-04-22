@@ -106,8 +106,8 @@ void setup() {
   //attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
   
   delay(15000);
-  //enviarMensaje("Rastreador encendido");
-  enviarMensajeTelegram("Rastreador encendido " + ID);
+  enviarMensaje("Rastreador encendido");
+  //enviarMensajeTelegram("Rastreador encendido " + ID);
   digitalWrite(STM_LED,HIGH);
   digitalWrite(LED,LOW);
 
@@ -392,8 +392,8 @@ String leerYGuardarGPS() {
           latitude = nuevaLat;
           longitude = nuevaLon;
           ubicacionActualizada = true;
-          //enviarMensaje("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
-          enviarMensajeTelegram("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
+          enviarMensaje("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
+          //enviarMensajeTelegram("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
           break;
         }
       }
