@@ -5,6 +5,7 @@ const float voltajeMin = 3.0; // Voltaje mínimo antes de considerarla descargad
 const String number = "+525554743913"; //Telcel
 const int LED = 9;
 const int PUSH = 8;
+const int SLEEP_PIN = 7;
 int _timeout;
 String _buffer;
 
@@ -24,12 +25,15 @@ void setup() {
     Serial2.begin(115200); // Velocidad de baudios para el módulo
     delay(1000);
     pinMode(LED,OUTPUT);
+    pinMode(SLEEP_PIN,OUTPUT);
     pinMode(PUSH,INPUT);
     Serial.println("--------------------------");
     Serial.println("Inicializando el módulo...");
     Serial.println("Iniciando Diagnóstico A7670SA...");
-  delay(3000);
+    delay(3000);
+}
 
+void testConection(){
   // 1. Probar comunicación AT
   Serial.println("Verificando comunicación...");
   enviarComando("AT", 1000);
@@ -56,34 +60,66 @@ void setup() {
   Serial.println("Confirmando registro...");
   enviarComando("AT+CREG?", 1000);
 
+  Serial.println("Red...");
+  enviarComando("AT+CPSI?", 1000);
+
+
   Serial.println("Diagnóstico terminado.");
-
-//    enviarComando("AT+CGATT=1"); // Adjuntar a la red
-//    enviarComando("AT+CMGF=1"); // Configurar SMS en modo texto
-
 }
-
-
-
 
 void loop() {
     // Permitir interactuar manualmente desde Serial Monitor
     if (Serial.available()) {
-     Serial2.write(Serial.read());
+       String receivedData = Serial.readString();
+       receivedData.trim();
+       Serial.println("............................");
+      Serial.println("Comando: " + receivedData);
+      if (receivedData == "off") {
+        Serial.println("Apagando A7670SA...");
+          digitalWrite(LED,HIGH);
+          controlarSleepA7670SA(true);
+      }
+
+      if (receivedData == "on") {
+          //digitalWrite(SLEEP_PIN,HIGH);
+          Serial.println("Encendiendo A7670SA...");
+          delay(1000);
+          controlarSleepA7670SA(false);
+          digitalWrite(LED,LOW);
+      }
+
+      if (receivedData == "test") {
+          Serial.println("Probando conexion A7670SA...");
+          testConection();
+      }
+
+      if(receivedData == "gsm") {
+        Serial.println("Configurando GSM....");
+        enviarComando("AT+CNMP?");
+        enviarComando("AT+CNMP=13");  // Forzar modo GSM
+        enviarComando("AT&W");        // Guardar configuración
+        enviarComando("AT+CFUN=1,1"); // Reiniciar módulo
+        Serial.println("Red...");
+        enviarComando("AT+CPSI?", 1000);
+        enviarComando("AT+CNMP?");  // Forzar modo GSM
+      }
     }
     if (Serial2.available()) {
       Serial.write(Serial2.read());
     }
     if(digitalRead(PUSH) == 1){
-      obtenerVoltajeBateria();
-      String sms = "Probando envio 123";
+      controlarSleepA7670SA(false);  // Despertarlo
+      delay(2000);
+      String nb = obtenerVoltajeBateria();
+      Serial.println("nb: "+nb);
+      String cellTower = getCellInfo();
+      String sms = nb + cellTower;
       enviarSMS(number, sms);
       delay(1000);
+      controlarSleepA7670SA(true);   // Dormir el módulo
     }
     
 }
-
-
 
 void enviarSMS(String numero, String mensaje) {
     digitalWrite(LED,HIGH);
@@ -93,9 +129,7 @@ void enviarSMS(String numero, String mensaje) {
     enviarComando("AT+CMGF=1",1000);
     enviarComando("AT+CSCS?",1000);
     enviarComando("AT+CSCS=\"GSM\"",1000);
-//    enviarComando("AT+COPS?");
     enviarComando(("AT+CMGS=\"" + numero + "\"").c_str(), 3000);
-    //enviarComando("AT+CSCA=\"" + numero + "\"");
     delay(1000);
     Serial2.print(mensaje);
     delay(500);
@@ -109,17 +143,7 @@ void enviarSMS(String numero, String mensaje) {
     Serial.println("Probando getCellInfo...");
     String cellInfo = getCellInfo();
     Serial.println(cellInfo);
-    Serial.println("\nProbando getNeighborCells...");
-    String neighborCells = getNeighborCells();
-    Serial.println(neighborCells);
-
-    
-enviarComando("AT+CELLINFO?");
-enviarComando("AT+CCED=0,1");
-enviarComando("AT+ZCELLINFO=2");
-enviarComando("AT+ZCELLINFO=1");
-enviarComando("AT+NUESTINFO");
-    
+    enviarComando("AT+CELLINFO?");
     digitalWrite(LED,LOW);
 }
 
@@ -153,10 +177,11 @@ String getCellInfo() {
     flushA7670SA();
     Serial2.println("AT+CPSI?");
     String cpsiResponse = readA7670SAResponse();
-
+    String red = "";
     // Extraer datos de la respuesta de AT+CPSI?
     int startIndex = cpsiResponse.indexOf("LTE,Online,");
     if (startIndex != -1) {
+      red = "lte";
         int mccStart = startIndex + 11; // Después de "LTE,Online,"
         int mccEnd = cpsiResponse.indexOf("-", mccStart);
         mcc = cpsiResponse.substring(mccStart, mccEnd);
@@ -184,8 +209,7 @@ String getCellInfo() {
 
     // Construir JSON corregido
     String json = "{";
-    json += "\"red\":\"LTE\",";
-    json += "\"estado\":\"Online\",";
+    json += "\"red\":\"" + red + "\",";
     json += "\"mcc\":\"" + mcc + "\",";
     json += "\"mnc\":\"" + mnc + "\",";
     json += "\"lac\":\"" + lac + "\",";
@@ -193,66 +217,6 @@ String getCellInfo() {
     json += "}";
 
     return json;
-}
-
-String getNeighborCells() {
-    String neighborCells = "{";
-
-    // Solicitar información de torres celulares vecinas
-    flushA7670SA();
-    Serial2.println("AT+CGSCAN?");
-    String scanResponse = readA7670SAResponse();
-
-    // Procesar la respuesta
-    int startIndex = scanResponse.indexOf("+CGSCAN:");
-    if (startIndex != -1) {
-        int currentIndex = startIndex;
-        int cellCount = 0;
-
-        while (cellCount < 5) { // Limitar a 5 torres vecinas
-            int mccStart = scanResponse.indexOf(",", currentIndex) + 1;
-            int mccEnd = scanResponse.indexOf("-", mccStart);
-            String mcc = scanResponse.substring(mccStart, mccEnd);
-
-            int mncStart = mccEnd + 1;
-            int mncEnd = scanResponse.indexOf(",", mncStart);
-            String mnc = scanResponse.substring(mncStart, mncEnd);
-
-            while (mnc.length() < 3) {
-                mnc = "0" + mnc;
-            }
-
-            int lacStart = mncEnd + 1;
-            int lacEnd = scanResponse.indexOf(",", lacStart);
-            String lac = scanResponse.substring(lacStart, lacEnd);
-
-            int cellIdStart = lacEnd + 1;
-            int cellIdEnd = scanResponse.indexOf(",", cellIdStart);
-            String cellId = scanResponse.substring(cellIdStart, cellIdEnd);
-
-            // Convertir LAC y Cell ID de HEX a DEC
-            lac = hexToDec(lac);
-            cellId = hexToDec(cellId);
-
-            // Agregar al JSON
-            neighborCells += "\"cell_" + String(cellCount) + "\":{";
-            neighborCells += "\"mcc\":\"" + mcc + "\",";
-            neighborCells += "\"mnc\":\"" + mnc + "\",";
-            neighborCells += "\"lac\":\"" + lac + "\",";
-            neighborCells += "\"cid\":\"" + cellId + "\"";
-            neighborCells += "}";
-
-            cellCount++;
-            currentIndex = cellIdEnd + 1;
-
-            if (scanResponse.indexOf("+CGSCAN:", currentIndex) == -1) {
-                break;
-            }
-        }
-    }
-
-    neighborCells += "}";
-    return neighborCells;
 }
 
 String hexToDec(String hexStr) {
@@ -288,7 +252,23 @@ void sendATCommand(String command, const char* expectedResponse, unsigned long t
   delay(1000);
 }
 
-void obtenerVoltajeBateria(){
+void controlarSleepA7670SA(bool dormir) {
+  if (dormir) {
+    enviarComando("AT+CSCLK=1");    
+    delay(100);
+    digitalWrite(SLEEP_PIN, LOW);  // DTR HIGH -> permite sleep en idle
+    Serial.println("A7670SA en modo Sleep (cuando idle).");
+  } else {
+    digitalWrite(SLEEP_PIN, HIGH);   // DTR LOW -> despierta módulo
+    delay(100);                     // Tiempo para que despierte
+    enviarComando("AT+CSCLK=0");   
+    enviarComando("AT");          // Activar UART
+    Serial.println("A7670SA Despierto y sin sleep automático.");
+  }
+}
+
+
+String obtenerVoltajeBateria(){
     float voltaje = leerVoltaje(pinBateria);
     int nivelBateria = calcularNivelBateria(voltaje);
     
@@ -298,7 +278,10 @@ void obtenerVoltajeBateria(){
     Serial.print(nivelBateria);
     Serial.println("%");
 
-    delay(1000);
+    String sms = "\"NB\":"+ String(nivelBateria);
+    Serial.println(sms);
+    
+    return sms;
 }
 
 float leerVoltaje(int pin) {
