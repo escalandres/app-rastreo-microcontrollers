@@ -63,8 +63,40 @@ void testConection(){
   Serial.println("Red...");
   enviarComando("AT+CPSI?", 1000);
 
+  Serial.println("ATI...");
+  enviarComando("ATI", 1000);
+
+  String cellInfo = getCellInfo();
+  Serial.println("Cell Info...");
+  Serial.println(cellInfo);
 
   Serial.println("Diagnóstico terminado.");
+}
+
+void gsm(){
+  // Establecer modo GSM
+  Serial.println("Establecer modo GSM...");
+  enviarComando("AT+CNMP=13", 2000);
+  
+  // Registrar en la red
+  Serial.println("Registrar en la red...");
+  enviarComando("AT+CREG?", 2000);
+  
+  // Obtener información del operador
+  Serial.println("Obtener información del operador...");
+  enviarComando("AT+COPS?", 2000);
+  
+  // Consultar calidad de la señal
+  Serial.println("Consultar calidad de la señal...");
+  enviarComando("AT+CSQ", 2000);
+
+  Serial.println("Red GSM...");
+  enviarComando("AT+CPSI?", 1000);
+
+  String cellInfo = getCellInfo();
+  Serial.println("Cell Info...");
+  Serial.println(cellInfo);
+
 }
 
 void loop() {
@@ -93,15 +125,9 @@ void loop() {
           testConection();
       }
 
-      if(receivedData == "gsm") {
-        Serial.println("Configurando GSM....");
-        enviarComando("AT+CNMP?");
-        enviarComando("AT+CNMP=13");  // Forzar modo GSM
-        enviarComando("AT&W");        // Guardar configuración
-        enviarComando("AT+CFUN=1,1"); // Reiniciar módulo
-        Serial.println("Red...");
-        enviarComando("AT+CPSI?", 1000);
-        enviarComando("AT+CNMP?");  // Forzar modo GSM
+      if (receivedData == "gsm1") {
+          Serial.println("Configurando GSM...");
+          gsm();
       }
     }
     if (Serial2.available()) {
@@ -172,33 +198,47 @@ String getCellInfo() {
     String cellId = "";
     String mcc = "";
     String mnc = "";
+    String red = "";
 
     // Solicitar información de la red con A7670SA
     flushA7670SA();
     Serial2.println("AT+CPSI?");
     String cpsiResponse = readA7670SAResponse();
-    String red = "";
+
     // Extraer datos de la respuesta de AT+CPSI?
-    int startIndex = cpsiResponse.indexOf("LTE,Online,");
+    int startIndex = cpsiResponse.indexOf("CPSI:");
     if (startIndex != -1) {
-      red = "lte";
-        int mccStart = startIndex + 11; // Después de "LTE,Online,"
-        int mccEnd = cpsiResponse.indexOf("-", mccStart);
-        mcc = cpsiResponse.substring(mccStart, mccEnd);
+        startIndex += 6; // Mover el índice después de "CPSI: "
 
-        int mncStart = mccEnd + 1;
-        int mncEnd = cpsiResponse.indexOf(",", mncStart);
-        mnc = cpsiResponse.substring(mncStart, mncEnd);
-
-        // Formatear MNC a 3 dígitos (concatenar ceros si es necesario)
-        while (mnc.length() < 3) {
-            mnc = "0" + mnc;
+        // Verificar si es LTE o GSM
+        if (cpsiResponse.startsWith("LTE", startIndex)) {
+            red = "lte";
+            startIndex += 4; // Mover el índice después de "LTE,"
+        } else if (cpsiResponse.startsWith("GSM", startIndex)) {
+            red = "gsm";
+            startIndex += 4; // Mover el índice después de "GSM,"
+        } else {
+            return "{}"; // Si no es ni GSM ni LTE, devolver JSON vacío
         }
 
-        int lacStart = mncEnd + 1;
+        // Extraer MCC-MNC correctamente
+        int mccMncStart = cpsiResponse.indexOf(",", startIndex) + 1;
+        int mccMncEnd = cpsiResponse.indexOf(",", mccMncStart);
+        String mccMncRaw = cpsiResponse.substring(mccMncStart, mccMncEnd);
+
+        // Separar MCC y MNC
+        int separatorIndex = mccMncRaw.indexOf("-");
+        if (separatorIndex != -1) {
+            mcc = mccMncRaw.substring(0, separatorIndex);  // MCC
+            mnc = mccMncRaw.substring(separatorIndex + 1); // MNC
+        }
+
+        // Extraer LAC
+        int lacStart = mccMncEnd + 1;
         int lacEnd = cpsiResponse.indexOf(",", lacStart);
         lac = cpsiResponse.substring(lacStart, lacEnd);
 
+        // Extraer Cell ID
         int cellIdStart = lacEnd + 1;
         int cellIdEnd = cpsiResponse.indexOf(",", cellIdStart);
         cellId = cpsiResponse.substring(cellIdStart, cellIdEnd);
@@ -218,6 +258,8 @@ String getCellInfo() {
 
     return json;
 }
+
+
 
 String hexToDec(String hexStr) {
     long decVal = strtol(hexStr.c_str(), NULL, 16);
