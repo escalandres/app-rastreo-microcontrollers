@@ -33,22 +33,10 @@ void setup() {
     delay(3000);
 }
 
-void testConection(){
-  // 1. Probar comunicación AT
+void startA7670SA(){
+   // 1. Probar comunicación AT
   Serial.println("Verificando comunicación...");
   enviarComando("AT", 1000);
-
-  // 2. Estado de la SIM
-  Serial.println("Consultando estado de SIM...");
-  enviarComando("AT+CPIN?", 1000);
-
-  // 3. Nivel de señal
-  Serial.println("Consultando nivel de señal...");
-  enviarComando("AT+CSQ", 1000);
-
-  // 4. Registro en red
-  Serial.println("Consultando registro en red...");
-  enviarComando("AT+CREG?", 1000);
 
   // 5. Establecer modo LTE (opcional)
   Serial.println("Estableciendo modo LTE (CNMP=38)...");
@@ -60,18 +48,47 @@ void testConection(){
   Serial.println("Confirmando registro...");
   enviarComando("AT+CREG?", 1000);
 
-  Serial.println("Red...");
-  enviarComando("AT+CPSI?", 1000);
-
-  Serial.println("ATI...");
-  enviarComando("ATI", 1000);
-
-  String cellInfo = getCellInfo();
-  Serial.println("Cell Info...");
-  Serial.println(cellInfo);
-
-  Serial.println("Diagnóstico terminado.");
 }
+
+//void testConection(){
+//  // 1. Probar comunicación AT
+//  Serial.println("Verificando comunicación...");
+//  enviarComando("AT", 1000);
+//
+//  // 2. Estado de la SIM
+//  Serial.println("Consultando estado de SIM...");
+//  enviarComando("AT+CPIN?", 1000);
+//
+//  // 3. Nivel de señal
+//  Serial.println("Consultando nivel de señal...");
+//  enviarComando("AT+CSQ", 1000);
+//
+//  // 4. Registro en red
+//  Serial.println("Consultando registro en red...");
+//  enviarComando("AT+CREG?", 1000);
+//
+//  // 5. Establecer modo LTE (opcional)
+//  Serial.println("Estableciendo modo LTE (CNMP=38)...");
+//  enviarComando("AT+CNMP=2", 2000);
+//
+//  // Confirmar nivel de señal y registro otra vez
+//  Serial.println("Confirmando señal...");
+//  enviarComando("AT+CSQ", 1000);
+//  Serial.println("Confirmando registro...");
+//  enviarComando("AT+CREG?", 1000);
+//
+//  Serial.println("Red...");
+//  enviarComando("AT+CPSI?", 1000);
+//
+//  Serial.println("ATI...");
+//  enviarComando("ATI", 1000);
+//
+//  String cellInfo = getCellInfo();
+//  Serial.println("Cell Info...");
+//  Serial.println(cellInfo);
+//
+//  Serial.println("Diagnóstico terminado.");
+//}
 
 void gsm(){
   // Establecer modo GSM
@@ -122,7 +139,8 @@ void loop() {
 
       if (receivedData == "test") {
           Serial.println("Probando conexion A7670SA...");
-          testConection();
+          //testConection();
+          startA7670SA();
       }
 
       if (receivedData == "gsm1") {
@@ -153,8 +171,8 @@ void enviarSMS(String numero, String mensaje) {
     
     enviarComando("AT+CREG?",1000);
     enviarComando("AT+CMGF=1",1000);
-    enviarComando("AT+CSCS?",1000);
-    enviarComando("AT+CSCS=\"GSM\"",1000);
+//    enviarComando("AT+CSCS?",1000);
+//    enviarComando("AT+CSCS=\"GSM\"",1000);
     enviarComando(("AT+CMGS=\"" + numero + "\"").c_str(), 3000);
     delay(1000);
     Serial2.print(mensaje);
