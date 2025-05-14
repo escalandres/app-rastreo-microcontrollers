@@ -72,7 +72,7 @@ void setup() {
   digitalWrite(STM_LED, LOW);
   digitalWrite(LED, HIGH);
 
-  if (! rtc.begin()) {        // si falla la inicializacion del modulo
+  if (!rtc.begin()) {        // si falla la inicializacion del modulo
     //Serial.println("Modulo RTC no encontrado !");  // muestra mensaje de error
     while (1);         // bucle infinito que detiene ejecucion del programa
   }
@@ -90,7 +90,7 @@ void setup() {
   rtc.writeSqwPinMode(DS3231_OFF);
   configureAlarm();
   
-  delay(5000);
+  delay(12000);
   enviarMensaje("Rastreador encendido");
   digitalWrite(STM_LED,HIGH);
   digitalWrite(LED,LOW);
@@ -196,6 +196,7 @@ void flushA7670SA() {
 void enviarMensaje(String SMS)
 {
   digitalWrite(RED_LED,HIGH);
+  startA7670SA();
   enviarComando("AT+CREG?",1000);
   enviarComando("AT+CMGF=1",1000);
   
