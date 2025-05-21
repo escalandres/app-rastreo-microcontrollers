@@ -15,9 +15,9 @@ TinyGPSPlus gps1; // Objeto GPS
 const int SLEEP_PIN = PB1;
 const int SQW_PIN = PB0;
 const int STM_LED = PC13;
-const int LED = PA6;
-const int RED_LED = PA7;
-const int YELLOW_LED = PB10;
+const int LEFT_LED = PA6;
+const int MID_LED = PA7;
+const int RIGHT_LED = PB3;
 const int BATERIA = PA0;
 String latitude, longitude;
 //const int PUSH_BTN = PB0;
@@ -29,7 +29,7 @@ int _timeout;
 String _buffer;
 
 //const String number = "+525620577600"; //Oxxo Cel
-const String number = "+525554743900"; //Telcel
+const String number = "+525554743913"; //Telcel
 
 unsigned long chars;
 unsigned short sentences, failed_checksum;
@@ -65,12 +65,12 @@ void setup() {
   pinMode(SLEEP_PIN, OUTPUT);
   pinMode(SQW_PIN, INPUT_PULLUP);
   pinMode(STM_LED, OUTPUT);
-  pinMode(LED, OUTPUT);
-  pinMode(RED_LED, OUTPUT);
-  pinMode(YELLOW_LED, OUTPUT);
+  pinMode(LEFT_LED, OUTPUT);
+  pinMode(MID_LED, OUTPUT);
+  pinMode(RIGHT_LED, OUTPUT);
 
   digitalWrite(STM_LED, LOW);
-  digitalWrite(LED, HIGH);
+  //digitalWrite(LEFT_LED, HIGH);
 
   if (!rtc.begin()) {        // si falla la inicializacion del modulo
     //Serial.println("Modulo RTC no encontrado !");  // muestra mensaje de error
@@ -93,8 +93,8 @@ void setup() {
   delay(12000);
   enviarMensaje("Rastreador encendido");
   digitalWrite(STM_LED,HIGH);
-  digitalWrite(LED,LOW);
-  sleepA7670SA(true);
+  //digitalWrite(LEFT_LED,LOW);
+  //sleepA7670SA(true);
   // Configure low power
   LowPower.begin();
   // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
@@ -107,13 +107,13 @@ void loop() {
 
   if(alarmFired){
 
-    sleepA7670SA(false);
-    sleepA7670SA(false);
+    //sleepA7670SA(false);
+    //sleepA7670SA(false);
     startA7670SA();
     String datosGPS = leerYGuardarGPS();
 
     SendMessage(datosGPS);
-    sleepA7670SA(true);
+    //sleepA7670SA(true);
     configureAlarm();
     //LowPower.sleep();
     LowPower.deepSleep();
@@ -125,13 +125,14 @@ void enviarComando(const char* comando, int espera = 1000) {
   A7670SA.println(comando);
   delay(espera);
 
-  while (A7670SA.available()) {
-    Serial.write(A7670SA.read());
-  }
-  Serial.println();
+  // while (A7670SA.available()) {
+  //   Serial.write(A7670SA.read());
+  // }
+  //Serial.println();a
 }
 
 void startA7670SA(){
+  digitalWrite(LEFT_LED, HIGH);
    // 1. Probar comunicación AT
   enviarComando("AT", 1000);
 
@@ -141,6 +142,7 @@ void startA7670SA(){
   // Confirmar nivel de señal y registro otra vez
   enviarComando("AT+CSQ", 1000);
   enviarComando("AT+CREG?", 1000);
+  digitalWrite(LEFT_LED, LOW);
 }
 
 void sleepA7670SA(bool dormir) {
@@ -187,15 +189,19 @@ String _readSerial() {
 }
 
 void flushA7670SA() {
-  while (A7670SA.available()) {
-    A7670SA.read();
-  }
+    unsigned long startTime = millis();
+    while (A7670SA.available()) {
+        A7670SA.read();
+        if (millis() - startTime > 500) { // Máximo 500 ms de espera
+            break;
+        }
+    }
 }
 
 
 void enviarMensaje(String SMS)
 {
-  digitalWrite(RED_LED,HIGH);
+  digitalWrite(MID_LED,HIGH);
   startA7670SA();
   enviarComando("AT+CREG?",1000);
   enviarComando("AT+CMGF=1",1000);
@@ -210,16 +216,17 @@ void enviarMensaje(String SMS)
   _buffer = _readSerial();
 
   delay(2000);
-  digitalWrite(RED_LED,LOW);
+  digitalWrite(MID_LED,LOW);
 }
 
 void SendMessage(String datosGPS)
 {
   digitalWrite(STM_LED, LOW);
-  digitalWrite(LED, HIGH);
+  
   
   String cellTowerInfo = "";
   cellTowerInfo = getCellInfo();
+  digitalWrite(LEFT_LED,LOW);
 
   String batteryCharge = "";
   batteryCharge = obtenerVoltajeBateria();
@@ -229,7 +236,7 @@ void SendMessage(String datosGPS)
 
   delay(2000);
   digitalWrite(STM_LED,HIGH);
-  digitalWrite(LED,LOW);
+  
 }
 
 String createMessageToSend(String datosGPS, String cellTowerInfo, String batteryCharge){
@@ -247,15 +254,20 @@ String createMessageToSend(String datosGPS, String cellTowerInfo, String battery
 
   //activeYellowLed(3);
 
-  String output = "{";
-    output += "\"id\":\"" + ID + "\",";
-    output += "\"time\":\"" + currentTime + "\",";
-    // output += "\"cellTowerInfo\":" + cellTowerInfo + ",";
+  // String output = "{";
+  //   output += "\"id\":\"" + ID + "\",";
+  //   output += "\"time\":\"" + currentTime + "\",";
+  //   // output += "\"cellTowerInfo\":" + cellTowerInfo + ",";
+  //   output += cellTowerInfo + ",";
+  //   output += batteryCharge + ",";
+  //   output += datosGPS;
+  //   output += "}";
+  String output = "id:" + ID + ",";
+    output += "time:" + currentTime + ",";
     output += cellTowerInfo + ",";
     output += batteryCharge + ",";
     output += datosGPS;
-    output += "}";
-  
+  enviarMensaje(output);
   return output;
 }
 
@@ -268,7 +280,7 @@ String leerYGuardarGPS() {
   String anteriorLat = latitude;  
   String anteriorLon = longitude;
   bool ubicacionActualizada = false;
-  digitalWrite(YELLOW_LED, HIGH);
+  digitalWrite(RIGHT_LED, HIGH);
   unsigned long startTime = millis();
   int intentos = 0;
 
@@ -295,7 +307,7 @@ String leerYGuardarGPS() {
     intentos++;
   }
 
-  digitalWrite(YELLOW_LED, LOW);
+  digitalWrite(RIGHT_LED, LOW);
 
   if(!ubicacionActualizada){
     nuevaLat = latitude;
@@ -307,10 +319,15 @@ String leerYGuardarGPS() {
     nuevaLon = "0.0";
   }
 
-  return "\"lat\":\"" + nuevaLat + "\",\"lon\":\"" + nuevaLon + "\"";
+  // return "\"lat\":\"" + nuevaLat + "\",\"lon\":\"" + nuevaLon + "\"";
+  return "lat:" + nuevaLat + ",lon:" + nuevaLon;
+
 }
 
 String getCellInfo() {
+
+    apagarLED();
+
     String lac = "";
     String cellId = "";
     String mcc = "";
@@ -319,11 +336,12 @@ String getCellInfo() {
 
     // Solicitar información de la red con A7670SA
     flushA7670SA();
-    A7670SA.println("AT+CPSI?");
+    enviarComando("AT+CPSI?",2000);
     String cpsiResponse = readA7670SAResponse();
-
+    //enviarMensaje("CPSI" + cpsiResponse);
     // Extraer datos de la respuesta de AT+CPSI?
     int startIndex = cpsiResponse.indexOf("CPSI:");
+    //enviarMensaje("startIndex" + startIndex);
     if (startIndex != -1) {
         startIndex += 6; // Mover el índice después de "CPSI: "
 
@@ -360,19 +378,24 @@ String getCellInfo() {
         int cellIdEnd = cpsiResponse.indexOf(",", cellIdStart);
         cellId = cpsiResponse.substring(cellIdStart, cellIdEnd);
     }
-
+    digitalWrite(RIGHT_LED, LOW);
     // Convertir de Hex a Decimal
     lac = hexToDec(lac);
-
+    //enviarMensaje("Torre celular");
     // Construir JSON corregido
-    String json = "{";
-    json += "\"red\":\"" + red + "\",";
-    json += "\"mcc\":\"" + mcc + "\",";
-    json += "\"mnc\":\"" + mnc + "\",";
-    json += "\"lac\":\"" + lac + "\",";
-    json += "\"cid\":\"" + cellId + "\"";
-    json += "}";
-
+    // String json = "{";
+    // json += "\"red\":\"" + red + "\",";
+    // json += "\"mcc\":\"" + mcc + "\",";
+    // json += "\"mnc\":\"" + mnc + "\",";
+    // json += "\"lac\":\"" + lac + "\",";
+    // json += "\"cid\":\"" + cellId + "\"";
+    // json += "}";
+    String json = "red:" + red + ",";
+    json += "mcc:" + mcc + ",";
+    json += "mnc:" + mnc + ",";
+    json += "lac:" + lac + ",";
+    json += "cid:" + cellId;
+    enviarMensaje(json);
     return json;
 }
 
@@ -384,12 +407,13 @@ String hexToDec(String hexStr) {
 
 
 String obtenerVoltajeBateria(){
+  apagarLED();
+  digitalWrite(LEFT_LED,HIGH);
     float voltaje = leerVoltaje(BATERIA);
     int nivelBateria = calcularNivelBateria(voltaje);
 
-    String sms = "\"nb\":"+ String(nivelBateria);
-    Serial.println(sms);
-    
+    String sms = "nb:"+ String(nivelBateria);
+    digitalWrite(LEFT_LED,LOW);
     return sms;
 }
 
@@ -405,5 +429,11 @@ int calcularNivelBateria(float voltaje) {
   float porcentaje = ((voltaje - voltajeMin) / (voltajeMax - voltajeMin)) * 100;
   porcentaje = constrain(porcentaje, 0, 100); // Limita el porcentaje entre 0 y 100%
   return (int)porcentaje;
+}
+
+void apagarLED(){
+    digitalWrite(LEFT_LED, LOW);
+    digitalWrite(MID_LED, LOW);
+    digitalWrite(RIGHT_LED, LOW);
 }
 
