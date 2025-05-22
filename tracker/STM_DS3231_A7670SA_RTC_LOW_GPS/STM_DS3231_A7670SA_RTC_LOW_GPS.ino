@@ -20,10 +20,9 @@ const int MID_LED = PA7;
 const int RIGHT_LED = PB3;
 const int BATERIA = PA0;
 String latitude, longitude;
-//const int PUSH_BTN = PB0;
 
 /* Constantes y Variables Globales */
-const String ID = "48273619";
+const int ID = 48273619;
 
 int _timeout;
 String _buffer;
@@ -94,7 +93,7 @@ void setup() {
   enviarMensaje("Rastreador encendido");
   digitalWrite(STM_LED,HIGH);
   //digitalWrite(LEFT_LED,LOW);
-  //sleepA7670SA(true);
+  sleepA7670SA(true);
   // Configure low power
   LowPower.begin();
   // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
@@ -106,14 +105,16 @@ void setup() {
 void loop() {
 
   if(alarmFired){
-
-    //sleepA7670SA(false);
+    digitalWrite(STM_LED, HIGH);
+    delay(2000);
+    digitalWrite(STM_LED,LOW);
+    sleepA7670SA(false);
     //sleepA7670SA(false);
     startA7670SA();
     String datosGPS = leerYGuardarGPS();
 
     SendMessage(datosGPS);
-    //sleepA7670SA(true);
+    sleepA7670SA(true);
     configureAlarm();
     //LowPower.sleep();
     LowPower.deepSleep();
@@ -151,14 +152,14 @@ void sleepA7670SA(bool dormir) {
     enviarComando("AT+CSCLK=1");    
     delay(100);
     digitalWrite(SLEEP_PIN, LOW);  // DTR HIGH -> permite sleep en idle
-    Serial.println("A7670SA en modo Sleep (cuando idle).");
+    //Serial.println("A7670SA en modo Sleep (cuando idle).");
   } else {
     //Despertar A7670SA
     digitalWrite(SLEEP_PIN, HIGH);   // DTR LOW -> despierta módulo
     delay(100);                     // Tiempo para que despierte
     enviarComando("AT+CSCLK=0");   
     enviarComando("AT");          // Activar UART
-    Serial.println("A7670SA Despierto y sin sleep automático.");
+    //Serial.println("A7670SA Despierto y sin sleep automático.");
   }
 }
 
@@ -262,7 +263,7 @@ String createMessageToSend(String datosGPS, String cellTowerInfo, String battery
   //   output += batteryCharge + ",";
   //   output += datosGPS;
   //   output += "}";
-  String output = "id:" + ID + ",";
+  String output = "id:" + String(ID) + ",";
     output += "time:" + currentTime + ",";
     output += cellTowerInfo + ",";
     output += batteryCharge + ",";
