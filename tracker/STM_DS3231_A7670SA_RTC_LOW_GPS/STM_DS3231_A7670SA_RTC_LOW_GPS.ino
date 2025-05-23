@@ -133,7 +133,7 @@ void enviarComando(const char* comando, int espera = 1000) {
 }
 
 void startA7670SA(){
-  digitalWrite(LEFT_LED, HIGH);
+  //digitalWrite(LEFT_LED, HIGH);
    // 1. Probar comunicación AT
   enviarComando("AT", 1000);
 
@@ -143,7 +143,7 @@ void startA7670SA(){
   // Confirmar nivel de señal y registro otra vez
   enviarComando("AT+CSQ", 1000);
   enviarComando("AT+CREG?", 1000);
-  digitalWrite(LEFT_LED, LOW);
+  //digitalWrite(LEFT_LED, LOW);
 }
 
 void sleepA7670SA(bool dormir) {
@@ -202,7 +202,7 @@ void flushA7670SA() {
 
 void enviarMensaje(String SMS)
 {
-  digitalWrite(MID_LED,HIGH);
+  //digitalWrite(MID_LED,HIGH);
   startA7670SA();
   enviarComando("AT+CREG?",1000);
   enviarComando("AT+CMGF=1",1000);
@@ -217,7 +217,7 @@ void enviarMensaje(String SMS)
   _buffer = _readSerial();
 
   delay(2000);
-  digitalWrite(MID_LED,LOW);
+  //digitalWrite(MID_LED,LOW);
 }
 
 void SendMessage(String datosGPS)
@@ -227,7 +227,7 @@ void SendMessage(String datosGPS)
   
   String cellTowerInfo = "";
   cellTowerInfo = getCellInfo();
-  digitalWrite(LEFT_LED,LOW);
+  //digitalWrite(LEFT_LED,LOW);
 
   String batteryCharge = "";
   batteryCharge = obtenerVoltajeBateria();
@@ -281,7 +281,7 @@ String leerYGuardarGPS() {
   String anteriorLat = latitude;  
   String anteriorLon = longitude;
   bool ubicacionActualizada = false;
-  digitalWrite(RIGHT_LED, HIGH);
+  //digitalWrite(RIGHT_LED, HIGH);
   unsigned long startTime = millis();
   int intentos = 0;
 
@@ -308,7 +308,7 @@ String leerYGuardarGPS() {
     intentos++;
   }
 
-  digitalWrite(RIGHT_LED, LOW);
+  //digitalWrite(RIGHT_LED, LOW);
 
   if(!ubicacionActualizada){
     nuevaLat = latitude;
@@ -327,7 +327,7 @@ String leerYGuardarGPS() {
 
 String getCellInfo() {
 
-    apagarLED();
+    //apagarLED();
 
     String lac = "";
     String cellId = "";
@@ -379,7 +379,7 @@ String getCellInfo() {
         int cellIdEnd = cpsiResponse.indexOf(",", cellIdStart);
         cellId = cpsiResponse.substring(cellIdStart, cellIdEnd);
     }
-    digitalWrite(RIGHT_LED, LOW);
+    //digitalWrite(RIGHT_LED, LOW);
     // Convertir de Hex a Decimal
     lac = hexToDec(lac);
     //enviarMensaje("Torre celular");
@@ -408,13 +408,13 @@ String hexToDec(String hexStr) {
 
 
 String obtenerVoltajeBateria(){
-  apagarLED();
-  digitalWrite(LEFT_LED,HIGH);
+  //apagarLED();
+  //digitalWrite(LEFT_LED,HIGH);
     float voltaje = leerVoltaje(BATERIA);
     int nivelBateria = calcularNivelBateria(voltaje);
 
     String sms = "nb:"+ String(nivelBateria);
-    digitalWrite(LEFT_LED,LOW);
+    //digitalWrite(LEFT_LED,LOW);
     return sms;
 }
 
