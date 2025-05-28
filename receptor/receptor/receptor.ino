@@ -2,30 +2,70 @@
 #include <HardwareSerial.h> // Librería para comunicación serial
 #include <WiFi.h> // Librería para conexión WiFi
 #include <HTTPClient.h> // Librería para hacer peticiones HTTP
+#include <ArduinoJson.h>
+#include <WiFiClientSecure.h>
+#include <NetworkClientSecure.h>
+#include <pgmspace.h>
+
 
 // Definir el puerto serial SIM800L
 HardwareSerial SIM800L(1);
 
 // Datos de la red WiFi
-const char* SSID = "WIFI";
-const char* PASSWORD = "PASSWORD";
-
+const char* SSID = "XXXXX";
+const char* PASSWORD = "XXXXXXXXXXXXXXXXXXXXX";
+const String TOKEN = "XXXXXXXXXXXXXXXXXXXX";
 /* Declaracion de puertos del ESP */
 const int LED = 2;
 const int READ_BTN = 4;
 
 // Servidor al cual se hará la petición POST
-const String SERVER = "http://192.168.0.6:5322";
-const String URL = SERVER + "/api/tracker/post-test";
+//const String SERVER = "http://192.168.0.4:5322";
+const String SERVER = "https://app-rastreo-backend.onrender.com";
+//const String URL = SERVER + "/api/tracker/post-test";
+const String URL = SERVER + "/api/tracker/upload-data";
 
 int _timeout;
 String _buffer;
 
+//const char rootCACertificate[] PROGMEM = R"EOF(
+//-----BEGIN CERTIFICATE-----
+//MIICCTCCAY6gAwIBAgINAgPlwGjvYxqccpBQUjAKBggqhkjOPQQDAzBHMQswCQYD
+//VQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEUMBIG
+//A1UEAxMLR1RTIFJvb3QgUjQwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIyMDAwMDAw
+//WjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2Vz
+//IExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjQwdjAQBgcqhkjOPQIBBgUrgQQAIgNi
+//AATzdHOnaItgrkO4NcWBMHtLSZ37wWHO5t5GvWvVYRg1rkDdc/eJkTBa6zzuhXyi
+//QHY7qca4R9gq55KRanPpsXI5nymfopjTX15YhmUPoYRlBtHci8nHc8iMai/lxKvR
+//HYqjQjBAMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW
+//BBSATNbrdP9JNqPV2Py1PsVq8JQdjDAKBggqhkjOPQQDAwNpADBmAjEA6ED/g94D
+//9J+uHXqnLrmvT/aDHQ4thQEd0dlq7A/Cr8deVl5c1RxYIigL9zC2L7F8AjEA8GE8
+//p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
+//-----END CERTIFICATE-----
+//)EOF";
+
+const char* rootCACertificate = \
+     "-----BEGIN CERTIFICATE-----\n" \
+     "MIICCTCCAY6gAwIBAgINAgPlwGjvYxqccpBQUjAKBggqhkjOPQQDAzBHMQswCQYD\n" \
+     "VQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEUMBIG\n" \
+     "A1UEAxMLR1RTIFJvb3QgUjQwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIyMDAwMDAw\n" \
+    "WjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2Vz\n" \
+    "IExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjQwdjAQBgcqhkjOPQIBBgUrgQQAIgNi\n" \
+    "AATzdHOnaItgrkO4NcWBMHtLSZ37wWHO5t5GvWvVYRg1rkDdc/eJkTBa6zzuhXyi\n" \
+    "QHY7qca4R9gq55KRanPpsXI5nymfopjTX15YhmUPoYRlBtHci8nHc8iMai/lxKvR\n" \
+    "HYqjQjBAMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW\n" \
+    "BBSATNbrdP9JNqPV2Py1PsVq8JQdjDAKBggqhkjOPQQDAwNpADBmAjEA6ED/g94D\n" \
+    "9J+uHXqnLrmvT/aDHQ4thQEd0dlq7A/Cr8deVl5c1RxYIigL9zC2L7F8AjEA8GE8\n" \
+    "p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD\n" \
+     "-----END CERTIFICATE-----\n";
+
 // Objeto WiFiClient para manejar la conexión
-WiFiClient client;
+// WiFiClient client;
+// WiFiClientSecure client; // Cliente seguro para HTTPS
+
 void setup() {
   Serial.begin(9600); // Serial para debug
-  SIM800L.begin(9600, SERIAL_8N1, 17, 16);
+  SIM800L.begin(9600, SERIAL_8N1, 16, 17);
   // Configurar el pin del LED como salida
   //pinMode(READ_BTN, INPUT);
   pinMode(LED, OUTPUT);
@@ -38,6 +78,9 @@ void setup() {
     Serial.println("Conectando...");
   }
   Serial.println("Conectado a WiFi.");
+  IPAddress ip = WiFi.localIP();
+  Serial.println("IP: " + ip);
+  // client.setCACert(test_root_ca);
   Serial.println("----------------");
   // Configuración del SIM800L
   SIM800L.println("AT");
@@ -96,16 +139,37 @@ bool enviarMensaje(String message) {
 }
 
 bool sendPostRequest(String message) {
+  // NetworkClientSecure *client = new NetworkClientSecure;
   bool answer = false;
   if (WiFi.status() == WL_CONNECTED) {
+    WiFiClientSecure *client = new WiFiClientSecure;
+    // set secure client with certificate
+    client->setCACert(rootCACertificate);
     HTTPClient http;
     Serial.println("Enviando mensaje");
     // Iniciar la conexión con el objeto WiFiClient y la URL
-    http.begin(client, URL);
+    http.begin(*client, URL);
     http.addHeader("Content-Type", "application/json"); // Header de la petición
-    String jsonData = "{\"datos\":\"" + message + "\"}";
-    Serial.println("json: " + jsonData);
-    int httpResponseCode = http.POST(jsonData);
+    http.addHeader("Host", "app-rastreo-backend.onrender.com"); // Cabecera HOST
+    http.addHeader("Authorization", "Bearer " + TOKEN); // Añadir el token de au
+    // String jsonData = "{\"datos\":\"" + message + "\"}";
+    // jsonData = 
+    // Crear un documento JSON
+    StaticJsonDocument<256> doc;
+
+    // Cadena con formato correcto usando comillas dobles escapadas
+    String datos = message;
+    
+    // Agregar el campo "datos" al JSON
+    doc["datos"] = datos;
+
+    // Convertir a string JSON
+    String jsonString;
+    serializeJson(doc, jsonString);
+
+    // Mostrar el JSON generado
+    Serial.println("json: " + jsonString);
+    int httpResponseCode = http.POST(jsonString);
     Serial.print("Codigo:");
     Serial.println(httpResponseCode);
     if (httpResponseCode > 0) {
