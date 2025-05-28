@@ -76,12 +76,12 @@ void setup() {
     while (1);         // bucle infinito que detiene ejecucion del programa
   }
 
-  if(rtc.lostPower()) {
-        // this will adjust to the date and time at compilation
-        rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  }
+  // if(rtc.lostPower()) {
+  //       // this will adjust to the date and time at compilation
+  //       rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  // }
    
-  rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
+  // rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
             // al momento de la compilacion. Comentar esta linea
             // y volver a subir para normal operacion
 
@@ -89,8 +89,8 @@ void setup() {
   rtc.writeSqwPinMode(DS3231_OFF);
   configureAlarm();
   
-  delay(12000);
-  enviarMensaje("Rastreador encendido");
+  //delay(12000);
+  //enviarMensaje("Rastreador encendido");
   digitalWrite(STM_LED,HIGH);
   //digitalWrite(LEFT_LED,LOW);
   sleepA7670SA(true);
@@ -199,8 +199,8 @@ void flushA7670SA() {
     }
 }
 
-
 void enviarMensaje(String SMS)
+
 {
   //digitalWrite(MID_LED,HIGH);
   startA7670SA();
@@ -268,7 +268,7 @@ String createMessageToSend(String datosGPS, String cellTowerInfo, String battery
     output += cellTowerInfo + ",";
     output += batteryCharge + ",";
     output += datosGPS;
-  enviarMensaje(output);
+  //enviarMensaje(output);
   return output;
 }
 
@@ -298,7 +298,7 @@ String leerYGuardarGPS() {
           latitude = nuevaLat;
           longitude = nuevaLon;
           ubicacionActualizada = true;
-          enviarMensaje("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
+          //enviarMensaje("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
           //enviarMensajeTelegram("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
           break;
         }
@@ -396,7 +396,7 @@ String getCellInfo() {
     json += "mnc:" + mnc + ",";
     json += "lac:" + lac + ",";
     json += "cid:" + cellId;
-    enviarMensaje(json);
+    //enviarMensaje(json);
     return json;
 }
 
