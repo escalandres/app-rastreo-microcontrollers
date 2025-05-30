@@ -12,9 +12,9 @@
 HardwareSerial SIM800L(1);
 
 // Datos de la red WiFi
-const char* SSID = "XXXXX";
-const char* PASSWORD = "XXXXXXXXXXXXXXXXXXXXX";
-const String TOKEN = "XXXXXXXXXXXXXXXXXXXX";
+const char* SSID = "XXXXXX";
+const char* PASSWORD = "YYYYYYYYYYY";
+const String TOKEN = "ZZZZZZZZZZZZZZZZ";
 /* Declaracion de puertos del ESP */
 const int LED = 2;
 const int READ_BTN = 4;
@@ -27,22 +27,6 @@ const String URL = SERVER + "/api/tracker/upload-data";
 
 int _timeout;
 String _buffer;
-
-//const char rootCACertificate[] PROGMEM = R"EOF(
-//-----BEGIN CERTIFICATE-----
-//MIICCTCCAY6gAwIBAgINAgPlwGjvYxqccpBQUjAKBggqhkjOPQQDAzBHMQswCQYD
-//VQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEUMBIG
-//A1UEAxMLR1RTIFJvb3QgUjQwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIyMDAwMDAw
-//WjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2Vz
-//IExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjQwdjAQBgcqhkjOPQIBBgUrgQQAIgNi
-//AATzdHOnaItgrkO4NcWBMHtLSZ37wWHO5t5GvWvVYRg1rkDdc/eJkTBa6zzuhXyi
-//QHY7qca4R9gq55KRanPpsXI5nymfopjTX15YhmUPoYRlBtHci8nHc8iMai/lxKvR
-//HYqjQjBAMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW
-//BBSATNbrdP9JNqPV2Py1PsVq8JQdjDAKBggqhkjOPQQDAwNpADBmAjEA6ED/g94D
-//9J+uHXqnLrmvT/aDHQ4thQEd0dlq7A/Cr8deVl5c1RxYIigL9zC2L7F8AjEA8GE8
-//p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
-//-----END CERTIFICATE-----
-//)EOF";
 
 const char* rootCACertificate = \
      "-----BEGIN CERTIFICATE-----\n" \
@@ -105,6 +89,8 @@ void loop() {
   }
   if (SIM800L.available()) {
     Serial.println("Llegó algo");
+    SIM800L.println("AT+CMGF=1"); // Modo texto
+    delay(500); // Esperar la respuesta
     //String message = SIM800L.readString();
     String message = "";
     char incomingChar;
@@ -147,6 +133,7 @@ bool sendPostRequest(String message) {
     client->setCACert(rootCACertificate);
     HTTPClient http;
     Serial.println("Enviando mensaje");
+    http.setTimeout(90000); // Establece el tiempo de espera en 5000 ms (5 segund
     // Iniciar la conexión con el objeto WiFiClient y la URL
     http.begin(*client, URL);
     http.addHeader("Content-Type", "application/json"); // Header de la petición
@@ -178,6 +165,7 @@ bool sendPostRequest(String message) {
       answer = true;
     } else {
       Serial.println("Error en la petición POST");
+      Serial.printf("[HTTPS] GET... failed, error: %s\n", http.errorToString(httpResponseCode).c_str());
       Serial.println(http.getString());
     }
     http.end(); // Terminar la conexión
