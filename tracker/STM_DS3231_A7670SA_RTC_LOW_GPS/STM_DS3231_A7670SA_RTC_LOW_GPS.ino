@@ -84,7 +84,7 @@ void setup() {
   // rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
             // al momento de la compilacion. Comentar esta linea
             // y volver a subir para normal operacion
-
+  rtc.adjust(DateTime(2024, 11, 22, 10, 22, 00)); 
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
   configureAlarm();
@@ -242,8 +242,6 @@ void SendMessage(String datosGPS)
 
 String createMessageToSend(String datosGPS, String cellTowerInfo, String batteryCharge){
 
-  //activeYellowLed(2);
-
   DateTime now = rtc.now();
 
   char buffer[20];
@@ -253,27 +251,15 @@ String createMessageToSend(String datosGPS, String cellTowerInfo, String battery
   
   String currentTime = String(buffer);
 
-  //activeYellowLed(3);
-
-  // String output = "{";
-  //   output += "\"id\":\"" + ID + "\",";
-  //   output += "\"time\":\"" + currentTime + "\",";
-  //   // output += "\"cellTowerInfo\":" + cellTowerInfo + ",";
-  //   output += cellTowerInfo + ",";
-  //   output += batteryCharge + ",";
-  //   output += datosGPS;
-  //   output += "}";
   String output = "id:" + String(ID) + ",";
     output += "time:" + currentTime + ",";
     output += cellTowerInfo + ",";
     output += batteryCharge + ",";
     output += datosGPS;
-  //enviarMensaje(output);
   return output;
 }
 
 String leerYGuardarGPS() {
-  //ctiveRedLed(2);
   //enviarMensaje(" ---Buscando señal--- ");
 
   String nuevaLat = "";
@@ -281,7 +267,6 @@ String leerYGuardarGPS() {
   String anteriorLat = latitude;  
   String anteriorLon = longitude;
   bool ubicacionActualizada = false;
-  //digitalWrite(RIGHT_LED, HIGH);
   unsigned long startTime = millis();
   int intentos = 0;
 
@@ -289,17 +274,14 @@ String leerYGuardarGPS() {
     while (NEO8M.available()) {
       char c = NEO8M.read();
       gps1.encode(c);
-
       if (gps1.location.isUpdated()) { 
         nuevaLat = String(gps1.location.lat(), 6);
         nuevaLon = String(gps1.location.lng(), 6);
-
+        //corregirRTC();
         if (nuevaLat != anteriorLat || nuevaLon != anteriorLon) { 
           latitude = nuevaLat;
           longitude = nuevaLon;
           ubicacionActualizada = true;
-          //enviarMensaje("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
-          //enviarMensajeTelegram("Ubicacion actualizada: " + nuevaLat + ", " + nuevaLon);
           break;
         }
       }
@@ -309,7 +291,7 @@ String leerYGuardarGPS() {
   }
 
   //digitalWrite(RIGHT_LED, LOW);
-
+  corregirRTC();
   if(!ubicacionActualizada){
     nuevaLat = latitude;
     nuevaLon = longitude;
@@ -323,6 +305,24 @@ String leerYGuardarGPS() {
   // return "\"lat\":\"" + nuevaLat + "\",\"lon\":\"" + nuevaLon + "\"";
   return "lat:" + nuevaLat + ",lon:" + nuevaLon;
 
+}
+
+void corregirRTC() {
+    DateTime now = rtc.now();
+    if (now.year() < 2025) { // Ajusta el rango según tus necesidades
+        //if (gps1.location.isUpdated()) { // Asegúrate de que se haya actualizado la ubicación
+            int year = gps1.date.year();
+            int month = gps1.date.month();
+            int day = gps1.date.day();
+            int hour = gps1.time.hour();
+            int minute = gps1.time.minute();
+            int second = gps1.time.second();
+
+            // Ajustar el RTC con la fecha y hora del GPS
+            rtc.adjust(DateTime(year, month, day, hour, minute, second));
+            //Serial.println("RTC ajustado a la fecha y hora del GPS.");
+        //} 
+    }
 }
 
 String getCellInfo() {
@@ -437,4 +437,3 @@ void apagarLED(){
     digitalWrite(MID_LED, LOW);
     digitalWrite(RIGHT_LED, LOW);
 }
-
