@@ -48,7 +48,20 @@ const char* rootCACertificate = \
 // Objeto WiFiClient para manejar la conexión
 // WiFiClient client;
 // WiFiClientSecure client; // Cliente seguro para HTTPS
-
+void borrarTodosMensajes(){ 
+  Serial.println("Borrando todos los mensajes"); // Para borrar todos los mensajes 
+  SIM800L.println("AT+CMGD=0"); // Borra todos los mensajes 
+  delay(1000); // Esperar respuesta 
+  SIM800L.println("AT+CMGDA=\"DEL ALL\""); // Borra todos los mensajes
+  delay(1000);
+  SIM800L.println("AT+CMGDA=\"DEL UNREAD\""); // Borra todos los mensajes
+  delay(1000);
+  while (SIM800L.available()) { 
+    String response = SIM800L.readString(); 
+    Serial.println(response); // Imprimir la respuesta del módulo 
+  }
+  Serial.println("Mensajes borrados"); 
+}
 void setup() {
   Serial.begin(9600); // Serial para debug
   SIM800L.begin(9600, SERIAL_8N1, 16, 17);
@@ -78,43 +91,6 @@ void setup() {
   delay(1000); // Esperar respuesta
   borrarTodosMensajes();
   digitalWrite(LED, LOW);
-}
-void loop() {
-  if (Serial.available() > 0) {
-    String message = Serial.readString();
-    Serial.println("Ahol: " + message);
-    if(message == "r"){
-      RecieveMessage();
-    }else{
-      enviarMensaje(Serial.readString());
-    }
-  }
-  if (SIM800L.available()) {
-    Serial.println("Llegó algo");
-    SIM800L.println("AT+CMGF=1"); // Modo texto
-    delay(1500); // Esperar la respuesta
-    //String message = SIM800L.readString();
-    String message = "";
-    char incomingChar;
-    // Bucle para leer todos los caracteres disponibles
-    while (SIM800L.available()) {
-      message = SIM800L.readString();
-//      incomingChar = SIM800L.read(); // Leer carácter por carácter
-//      message += incomingChar; // Agregar carácter al mensaje
-//      delay(10); // Pequeña pausa para asegurar la lectura completa
-    }
-    message = cleanString(message);
-    
-    Serial.println("Leido: " + message);
-    if(message.indexOf("ERROR") != -1){
-      Serial.println("Mensaje invalido. Descartar");
-      borrarTodosMensajes();
-    }else{
-      int index = validarFormatoCMTI(message);
-      leerMensaje(index);
-    }
-    
-  }
 }
 
 String cleanString(String message) {
@@ -219,6 +195,17 @@ void RecieveMessage() {
   Serial.println("Unread Message done"); 
   Serial.println("......................\n"); 
 }
+void borrar1Mensaje(int index){ // Borra el mensaje en la posición 1 
+  Serial.println("Borrando mensaje: AT+CMGD="+index); 
+  SIM800L.println("AT+CMGD="+index); // Borrar el primer mensaje 
+  delay(1000); // Esperar respuesta 
+  while (SIM800L.available()) { 
+    String response = SIM800L.readString(); 
+    Serial.println(response); // Imprimir la respuesta del módulo 
+  }
+  Serial.println("Mensaje borrado"); 
+}
+
 
 String _readSerial() { 
   Serial.println("Leyendo buffer"); 
@@ -244,7 +231,14 @@ void leerMensaje(const int &index) {
   String message = SIM800L.readString(); // Mostrar la respuesta completa 
   Serial.println("Respuesta hexadecimal del módulo:"); 
   Serial.println(message); 
+  
+  if(message.indexOf("ERROR") != -1){
+    Serial.println("Mensaje invalido. Descartar");
+    //borrarTodosMensajes();
+  }else{
+
   enviarMensajeRecibido(message);
+  
   if (message.indexOf("id:") != -1) {
       bool isTrue = enviarMensaje(message); 
       if(isTrue){ borrar1Mensaje(index); 
@@ -267,14 +261,14 @@ void leerMensaje(const int &index) {
       if (SIM800L.available()) {
           String respuesta = SIM800L.readString();
           enviarMensajeRecibido(respuesta);
-//          if (respuesta.indexOf("OK") != -1) {
-//              Serial.println("SIM800L está funcionando correctamente.");
-//          } else {
-//              Serial.println("Error: No hay respuesta del SIM800L.");
-//          }
+          // if (respuesta.indexOf("OK") != -1) {
+          //     Serial.println("SIM800L está funcionando correctamente.");
+          // } else {
+          //     Serial.println("Error: No hay respuesta del SIM800L.");
+          // }
       }
   }
-
+  }
 }
 
 int validarFormatoCMTI(String message) { 
@@ -283,31 +277,7 @@ int validarFormatoCMTI(String message) {
   return message.toInt(); 
 }
 
-void borrar1Mensaje(int index){ // Borra el mensaje en la posición 1 
-  Serial.println("Borrando mensaje: AT+CMGD="+index); 
-  SIM800L.println("AT+CMGD="+index); // Borrar el primer mensaje 
-  delay(1000); // Esperar respuesta 
-  while (SIM800L.available()) { 
-    String response = SIM800L.readString(); 
-    Serial.println(response); // Imprimir la respuesta del módulo 
-  }
-  Serial.println("Mensaje borrado"); 
-}
 
-void borrarTodosMensajes(){ 
-  Serial.println("Borrando todos los mensajes"); // Para borrar todos los mensajes 
-  SIM800L.println("AT+CMGD=0"); // Borra todos los mensajes 
-  delay(1000); // Esperar respuesta 
-  SIM800L.println("AT+CMGDA=\"DEL ALL\""); // Borra todos los mensajes
-  delay(1000);
-  SIM800L.println("AT+CMGDA=\"DEL UNREAD\""); // Borra todos los mensajes
-  delay(1000);
-  while (SIM800L.available()) { 
-    String response = SIM800L.readString(); 
-    Serial.println(response); // Imprimir la respuesta del módulo 
-  }
-  Serial.println("Mensajes borrados"); 
-}
 
 void encenderLed(){
   digitalWrite(LED, HIGH);
@@ -317,4 +287,44 @@ void encenderLed(){
   digitalWrite(LED, HIGH);
   delay(2000);
   digitalWrite(LED, LOW);
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    String message = Serial.readString();
+    Serial.println("Ahol: " + message);
+    if(message == "r"){
+      RecieveMessage();
+    }
+    if(message == "borrar"){
+      enviarComando("AT+CMGDA=\"DEL ALL\"",1000);
+    }
+  }
+  if (SIM800L.available()) {
+    Serial.println("Llegó algo");
+    SIM800L.println("AT+CMGF=1"); // Modo texto
+    delay(1500); // Esperar la respuesta
+    //String message = SIM800L.readString();
+    String message = "";
+    char incomingChar;
+    // Bucle para leer todos los caracteres disponibles
+    //while (SIM800L.available()) {
+      
+    //      incomingChar = SIM800L.read(); // Leer carácter por carácter
+    //      message += incomingChar; // Agregar carácter al mensaje
+    //      delay(10); // Pequeña pausa para asegurar la lectura completa
+    //    }
+    message = SIM800L.readString();
+    message = cleanString(message);
+    
+    Serial.println("Leido: " + message);
+    if(message.indexOf("ERROR") != -1){
+      Serial.println("Mensaje invalido. Descartar");
+      borrarTodosMensajes();
+    }else{
+      int index = validarFormatoCMTI(message);
+      leerMensaje(index);
+    }
+    
+  }
 }

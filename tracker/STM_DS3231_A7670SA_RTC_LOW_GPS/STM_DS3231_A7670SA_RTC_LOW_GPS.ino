@@ -241,7 +241,7 @@ void SendMessage(String datosGPS)
 
 String createMessageToSend(String datosGPS, String cellTowerInfo, String batteryCharge){
 
-  if(rtc.now.year()!=2025 || rtc.now.day() == 123) corregirRTC();
+  if(rtc.now().year() != 2025 || rtc.now().day() == 123) corregirRTC();
   
   DateTime now = rtc.now();
 
