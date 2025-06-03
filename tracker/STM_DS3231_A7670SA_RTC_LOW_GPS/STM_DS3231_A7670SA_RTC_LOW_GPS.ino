@@ -28,7 +28,8 @@ int _timeout;
 String _buffer;
 
 //const String number = "+525620577600"; //Oxxo Cel
-const String number = "+525554743913"; //Telcel
+//const String number = "+525554743913"; //Telcel
+const String number = "+525545464585"; //Telcel
 
 unsigned long chars;
 unsigned short sentences, failed_checksum;
