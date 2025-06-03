@@ -48,7 +48,7 @@ void configureAlarm(){
   rtc.disableAlarm(2);
 
   //Set Alarm to be trigged in X 
-  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 1, 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
+  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 3, 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
 
   alarmFired = false;
 }
@@ -91,6 +91,7 @@ void setup() {
   
   //delay(12000);
   //enviarMensaje("Rastreador encendido");
+  delay(2000);
   digitalWrite(STM_LED,HIGH);
   //digitalWrite(LEFT_LED,LOW);
   sleepA7670SA(true);
@@ -200,7 +201,6 @@ void flushA7670SA() {
 }
 
 void enviarMensaje(String SMS)
-
 {
   //digitalWrite(MID_LED,HIGH);
   startA7670SA();
@@ -224,7 +224,6 @@ void SendMessage(String datosGPS)
 {
   digitalWrite(STM_LED, LOW);
   
-  
   String cellTowerInfo = "";
   cellTowerInfo = getCellInfo();
   //digitalWrite(LEFT_LED,LOW);
@@ -242,6 +241,8 @@ void SendMessage(String datosGPS)
 
 String createMessageToSend(String datosGPS, String cellTowerInfo, String batteryCharge){
 
+  if(rtc.now.year()!=2025 || rtc.now.day() == 123) corregirRTC();
+  
   DateTime now = rtc.now();
 
   char buffer[20];
@@ -259,57 +260,95 @@ String createMessageToSend(String datosGPS, String cellTowerInfo, String battery
   return output;
 }
 
+//String leerYGuardarGPS() {
+//  //enviarMensaje(" ---Buscando señal--- ");
+//
+//  String nuevaLat = "";
+//  String nuevaLon = "";
+//  String anteriorLat = latitude;  
+//  String anteriorLon = longitude;
+//  bool ubicacionActualizada = false;
+//  unsigned long startTime = millis();
+//  int intentos = 0;
+//
+//  while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) { 
+//    while (NEO8M.available()) {
+//      char c = NEO8M.read();
+//      gps1.encode(c);
+//      if (gps1.location.isUpdated()) { 
+//        nuevaLat = String(gps1.location.lat(), 6);
+//        nuevaLon = String(gps1.location.lng(), 6);
+//        //corregirRTC();
+//        if (nuevaLat != anteriorLat || nuevaLon != anteriorLon) { 
+//          latitude = nuevaLat;
+//          longitude = nuevaLon;
+//          ubicacionActualizada = true;
+//          break;
+//        }
+//      }
+//    }
+//    delay(50); 
+//    intentos++;
+//  }
+//
+//  //digitalWrite(RIGHT_LED, LOW);
+//  corregirRTC();
+//  if(!ubicacionActualizada){
+//    nuevaLat = latitude;
+//    nuevaLon = longitude;
+//  }
+//
+//  if (nuevaLat == "" || nuevaLon == "") {
+//    nuevaLat = "0.0";
+//    nuevaLon = "0.0";
+//  }
+//
+//  // return "\"lat\":\"" + nuevaLat + "\",\"lon\":\"" + nuevaLon + "\"";
+//  return "lat:" + nuevaLat + ",lon:" + nuevaLon;
+//
+//}
+
 String leerYGuardarGPS() {
-  //enviarMensaje(" ---Buscando señal--- ");
+    String nuevaLat = "";
+    String nuevaLon = "";
+    bool ubicacionActualizada = false;
+    unsigned long startTime = millis();
+    int intentos = 0;
 
-  String nuevaLat = "";
-  String nuevaLon = "";
-  String anteriorLat = latitude;  
-  String anteriorLon = longitude;
-  bool ubicacionActualizada = false;
-  unsigned long startTime = millis();
-  int intentos = 0;
+    while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) {
+        while (NEO8M.available()) {
+            char c = NEO8M.read();
+            gps1.encode(c);
 
-  while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) { 
-    while (NEO8M.available()) {
-      char c = NEO8M.read();
-      gps1.encode(c);
-      if (gps1.location.isUpdated()) { 
-        nuevaLat = String(gps1.location.lat(), 6);
-        nuevaLon = String(gps1.location.lng(), 6);
-        //corregirRTC();
-        if (nuevaLat != anteriorLat || nuevaLon != anteriorLon) { 
-          latitude = nuevaLat;
-          longitude = nuevaLon;
-          ubicacionActualizada = true;
-          break;
+            // Verifica si la ubicación es válida y hay satélites disponibles
+            if (gps1.location.isValid() && gps1.satellites.value() > 0) { 
+                nuevaLat = String(gps1.location.lat(), 6);
+                nuevaLon = String(gps1.location.lng(), 6);
+
+                latitude = nuevaLat;
+                longitude = nuevaLon;
+                ubicacionActualizada = true;
+                break;
+            }
         }
-      }
+        delay(50);
+        intentos++;
     }
-    delay(50); 
-    intentos++;
-  }
 
-  //digitalWrite(RIGHT_LED, LOW);
-  corregirRTC();
-  if(!ubicacionActualizada){
-    nuevaLat = latitude;
-    nuevaLon = longitude;
-  }
+    corregirRTC();
 
-  if (nuevaLat == "" || nuevaLon == "") {
-    nuevaLat = "0.0";
-    nuevaLon = "0.0";
-  }
+    // Si NO hay conexión con satélites, actualiza los valores a 0.0 en el STM32
+    if (!ubicacionActualizada || gps1.satellites.value() == 0) {
+        latitude = "0.0";
+        longitude = "0.0";
+    }
 
-  // return "\"lat\":\"" + nuevaLat + "\",\"lon\":\"" + nuevaLon + "\"";
-  return "lat:" + nuevaLat + ",lon:" + nuevaLon;
-
+    return "lat:" + latitude + ",lon:" + longitude;
 }
 
 void corregirRTC() {
     DateTime now = rtc.now();
-    if (now.year() < 2025) { // Ajusta el rango según tus necesidades
+    if (now.year() != 2025) { // Ajusta el rango según tus necesidades
         //if (gps1.location.isUpdated()) { // Asegúrate de que se haya actualizado la ubicación
             int year = gps1.date.year();
             int month = gps1.date.month();

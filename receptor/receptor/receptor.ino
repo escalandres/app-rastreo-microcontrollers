@@ -15,6 +15,8 @@ HardwareSerial SIM800L(1);
 const char* SSID = "XXXXXX";
 const char* PASSWORD = "YYYYYYYYYYY";
 const String TOKEN = "ZZZZZZZZZZZZZZZZ";
+const String number = "+52AAAAAAAAA";
+
 /* Declaracion de puertos del ESP */
 const int LED = 2;
 const int READ_BTN = 4;
@@ -90,20 +92,28 @@ void loop() {
   if (SIM800L.available()) {
     Serial.println("Llegó algo");
     SIM800L.println("AT+CMGF=1"); // Modo texto
-    delay(500); // Esperar la respuesta
+    delay(1500); // Esperar la respuesta
     //String message = SIM800L.readString();
     String message = "";
     char incomingChar;
     // Bucle para leer todos los caracteres disponibles
     while (SIM800L.available()) {
-      incomingChar = SIM800L.read(); // Leer carácter por carácter
-      message += incomingChar; // Agregar carácter al mensaje
-      delay(10); // Pequeña pausa para asegurar la lectura completa
+      message = SIM800L.readString();
+//      incomingChar = SIM800L.read(); // Leer carácter por carácter
+//      message += incomingChar; // Agregar carácter al mensaje
+//      delay(10); // Pequeña pausa para asegurar la lectura completa
     }
     message = cleanString(message);
+    
     Serial.println("Leido: " + message);
-    int index = validarFormatoCMTI(message);
-    leerMensaje(index);
+    if(message.indexOf("ERROR") != -1){
+      Serial.println("Mensaje invalido. Descartar");
+      borrarTodosMensajes();
+    }else{
+      int index = validarFormatoCMTI(message);
+      leerMensaje(index);
+    }
+    
   }
 }
 
@@ -120,8 +130,31 @@ bool enviarMensaje(String message) {
   message = cleanString(message);
   Serial.println("Mensaje enviado: " + message); // Imprimir mensaje en el puerto serie para verificación
   bool isTrue = sendPostRequest(message); // Enviar el mensaje por HTTP POST
+  
   digitalWrite(LED, LOW); // Apagar el LED después de enviar el mensaje
   return isTrue;
+}
+
+void enviarComando(const char* comando, int espera = 1000) {
+  SIM800L.println(comando);
+  delay(espera);
+}
+
+void enviarMensajeRecibido(String SMS){
+  enviarComando("AT+CREG?",1000);
+  enviarComando("AT+CMGF=1",1000);
+  
+  //Serial.println ("Set SMS Number");
+  enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 3000); //Mobile phone number to send message
+
+  SIM800L.println(SMS);
+  delay(500);
+  SIM800L.println((char)26);// ASCII code of CTRL+Z
+  delay(500);
+  _buffer = _readSerial();
+
+  delay(2000);
+  //digitalWrite(MID_LED,LOW);
 }
 
 bool sendPostRequest(String message) {
@@ -211,9 +244,37 @@ void leerMensaje(const int &index) {
   String message = SIM800L.readString(); // Mostrar la respuesta completa 
   Serial.println("Respuesta hexadecimal del módulo:"); 
   Serial.println(message); 
-  bool isTrue = enviarMensaje(message); 
-  if(isTrue){ borrar1Mensaje(index); 
+  enviarMensajeRecibido(message);
+  if (message.indexOf("id:") != -1) {
+      bool isTrue = enviarMensaje(message); 
+      if(isTrue){ borrar1Mensaje(index); 
+      } else {
+          Serial.println("El texto NO contiene 'id:'");
+      }
+      
   } 
+
+  if (message == "BORRAR*") {
+      Serial.println("Borrando mensajes");
+      borrarTodosMensajes();
+      enviarMensajeRecibido("Mensajes eliminados");
+  } 
+  else if (message == "ESTATUS?") {
+    Serial.println("Obteniendo estatus");
+      SIM800L.println("AT"); // Verifica el funcionamiento del módulo
+      delay(1000);
+      
+      if (SIM800L.available()) {
+          String respuesta = SIM800L.readString();
+          enviarMensajeRecibido(respuesta);
+//          if (respuesta.indexOf("OK") != -1) {
+//              Serial.println("SIM800L está funcionando correctamente.");
+//          } else {
+//              Serial.println("Error: No hay respuesta del SIM800L.");
+//          }
+      }
+  }
+
 }
 
 int validarFormatoCMTI(String message) { 
