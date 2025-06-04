@@ -3,7 +3,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include <WiFiClientSecure.h>
+#include <WiFiClient.h>
 #include <pgmspace.h>
 
 /* Definiciones */
@@ -12,27 +12,11 @@ HardwareSerial SIM800L(1);
 const char* SSID = "IZZI-53E3";
 const char* PASSWORD = "F0AF853B53E3";
 const String TOKEN = "1fbb3d99ca08eedc1322ceefb678eb7ae3f6063459c39621b88a4ec83dc810eb";
-const String SERVER = "https://app-rastreo-backend.onrender.com";
+const String SERVER = "http://192.168.0.9:5322";
 const String URL = SERVER + "/api/tracker/upload-data";
 const String number = "+525545464585";
 
 const int LED = 2;
-
-/* Certificado raíz HTTPS */
-const char* rootCACertificate = \
-"-----BEGIN CERTIFICATE-----\n" \
-"MIICCTCCAY6gAwIBAgINAgPlwGjvYxqccpBQUjAKBggqhkjOPQQDAzBHMQswCQYD\n" \
-"VQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEUMBIG\n" \
-"A1UEAxMLR1RTIFJvb3QgUjQwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIyMDAwMDAw\n" \
-"WjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2Vz\n" \
-"IExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjQwdjAQBgcqhkjOPQIBBgUrgQQAIgNi\n" \
-"AATzdHOnaItgrkO4NcWBMHtLSZ37wWHO5t5GvWvVYRg1rkDdc/eJkTBa6zzuhXyi\n" \
-"QHY7qca4R9gq55KRanPpsXI5nymfopjTX15YhmUPoYRlBtHci8nHc8iMai/lxKvR\n" \
-"HYqjQjBAMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW\n" \
-"BBSATNbrdP9JNqPV2Py1PsVq8JQdjDAKBggqhkjOPQQDAwNpADBmAjEA6ED/g94D\n" \
-"9J+uHXqnLrmvT/aDHQ4thQEd0dlq7A/Cr8deVl5c1RxYIigL9zC2L7F8AjEA8GE8\n" \
-"p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD\n" \
-"-----END CERTIFICATE-----\n";
 
 /* Variables globales */
 int _timeout;
@@ -94,8 +78,7 @@ bool enviarPostRequest(String message) {
     return false;
   }
 
-  WiFiClientSecure client;
-  client.setCACert(rootCACertificate);
+  WiFiClient client;
   HTTPClient http;
 
   http.setTimeout(90000);
@@ -115,7 +98,9 @@ bool enviarPostRequest(String message) {
   if (httpCode > 0) {
     Serial.println("Respuesta servidor: " + http.getString());
     http.end();
-    return true;
+    if(httpCode == 200) return true;
+
+    return false;
   } else {
     Serial.println("Error en POST");
     http.end();
@@ -198,7 +183,6 @@ String splitMessage(String input) {
     return dataPart;
 }
 
-
 /* Loop principal */
 void loop() {
   if (Serial.available() > 0) {
@@ -231,8 +215,9 @@ void loop() {
       if (message.indexOf("id:") != -1) {
         if (enviarPostRequest(message)) {
           enviarMensajeRecibido("Mensaje enviado al servidor");
+          
         }else{
-          enviarMensajeRecibido("Ocurrió un error al enviar al servidor");
+          enviarMensajeRecibido("Ocurrio un error al enviar al servidor");
         }
 
         String payload = splitMessage(message);
