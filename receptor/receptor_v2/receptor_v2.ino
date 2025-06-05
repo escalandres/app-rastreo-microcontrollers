@@ -94,6 +94,8 @@ bool enviarPostRequest(String message) {
     return false;
   }
 
+  Serial.println("Enviando peticion a: " + URL);
+
   WiFiClientSecure client;
   client.setCACert(rootCACertificate);
   HTTPClient http;

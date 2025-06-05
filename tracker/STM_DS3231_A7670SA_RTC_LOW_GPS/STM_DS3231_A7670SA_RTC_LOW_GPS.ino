@@ -49,7 +49,7 @@ void configureAlarm(){
   rtc.disableAlarm(2);
 
   //Set Alarm to be trigged in X 
-  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 3, 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
+  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 1, 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
 
   alarmFired = false;
 }
@@ -82,10 +82,10 @@ void setup() {
          rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
    }
    
-  // rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
+  rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
             // al momento de la compilacion. Comentar esta linea
             // y volver a subir para normal operacion
-  rtc.adjust(DateTime(2024, 11, 22, 10, 22, 11)); 
+  //rtc.adjust(DateTime(2024, 11, 22, 10, 22, 11)); 
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
   configureAlarm();
@@ -242,7 +242,7 @@ void SendMessage(String datosGPS)
 
 String createMessageToSend(String datosGPS, String cellTowerInfo, String batteryCharge){
 
-  if(rtc.now().year() != 2025 || rtc.now().day() == 123) corregirRTC();
+  if(rtc.now().year() != 2025 || rtc.now().day() > 31 || rtc.now().day() < 0) corregirRTC();
   
   DateTime now = rtc.now();
 
@@ -335,9 +335,6 @@ String leerYGuardarGPS() {
         delay(50);
         intentos++;
     }
-
-    corregirRTC();
-
     // Si NO hay conexión con satélites, actualiza los valores a 0.0 en el STM32
     if (!ubicacionActualizada || gps1.satellites.value() == 0) {
         latitude = "0.0";
@@ -348,6 +345,7 @@ String leerYGuardarGPS() {
 }
 
 void corregirRTC() {
+    //enviarMensaje("Corrigiendo RTC");
     DateTime now = rtc.now();
     if (now.year() != 2025) {
         if (gps1.date.isValid() && gps1.time.isValid()) {
