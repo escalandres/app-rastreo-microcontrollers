@@ -28,8 +28,8 @@ int _timeout;
 String _buffer;
 
 //const String number = "+525620577600"; //Oxxo Cel
-const String number = "+525554743913"; //Telcel
-//const String number = "+525545464585"; //Telcel
+//const String number = "+525554743913"; //Telcel
+const String number = "+525545464585"; //Telcel
 
 unsigned long chars;
 unsigned short sentences, failed_checksum;
@@ -77,15 +77,15 @@ void setup() {
     while (1);         // bucle infinito que detiene ejecucion del programa
   }
 
-  // if(rtc.lostPower()) {
-  //       // this will adjust to the date and time at compilation
-  //       rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  // }
+   if(rtc.lostPower()) {
+         // this will adjust to the date and time at compilation
+         rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+   }
    
   // rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
             // al momento de la compilacion. Comentar esta linea
             // y volver a subir para normal operacion
-  rtc.adjust(DateTime(2024, 11, 22, 10, 22, 00)); 
+  rtc.adjust(DateTime(2024, 11, 22, 10, 22, 11)); 
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
   configureAlarm();
@@ -349,8 +349,8 @@ String leerYGuardarGPS() {
 
 void corregirRTC() {
     DateTime now = rtc.now();
-    if (now.year() != 2025) { // Ajusta el rango según tus necesidades
-        //if (gps1.location.isUpdated()) { // Asegúrate de que se haya actualizado la ubicación
+    if (now.year() != 2025) {
+        if (gps1.date.isValid() && gps1.time.isValid()) {
             int year = gps1.date.year();
             int month = gps1.date.month();
             int day = gps1.date.day();
@@ -358,12 +358,23 @@ void corregirRTC() {
             int minute = gps1.time.minute();
             int second = gps1.time.second();
 
-            // Ajustar el RTC con la fecha y hora del GPS
-            rtc.adjust(DateTime(year, month, day, hour, minute, second));
-            //Serial.println("RTC ajustado a la fecha y hora del GPS.");
-        //} 
+            // Validar que no vengan ceros o fechas erróneas
+            if (year >= 2024 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                rtc.adjust(DateTime(year, month, day, hour, minute, second));
+                Serial.println("RTC ajustado a la fecha y hora del GPS.");
+            } else {
+                // Si la fecha es inválida, ajustar a una hora fija de respaldo
+                rtc.adjust(DateTime(2025, 1, 1, 0, 0, 0));
+                Serial.println("RTC ajustado a hora predeterminada por datos inválidos.");
+            }
+        } else {
+            // Si no hay datos válidos en el GPS
+            rtc.adjust(DateTime(2025, 1, 1, 0, 0, 0));
+            Serial.println("RTC ajustado a hora predeterminada por falta de datos.");
+        }
     }
 }
+
 
 String getCellInfo() {
 
