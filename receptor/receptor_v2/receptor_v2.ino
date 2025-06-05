@@ -9,8 +9,10 @@
 /* Definiciones */
 HardwareSerial SIM800L(1);
 
-const char* SSID = "IZZI-53E3";
-const char* PASSWORD = "F0AF853B53E3";
+const char* SSID = "SKLA-H90";
+const char* PASSWORD = "PagaTuWifi";
+//const char* SSID = "IZZI-53E3";
+//const char* PASSWORD = "F0AF853B53E3";
 const String TOKEN = "1fbb3d99ca08eedc1322ceefb678eb7ae3f6063459c39621b88a4ec83dc810eb";
 const String SERVER = "https://app-rastreo-backend.onrender.com";
 const String URL = SERVER + "/api/tracker/upload-data";
@@ -123,6 +125,32 @@ bool enviarPostRequest(String message) {
   }
 }
 
+/* Enviar GET HTTPS */
+String checkServerEstatus() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi no conectado");
+    return "WiFi no conectado";
+  }
+
+  WiFiClientSecure client;
+  client.setCACert(rootCACertificate);
+  HTTPClient http;
+
+  http.setTimeout(90000);
+  // Construimos la URL con los parámetros necesarios
+  String urlWithParams = SERVER + "/test";
+  http.begin(client, urlWithParams);
+  http.addHeader("Authorization", "Bearer " + TOKEN);
+
+  Serial.println("Enviando GET a: " + urlWithParams);
+  int httpCode = http.GET(); // Cambiamos a GET
+  String response = String(httpCode) + " - Respuesta servidor: " + http.getString();
+  Serial.println("HTTP Response: " + response);
+  http.end();
+  return response;
+}
+
+
 /* Leer SMS */
 void leerMensaje(int index) {
   SIM800L.println("AT+CMGR=" + String(index));
@@ -146,6 +174,10 @@ void leerMensaje(int index) {
     SIM800L.println("AT");
     delay(500);
     enviarMensajeRecibido(SIM800L.readString());
+  } else if (message == "SERVER?") {
+    String response = checkServerEstatus();
+    delay(500);
+    enviarMensajeRecibido(response);
   }
 }
 
@@ -175,6 +207,8 @@ void setup() {
   enviarComando("AT+CMGF=1");
   borrarTodosMensajes();
   recibirMensajes();
+
+  checkServerEstatus();
   digitalWrite(LED, LOW);
 }
 

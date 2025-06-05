@@ -49,7 +49,7 @@ void configureAlarm(){
   rtc.disableAlarm(2);
 
   //Set Alarm to be trigged in X 
-  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 3, 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
+  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 1, 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
 
   alarmFired = false;
 }
@@ -242,7 +242,8 @@ void SendMessage(String datosGPS)
 
 String createMessageToSend(String datosGPS, String cellTowerInfo, String batteryCharge){
 
-  if(rtc.now().year() != 2025 || rtc.now().day() == 123) corregirRTC();
+  //Verificar si el RTC tiene la hora y fecha correcta
+  corregirRTC();
   
   DateTime now = rtc.now();
 
@@ -336,10 +337,8 @@ String leerYGuardarGPS() {
         intentos++;
     }
 
-    corregirRTC();
-
     // Si NO hay conexión con satélites, actualiza los valores a 0.0 en el STM32
-    if (!ubicacionActualizada || gps1.satellites.value() == 0) {
+    if (!ubicacionActualizada || gps1.satellites.value() == 0 || (nuevaLat == "" && nuevaLon == "")) {
         latitude = "0.0";
         longitude = "0.0";
     }
@@ -348,8 +347,11 @@ String leerYGuardarGPS() {
 }
 
 void corregirRTC() {
+    enviarMensaje("Verificando RTC....");
     DateTime now = rtc.now();
-    if (now.year() != 2025) {
+    if (now.year() != 2025 ) {
+      delay(1500);
+      enviarMensaje("Actualizando RTC....");
         if (gps1.date.isValid() && gps1.time.isValid()) {
             int year = gps1.date.year();
             int month = gps1.date.month();
@@ -359,18 +361,18 @@ void corregirRTC() {
             int second = gps1.time.second();
 
             // Validar que no vengan ceros o fechas erróneas
-            if (year >= 2024 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            if (year > 2024 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
                 rtc.adjust(DateTime(year, month, day, hour, minute, second));
-                Serial.println("RTC ajustado a la fecha y hora del GPS.");
+                enviarMensaje("RTC ajustado a la fecha y hora del GPS.");
             } else {
                 // Si la fecha es inválida, ajustar a una hora fija de respaldo
-                rtc.adjust(DateTime(2025, 1, 1, 0, 0, 0));
-                Serial.println("RTC ajustado a hora predeterminada por datos inválidos.");
+                rtc.adjust(DateTime(2024, 1, 1, 0, 0, 0));
+                enviarMensaje("RTC ajustado a hora predeterminada por datos inválidos.");
             }
         } else {
             // Si no hay datos válidos en el GPS
-            rtc.adjust(DateTime(2025, 1, 1, 0, 0, 0));
-            Serial.println("RTC ajustado a hora predeterminada por falta de datos.");
+            rtc.adjust(DateTime(2024, 1, 1, 0, 0, 0));
+            enviarMensaje("RTC ajustado a hora predeterminada por falta de datos.");
         }
     }
 }
