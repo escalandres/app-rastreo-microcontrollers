@@ -82,10 +82,10 @@ void setup() {
          rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
    }
    
-  // rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
+  rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
             // al momento de la compilacion. Comentar esta linea
             // y volver a subir para normal operacion
-  rtc.adjust(DateTime(2024, 11, 22, 10, 22, 11)); 
+  //rtc.adjust(DateTime(2024, 11, 22, 10, 22, 11)); 
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
   configureAlarm();
@@ -348,6 +348,7 @@ String leerYGuardarGPS() {
 
 void corregirRTC() {
     enviarMensaje("Verificando RTC....");
+
     DateTime now = rtc.now();
     if (now.year() != 2025 ) {
       delay(1500);
