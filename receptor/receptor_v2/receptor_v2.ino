@@ -140,7 +140,7 @@ String checkServerEstatus() {
 
   http.setTimeout(90000);
   // Construimos la URL con los parámetros necesarios
-  String urlWithParams = SERVER + "/test";
+  String urlWithParams = SERVER + "/api/tracker/test";
   http.begin(client, urlWithParams);
   http.addHeader("Authorization", "Bearer " + TOKEN);
 
@@ -275,8 +275,8 @@ void loop() {
         Serial.println("payload: " + payload);
         delay(2000);
         enviarMensajeRecibido(payload);
-        delay(3000);
-        enviarMensajeRecibido("Test de envío SIM800L");
+        //delay(3000);
+        //enviarMensajeRecibido("Test de envío SIM800L");
       } else if (message.indexOf("BORRAR*") != -1) {
         Serial.println("Solicitando borrar mensajes en buffer");
         borrarTodosMensajes();
@@ -286,6 +286,10 @@ void loop() {
         SIM800L.println("AT");
         delay(500);
         enviarMensajeRecibido(SIM800L.readString());
+      } else if (message.indexOf("SERVER?")) {
+        String response = checkServerEstatus();
+        delay(500);
+        enviarMensajeRecibido(response);
       }
     }
   }
