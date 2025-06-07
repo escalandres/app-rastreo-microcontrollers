@@ -28,8 +28,8 @@ int _timeout;
 String _buffer;
 
 //const String number = "+525620577600"; //Oxxo Cel
-//const String number = "+525554743913"; //Telcel
-const String number = "+525545464585"; //Telcel
+const String number = "+525554743913"; //Telcel
+//const String number = "+525545464585"; //Telcel
 
 unsigned long chars;
 unsigned short sentences, failed_checksum;
@@ -323,7 +323,7 @@ String leerYGuardarGPS() {
             gps1.encode(c);
 
             // Verifica si la ubicación es válida y hay satélites disponibles
-            if (gps1.location.isValid() && gps1.satellites.value() > 0) { 
+            if (gps1.location.isUpdated() && gps1.location.isValid() && gps1.satellites.value() > 0) { 
                 nuevaLat = String(gps1.location.lat(), 6);
                 nuevaLon = String(gps1.location.lng(), 6);
 
@@ -338,7 +338,7 @@ String leerYGuardarGPS() {
     }
 
     // Si NO hay conexión con satélites, actualiza los valores a 0.0 en el STM32
-    if (!ubicacionActualizada || gps1.satellites.value() == 0 || (nuevaLat == "" && nuevaLon == "")) {
+    if (gps1.satellites.value() == 0 || latitude == "" || longitude == "") {
         latitude = "0.0";
         longitude = "0.0";
     }
@@ -347,12 +347,12 @@ String leerYGuardarGPS() {
 }
 
 void corregirRTC() {
-    enviarMensaje("Verificando RTC....");
+    //enviarMensaje("Verificando RTC....");
 
     DateTime now = rtc.now();
     if (now.year() != 2025 ) {
       delay(1500);
-      enviarMensaje("Actualizando RTC....");
+      //enviarMensaje("Actualizando RTC....");
         if (gps1.date.isValid() && gps1.time.isValid()) {
             int year = gps1.date.year();
             int month = gps1.date.month();
@@ -436,15 +436,7 @@ String getCellInfo() {
     //digitalWrite(RIGHT_LED, LOW);
     // Convertir de Hex a Decimal
     lac = hexToDec(lac);
-    //enviarMensaje("Torre celular");
-    // Construir JSON corregido
-    // String json = "{";
-    // json += "\"red\":\"" + red + "\",";
-    // json += "\"mcc\":\"" + mcc + "\",";
-    // json += "\"mnc\":\"" + mnc + "\",";
-    // json += "\"lac\":\"" + lac + "\",";
-    // json += "\"cid\":\"" + cellId + "\"";
-    // json += "}";
+
     String json = "red:" + red + ",";
     json += "mcc:" + mcc + ",";
     json += "mnc:" + mnc + ",";
