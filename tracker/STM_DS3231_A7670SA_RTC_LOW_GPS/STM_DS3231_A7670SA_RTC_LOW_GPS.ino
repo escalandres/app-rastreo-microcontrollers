@@ -20,7 +20,8 @@ const int MID_LED = PA7;
 const int RIGHT_LED = PB3;
 const int BATERIA = PA0;
 String latitude, longitude;
-
+//float voltajeBateria = 0.0;
+//const float alpha = 0.1;
 /* Constantes y Variables Globales */
 const int ID = 48273619;
 
@@ -28,8 +29,8 @@ int _timeout;
 String _buffer;
 
 //const String number = "+525620577600"; //Oxxo Cel
-const String number = "+525554743913"; //Telcel
-//const String number = "+525545464585"; //Telcel
+//const String number = "+525554743913"; //Telcel
+const String number = "+525545464585"; //Telcel
 
 unsigned long chars;
 unsigned short sentences, failed_checksum;
@@ -68,7 +69,7 @@ void setup() {
   pinMode(LEFT_LED, OUTPUT);
   pinMode(MID_LED, OUTPUT);
   pinMode(RIGHT_LED, OUTPUT);
-
+  analogReadResolution(12);
   digitalWrite(STM_LED, LOW);
   //digitalWrite(LEFT_LED, HIGH);
 
@@ -456,19 +457,37 @@ String hexToDec(String hexStr) {
 String obtenerVoltajeBateria(){
   //apagarLED();
   //digitalWrite(LEFT_LED,HIGH);
+  //enviarMensaje("obtenerVoltajeBateria");
     float voltaje = leerVoltaje(BATERIA);
+    //enviarMensaje("Voltaje:"+String(voltaje));
+//    float voltaje = leerVoltajeSuavizado(BATERIA, voltajeBateria, alpha);
     int nivelBateria = calcularNivelBateria(voltaje);
-
+//enviarMensaje("nivelBateria:"+String(nivelBateria));
     String sms = "nb:"+ String(nivelBateria);
     //digitalWrite(LEFT_LED,LOW);
     return sms;
 }
 
+//float leerVoltaje(int pin) {
+//    int lecturaADC = analogRead(pin);
+//    float voltajeSalida = (lecturaADC / 4095.0) * 3.3;
+//    float voltajeBateria = voltajeSalida * 4.3;  // Ajusta según tu divisor
+//    return voltajeBateria;
+//}
+
 float leerVoltaje(int pin) {
     int lecturaADC = analogRead(pin);
-    float voltaje = (lecturaADC / 1023.0) * 5.0; // Convierte lectura ADC a voltaje (ajusta si usas divisor)
-    return voltaje;
+    float voltajeSalida = (lecturaADC * 3.3) / 4095.0;
+    float voltajeBateria = voltajeSalida / 0.758;  // Ajusta según tu divisor
+    return voltajeBateria;
 }
+
+//float leerVoltajeSuavizado(int pin, float anterior, float alpha) {
+//  float lectura = analogRead(pin) * 3.3 / 4095.0 / 0.758;
+//  return (alpha * lectura) + ((1 - alpha) * anterior);
+//}
+
+
 
 int calcularNivelBateria(float voltaje) {
   const float voltajeMax = 4.2; // Voltaje máximo de la batería (por ejemplo, Li-Ion)
