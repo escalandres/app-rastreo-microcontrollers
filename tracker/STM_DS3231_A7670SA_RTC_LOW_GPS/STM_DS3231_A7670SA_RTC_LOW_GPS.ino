@@ -28,9 +28,9 @@ const int ID = 48273619;
 int _timeout;
 String _buffer;
 
-//const String number = "+525620577600"; //Oxxo Cel
+const String number = "+525620577634"; //Oxxo Cel
 //const String number = "+525554743913"; //Telcel
-const String number = "+525545464585"; //Telcel
+//const String number = "+525545464585"; //Telcel
 
 unsigned long chars;
 unsigned short sentences, failed_checksum;
@@ -50,10 +50,48 @@ void configureAlarm(){
   rtc.disableAlarm(2);
 
   //Set Alarm to be trigged in X 
-  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 1, 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
+  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 1 , 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
 
   alarmFired = false;
 }
+
+void setUpdateRate(Stream &gps) {
+  // UBX-CFG-RATE: set update rate to 10000 ms (0.1 Hz)
+  byte rateCfg[] = {
+    0xB5, 0x62,       // Sync chars
+    0x06, 0x08,       // Class = CFG, ID = RATE
+    0x06, 0x00,       // Length = 6
+    0x10, 0x27,       // measRate = 10000 ms (0x2710)
+    0x01, 0x00,       // navRate = 1
+    0x01, 0x00        // timeRef = 1 (GPS time)
+  };
+  gps.write(rateCfg, sizeof(rateCfg));
+}
+
+void disableNMEAMessages(Stream &gps) {
+  // Formato: UBX-CFG-MSG (Clase 0xF0 = NMEA, ID = tipo de mensaje)
+  byte msgs[][9] = {
+    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x00, 0x00}, // GxGGA
+    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x01, 0x00}, // GxGLL
+    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x02, 0x00}, // GxGSA
+    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x03, 0x00}, // GxGSV
+    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x05, 0x00}, // GxVTG
+    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x06, 0x00}  // GxGRS
+  };
+
+  for (int i = 0; i < sizeof(msgs) / sizeof(msgs[0]); i++) {
+    gps.write(msgs[i], sizeof(msgs[i]));
+    delay(50); // Pequeña pausa entre comandos
+  }
+}
+
+void configureGPS(Stream &gps){
+  delay(500); // Esperar a que el GPS esté listo tras el power-up
+  setUpdateRate(gps);
+  delay(500); // Pausa corta entre comandos
+  disableNMEAMessages(gps);
+}
+
 
 void setup() {
   // put your setup code here, to run once:
@@ -72,6 +110,8 @@ void setup() {
   analogReadResolution(12);
   digitalWrite(STM_LED, LOW);
   //digitalWrite(LEFT_LED, HIGH);
+
+  configureGPS(NEO8M);
 
   if (!rtc.begin()) {        // si falla la inicializacion del modulo
     //Serial.println("Modulo RTC no encontrado !");  // muestra mensaje de error
