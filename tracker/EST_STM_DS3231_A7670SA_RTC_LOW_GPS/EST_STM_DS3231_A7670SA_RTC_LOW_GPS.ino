@@ -17,17 +17,20 @@ const int SQW_PIN = PB0;
 const int STM_LED = PC13;
 const int BATERIA = PA0;
 String latitude, longitude;
+const float factorDivisor = 4.3; // Relación de tu divisor 33k/10k
+const float voltajeMax = 4.2;
+const float voltajeMin = 3.0;
 //float voltajeBateria = 0.0;
 //const float alpha = 0.1;
 /* Constantes y Variables Globales */
-const int ID = 48273619;
+const int ID = 59102473;
 
 int _timeout;
 String _buffer;
 
-const String number = "+525620577634"; //Oxxo Cel
+//const String number = "+525620577634"; //Oxxo Cel
 //const String number = "+525554743913"; //Telcel
-//const String number = "+525545464585"; //Telcel
+const String number = "+525545464585"; //Telcel
 
 unsigned long chars;
 unsigned short sentences, failed_checksum;
@@ -47,7 +50,7 @@ void configureAlarm(){
   rtc.disableAlarm(2);
 
   //Set Alarm to be trigged in X 
-  rtc.setAlarm1(rtc.now() + TimeSpan(0, 1, 0 , 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
+  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 2, 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
 
   alarmFired = false;
 }
@@ -94,7 +97,8 @@ void setup() {
   // put your setup code here, to run once:
   Wire.begin();
   _buffer.reserve(50);
-  A7670SA.begin(115200);
+  //A7670SA.begin(115200);
+  A7670SA.begin(9600);
   NEO8M.begin(9600);
 
   /* COnfiguracion de puertos */
@@ -115,18 +119,17 @@ void setup() {
    if(rtc.lostPower()) {
          // this will adjust to the date and time at compilation
          //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-         DateTime localTime(__DATE__, __TIME__);
-        DateTime utcTime = localTime + TimeSpan(6 * 3600); // Sumas 6 horas
-        rtc.adjust(utcTime);
    }
    
   //rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
             // al momento de la compilacion. Comentar esta linea
             // y volver a subir para normal operacion
+  //rtc.adjust(DateTime(2024, 11, 22, 10, 22, 11)); 
   DateTime localTime(__DATE__, __TIME__);
   DateTime utcTime = localTime + TimeSpan(6 * 3600); // Sumas 6 horas
+  
   rtc.adjust(utcTime);
-  //rtc.adjust(DateTime(2024, 11, 22, 10, 22, 11)); 
+
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
   configureAlarm();
@@ -136,7 +139,7 @@ void setup() {
   delay(2000);
   digitalWrite(STM_LED,HIGH);
   //digitalWrite(LEFT_LED,LOW);
-  sleepA7670SA(true);
+  ////sleepA7670SA(true);
   // Configure low power
   LowPower.begin();
   // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
@@ -151,13 +154,13 @@ void loop() {
     digitalWrite(STM_LED, HIGH);
     delay(2000);
     digitalWrite(STM_LED,LOW);
-    sleepA7670SA(false);
     //sleepA7670SA(false);
-    startA7670SA();
+    //sleepA7670SA(false);
+    //startA7670SA();
     String datosGPS = leerYGuardarGPS();
 
     SendMessage(datosGPS);
-    sleepA7670SA(true);
+    ////sleepA7670SA(true);
     configureAlarm();
     //LowPower.sleep();
     LowPower.deepSleep();
@@ -245,8 +248,8 @@ void flushA7670SA() {
 void enviarMensaje(String SMS)
 {
   //digitalWrite(MID_LED,HIGH);
-  startA7670SA();
-  enviarComando("AT+CREG?",1000);
+  ////startA7670SA();
+  //enviarComando("AT+CREG?",1000);
   enviarComando("AT+CMGF=1",1000);
   
   //Serial.println ("Set SMS Number");
@@ -302,54 +305,6 @@ String createMessageToSend(String datosGPS, String cellTowerInfo, String battery
     output += datosGPS;
   return output;
 }
-
-//String leerYGuardarGPS() {
-//  //enviarMensaje(" ---Buscando señal--- ");
-//
-//  String nuevaLat = "";
-//  String nuevaLon = "";
-//  String anteriorLat = latitude;  
-//  String anteriorLon = longitude;
-//  bool ubicacionActualizada = false;
-//  unsigned long startTime = millis();
-//  int intentos = 0;
-//
-//  while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) { 
-//    while (NEO8M.available()) {
-//      char c = NEO8M.read();
-//      gps1.encode(c);
-//      if (gps1.location.isUpdated()) { 
-//        nuevaLat = String(gps1.location.lat(), 6);
-//        nuevaLon = String(gps1.location.lng(), 6);
-//        //corregirRTC();
-//        if (nuevaLat != anteriorLat || nuevaLon != anteriorLon) { 
-//          latitude = nuevaLat;
-//          longitude = nuevaLon;
-//          ubicacionActualizada = true;
-//          break;
-//        }
-//      }
-//    }
-//    delay(50); 
-//    intentos++;
-//  }
-//
-//  //digitalWrite(RIGHT_LED, LOW);
-//  corregirRTC();
-//  if(!ubicacionActualizada){
-//    nuevaLat = latitude;
-//    nuevaLon = longitude;
-//  }
-//
-//  if (nuevaLat == "" || nuevaLon == "") {
-//    nuevaLat = "0.0";
-//    nuevaLon = "0.0";
-//  }
-//
-//  // return "\"lat\":\"" + nuevaLat + "\",\"lon\":\"" + nuevaLon + "\"";
-//  return "lat:" + nuevaLat + ",lon:" + nuevaLon;
-//
-//}
 
 String leerYGuardarGPS() {
     String nuevaLat = "";
@@ -420,65 +375,136 @@ void corregirRTC() {
 }
 
 
+//String getCellInfo() {
+//
+//    //apagarLED();
+//
+//    String lac = "";
+//    String cellId = "";
+//    String mcc = "";
+//    String mnc = "";
+//    String red = "";
+//
+//    // Solicitar información de la red con A7670SA
+//    flushA7670SA();
+//    enviarComando("AT+CPSI?",2000);
+//    String cpsiResponse = readA7670SAResponse();
+//    //enviarMensaje("CPSI" + cpsiResponse);
+//    // Extraer datos de la respuesta de AT+CPSI?
+//    int startIndex = cpsiResponse.indexOf("CPSI:");
+//    //enviarMensaje("startIndex" + startIndex);
+//    if (startIndex != -1) {
+//        startIndex += 6; // Mover el índice después de "CPSI: "
+//
+//        // Verificar si es LTE o GSM
+//        if (cpsiResponse.startsWith("LTE", startIndex)) {
+//            red = "lte";
+//            startIndex += 4; // Mover el índice después de "LTE,"
+//        } else if (cpsiResponse.startsWith("GSM", startIndex)) {
+//            red = "gsm";
+//            startIndex += 4; // Mover el índice después de "GSM,"
+//        } else {
+//            return "{}"; // Si no es ni GSM ni LTE, devolver JSON vacío
+//        }
+//
+//        // Extraer MCC-MNC correctamente
+//        int mccMncStart = cpsiResponse.indexOf(",", startIndex) + 1;
+//        int mccMncEnd = cpsiResponse.indexOf(",", mccMncStart);
+//        String mccMncRaw = cpsiResponse.substring(mccMncStart, mccMncEnd);
+//
+//        // Separar MCC y MNC
+//        int separatorIndex = mccMncRaw.indexOf("-");
+//        if (separatorIndex != -1) {
+//            mcc = mccMncRaw.substring(0, separatorIndex);  // MCC
+//            mnc = mccMncRaw.substring(separatorIndex + 1); // MNC
+//        }
+//
+//        // Extraer LAC
+//        int lacStart = mccMncEnd + 1;
+//        int lacEnd = cpsiResponse.indexOf(",", lacStart);
+//        lac = cpsiResponse.substring(lacStart, lacEnd);
+//
+//        // Extraer Cell ID
+//        int cellIdStart = lacEnd + 1;
+//        int cellIdEnd = cpsiResponse.indexOf(",", cellIdStart);
+//        cellId = cpsiResponse.substring(cellIdStart, cellIdEnd);
+//    }
+//    //digitalWrite(RIGHT_LED, LOW);
+//    // Convertir de Hex a Decimal
+//    lac = hexToDec(lac);
+//
+//    String json = "red:" + red + ",";
+//    json += "mcc:" + mcc + ",";
+//    json += "mnc:" + mnc + ",";
+//    json += "lac:" + lac + ",";
+//    json += "cid:" + cellId;
+//    //enviarMensaje(json);
+//    return json;
+//}
+
 String getCellInfo() {
+  String lac = "";
+  String cellId = "";
+  String mcc = "";
+  String mnc = "";
 
-    //apagarLED();
+  // Configurar el modo extendido para incluir LAC y Cell ID
+  flushA7670SA();
+  A7670SA.println("AT+CREG=2");
+  delay(500);
 
-    String lac = "";
-    String cellId = "";
-    String mcc = "";
-    String mnc = "";
-    String red = "";
+  // Solicitar informacion de registro
+  flushA7670SA();
+  A7670SA.println("AT+CREG?");
+  String cregResponse = readA7670SAResponse();
 
-    // Solicitar información de la red con A7670SA
-    flushA7670SA();
-    enviarComando("AT+CPSI?",2000);
-    String cpsiResponse = readA7670SAResponse();
-    //enviarMensaje("CPSI" + cpsiResponse);
-    // Extraer datos de la respuesta de AT+CPSI?
-    int startIndex = cpsiResponse.indexOf("CPSI:");
-    //enviarMensaje("startIndex" + startIndex);
-    if (startIndex != -1) {
-        startIndex += 6; // Mover el índice después de "CPSI: "
+  // Serial.println("Respuesta AT+CREG?: " + cregResponse);
 
-        // Verificar si es LTE o GSM
-        if (cpsiResponse.startsWith("LTE", startIndex)) {
-            red = "lte";
-            startIndex += 4; // Mover el índice después de "LTE,"
-        } else if (cpsiResponse.startsWith("GSM", startIndex)) {
-            red = "gsm";
-            startIndex += 4; // Mover el índice después de "GSM,"
-        } else {
-            return "{}"; // Si no es ni GSM ni LTE, devolver JSON vacío
-        }
+  int lacStart = cregResponse.indexOf("\"");
+  int lacEnd = cregResponse.indexOf("\"", lacStart + 1);
+  int cellIdStart = cregResponse.indexOf("\"", lacEnd + 1);
+  int cellIdEnd = cregResponse.indexOf("\"", cellIdStart + 1);
 
-        // Extraer MCC-MNC correctamente
-        int mccMncStart = cpsiResponse.indexOf(",", startIndex) + 1;
-        int mccMncEnd = cpsiResponse.indexOf(",", mccMncStart);
-        String mccMncRaw = cpsiResponse.substring(mccMncStart, mccMncEnd);
+  if (lacStart != -1 && lacEnd != -1 && cellIdStart != -1 && cellIdEnd != -1) {
+    lac = cregResponse.substring(lacStart + 1, lacEnd);
+    cellId = cregResponse.substring(cellIdStart + 1, cellIdEnd);
+  } else {
+    //Serial.println("Error al parsear LAC y Cell ID");
+  }
 
-        // Separar MCC y MNC
-        int separatorIndex = mccMncRaw.indexOf("-");
-        if (separatorIndex != -1) {
-            mcc = mccMncRaw.substring(0, separatorIndex);  // MCC
-            mnc = mccMncRaw.substring(separatorIndex + 1); // MNC
-        }
+  // Convertir de HEX a DEC si es necesario
+  lac = hexToDec(lac);
+  cellId = hexToDec(cellId);
 
-        // Extraer LAC
-        int lacStart = mccMncEnd + 1;
-        int lacEnd = cpsiResponse.indexOf(",", lacStart);
-        lac = cpsiResponse.substring(lacStart, lacEnd);
+  // Obtener el operador actual
+  flushA7670SA();
+  A7670SA.println("AT+COPS?");
+  String copsResponse = readA7670SAResponse();
 
-        // Extraer Cell ID
-        int cellIdStart = lacEnd + 1;
-        int cellIdEnd = cpsiResponse.indexOf(",", cellIdStart);
-        cellId = cpsiResponse.substring(cellIdStart, cellIdEnd);
+  // Serial.println("Respuesta AT+COPS?: " + copsResponse);
+
+  int opStart = copsResponse.indexOf("\"");
+  int opEnd = copsResponse.indexOf("\"", opStart + 1);
+
+  if (opStart != -1 && opEnd != -1) {
+    String operatorCode = copsResponse.substring(opStart + 1, opEnd); // Ej: 334020
+
+    if (operatorCode.length() >= 5) {
+      mcc = operatorCode.substring(0, 3);
+      mnc = operatorCode.substring(3);
+    } else {
+      mcc = "000";
+      mnc = "000";
     }
-    //digitalWrite(RIGHT_LED, LOW);
-    // Convertir de Hex a Decimal
-    lac = hexToDec(lac);
 
-    String json = "red:" + red + ",";
+    //operatorName = operatorCode;  // O si quieres, mantén el nombre original
+  } else {
+    //operatorName = "Desconocido";
+    mcc = "000";
+    mnc = "000";
+  }
+
+  String json = "red:gsm,";
     json += "mcc:" + mcc + ",";
     json += "mnc:" + mnc + ",";
     json += "lac:" + lac + ",";
@@ -486,7 +512,6 @@ String getCellInfo() {
     //enviarMensaje(json);
     return json;
 }
-
 
 String hexToDec(String hexStr) {
   long decVal = strtol(hexStr.c_str(), NULL, 16);
@@ -497,48 +522,24 @@ String hexToDec(String hexStr) {
 String obtenerVoltajeBateria(){
   //apagarLED();
   //digitalWrite(LEFT_LED,HIGH);
-  //enviarMensaje("obtenerVoltajeBateria");
     float voltaje = leerVoltaje(BATERIA);
-    //enviarMensaje("Voltaje:"+String(voltaje));
-//    float voltaje = leerVoltajeSuavizado(BATERIA, voltajeBateria, alpha);
+    //enviarMensaje("Voltaje:"+String(voltaje,2));
     int nivelBateria = calcularNivelBateria(voltaje);
-//enviarMensaje("nivelBateria:"+String(nivelBateria));
+    //enviarMensaje("nivelBateria:"+String(nivelBateria));
     String sms = "nb:"+ String(nivelBateria);
     //digitalWrite(LEFT_LED,LOW);
     return sms;
 }
 
-//float leerVoltaje(int pin) {
-//    int lecturaADC = analogRead(pin);
-//    float voltajeSalida = (lecturaADC / 4095.0) * 3.3;
-//    float voltajeBateria = voltajeSalida * 4.3;  // Ajusta según tu divisor
-//    return voltajeBateria;
-//}
-
 float leerVoltaje(int pin) {
     int lecturaADC = analogRead(pin);
-    float voltajeSalida = (lecturaADC * 3.3) / 4095.0;
-    float voltajeBateria = voltajeSalida / 0.758;  // Ajusta según tu divisor
+    float voltajeSalida = (lecturaADC / 4095.0) * 3.3;
+    float voltajeBateria = voltajeSalida * factorDivisor;  // Ajusta según tu divisor
     return voltajeBateria;
 }
 
-//float leerVoltajeSuavizado(int pin, float anterior, float alpha) {
-//  float lectura = analogRead(pin) * 3.3 / 4095.0 / 0.758;
-//  return (alpha * lectura) + ((1 - alpha) * anterior);
-//}
-
-
-
 int calcularNivelBateria(float voltaje) {
-  const float voltajeMax = 4.2; // Voltaje máximo de la batería (por ejemplo, Li-Ion)
-  const float voltajeMin = 3.0; // Voltaje mínimo antes de considerarla descargada
-  float porcentaje = ((voltaje - voltajeMin) / (voltajeMax - voltajeMin)) * 100;
-  porcentaje = constrain(porcentaje, 0, 100); // Limita el porcentaje entre 0 y 100%
+  float porcentaje = ((voltaje - voltajeMin) / (voltajeMax - voltajeMin)) * 100.0;
+  porcentaje = constrain(porcentaje, 0, 100);
   return (int)porcentaje;
-}
-
-void apagarLED(){
-    digitalWrite(LEFT_LED, LOW);
-    digitalWrite(MID_LED, LOW);
-    digitalWrite(RIGHT_LED, LOW);
 }
