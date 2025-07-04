@@ -16,6 +16,7 @@ const char* PASSWORD = "F0AF853B53E3";
 const String TOKEN = "1fbb3d99ca08eedc1322ceefb678eb7ae3f6063459c39621b88a4ec83dc810eb";
 const String SERVER = "https://app-rastreo-backend.onrender.com";
 const String URL = SERVER + "/api/tracker/upload-data";
+const String ENCENDIDO = SERVER + "/api/tracker/tracker-on";
 const String number = "+525545464585";
 
 const int LED = 2;
@@ -141,6 +142,45 @@ bool enviarPostRequest(String message) {
   }
 }
 
+bool enviarEncendido(String message) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi no conectado");
+    return false;
+  }
+
+
+  Serial.println("Enviando peticion a: " + ENCENDIDO);
+
+  WiFiClientSecure client;
+  client.setCACert(rootCACertificate);
+  HTTPClient http;
+
+  http.setTimeout(90000);
+  http.begin(client, ENCENDIDO);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Authorization", "Bearer " + TOKEN);
+
+  StaticJsonDocument<256> doc;
+  doc["datos"] = cleanString(message);
+  String payload;
+  serializeJson(doc, payload);
+
+  Serial.println("Enviando JSON: " + payload);
+
+  int httpCode = http.POST(payload);
+  Serial.println("HTTP Response: " + String(httpCode));
+
+  if (httpCode > 0) {
+    Serial.println("Respuesta servidor: " + http.getString());
+    http.end();
+    return true;
+  } else {
+    Serial.println("Error en POST");
+    http.end();
+    return false;
+  }
+}
+
 /* Enviar GET HTTPS */
 String checkServerEstatus() {
   if (WiFi.status() != WL_CONNECTED) {
@@ -177,6 +217,20 @@ void leerMensaje(int index) {
   if (message.indexOf("ERROR") != -1) {
     Serial.println("Mensaje inválido.");
     return;
+  }
+
+  if (message.indexOf("tracker:") != -1) {
+    despertarServidor();
+    delay(5000);
+    const int maxRetries = 3;
+    for (int i = 0; i < maxRetries; i++) {
+      if (enviarEncendido(message)) {
+        SIM800L.println("AT+CMGD=" + String(index));
+        delay(2000);
+        break;
+      }
+      delay(10000); // espera 10 segundos antes de reintentar
+    }
   }
 
   if (message.indexOf("id:") != -1) {
@@ -295,26 +349,52 @@ void loop() {
 //          enviarMensajeRecibido("Ocurrió un error al enviar al servidor");
 //        }
 
-        despertarServidor();
-        delay(5000);
-        const int maxRetries = 3;
-        for (int i = 0; i < maxRetries; i++) {
-          if (enviarPostRequest(message)) {
-            enviarMensajeRecibido("Mensaje enviado al servidor");
-            delay(2000);
-            break;
-          }else{
-            enviarMensajeRecibido("Ocurrio un error al enviar al servidor");
+          despertarServidor();
+          delay(5000);
+          const int maxRetries = 3;
+          for (int i = 0; i < maxRetries; i++) {
+            if (enviarPostRequest(message)) {
+              enviarMensajeRecibido("Mensaje enviado al servidor");
+              delay(2000);
+              break;
+            }else{
+              enviarMensajeRecibido("Ocurrio un error al enviar al servidor");
+            }
+            delay(10000); // espera 10 segundos antes de reintentar
           }
-          delay(10000); // espera 10 segundos antes de reintentar
-        }
+  
+          String payload = splitMessage(message);
+          Serial.println("payload: " + payload);
+          delay(2000);
+          enviarMensajeRecibido(payload);
+          //delay(3000);
+          //enviarMensajeRecibido("Test de envío SIM800L");
+      }else if (message.indexOf("tracker:") != -1) {
+//        if (enviarPostRequest(message)) {
+//          enviarMensajeRecibido("Mensaje enviado al servidor");
+//        }else{
+//          enviarMensajeRecibido("Ocurrió un error al enviar al servidor");
+//        }
 
-        String payload = splitMessage(message);
-        Serial.println("payload: " + payload);
-        delay(2000);
-        enviarMensajeRecibido(payload);
-        //delay(3000);
-        //enviarMensajeRecibido("Test de envío SIM800L");
+          despertarServidor();
+          delay(5000);
+          const int maxRetries = 3;
+          for (int i = 0; i < maxRetries; i++) {
+            if (enviarEncendido(message)) {
+              enviarMensajeRecibido("Rastreador encendido. Mensaje enviado al servidor");
+              delay(2000);
+              break;
+            }else{
+              enviarMensajeRecibido("Ocurrio un error al enviar al servidor");
+            }
+            delay(10000); // espera 10 segundos antes de reintentar
+          }
+  
+          String payload = message;
+          delay(2000);
+          enviarMensajeRecibido("encendido: "+payload);
+          //delay(3000);
+          //enviarMensajeRecibido("Test de envío SIM800L");
       } else if (message.indexOf("BORRAR*") != -1) {
         Serial.println("Solicitando borrar mensajes en buffer");
         borrarTodosMensajes();
