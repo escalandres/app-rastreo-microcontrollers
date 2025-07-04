@@ -25,9 +25,9 @@ const int ID = 48273619;
 int _timeout;
 String _buffer;
 
-const String number = "+525620577634"; //Oxxo Cel
+//const String number = "+525620577634"; //Oxxo Cel
 //const String number = "+525554743913"; //Telcel
-//const String number = "+525545464585"; //Telcel
+const String number = "+525545464585"; //Telcel
 
 unsigned long chars;
 unsigned short sentences, failed_checksum;
@@ -47,7 +47,7 @@ void configureAlarm(){
   rtc.disableAlarm(2);
 
   //Set Alarm to be trigged in X 
-  rtc.setAlarm1(rtc.now() + TimeSpan(0, 1, 0 , 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
+  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 1 , 0), DS3231_A1_Date);  // this mode triggers the alarm when the seconds match.
 
   alarmFired = false;
 }
@@ -123,9 +123,9 @@ void setup() {
   //rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
             // al momento de la compilacion. Comentar esta linea
             // y volver a subir para normal operacion
-  DateTime localTime(__DATE__, __TIME__);
-  DateTime utcTime = localTime + TimeSpan(6 * 3600); // Sumas 6 horas
-  rtc.adjust(utcTime);
+//  DateTime localTime(__DATE__, __TIME__);
+//  DateTime utcTime = localTime + TimeSpan(6 * 3600); // Sumas 6 horas
+//  rtc.adjust(utcTime);
   //rtc.adjust(DateTime(2024, 11, 22, 10, 22, 11)); 
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
@@ -133,7 +133,9 @@ void setup() {
   
   //delay(12000);
   //enviarMensaje("Rastreador encendido");
-  delay(2000);
+  //delay(12000);
+  //notificarEncendido();
+  //delay(2000);
   digitalWrite(STM_LED,HIGH);
   //digitalWrite(LEFT_LED,LOW);
   sleepA7670SA(true);
@@ -301,6 +303,27 @@ String createMessageToSend(String datosGPS, String cellTowerInfo, String battery
     output += batteryCharge + ",";
     output += datosGPS;
   return output;
+}
+
+void notificarEncendido()
+{
+  digitalWrite(STM_LED, LOW);
+  DateTime now = rtc.now();
+
+  char buffer[20];
+  sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d", 
+          now.year(), now.month(), now.day(), 
+          now.hour(), now.minute(), now.second());
+  
+  String currentTime = String(buffer);
+
+  String SMS = "tracker:" + String(ID) + ",";
+    SMS += "time:" + currentTime;
+  enviarMensaje(SMS);
+
+  delay(2000);
+  digitalWrite(STM_LED,HIGH);
+  
 }
 
 //String leerYGuardarGPS() {
@@ -535,10 +558,4 @@ int calcularNivelBateria(float voltaje) {
   float porcentaje = ((voltaje - voltajeMin) / (voltajeMax - voltajeMin)) * 100;
   porcentaje = constrain(porcentaje, 0, 100); // Limita el porcentaje entre 0 y 100%
   return (int)porcentaje;
-}
-
-void apagarLED(){
-    digitalWrite(LEFT_LED, LOW);
-    digitalWrite(MID_LED, LOW);
-    digitalWrite(RIGHT_LED, LOW);
 }

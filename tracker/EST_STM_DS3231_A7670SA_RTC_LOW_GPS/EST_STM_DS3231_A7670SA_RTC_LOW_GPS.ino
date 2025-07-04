@@ -28,9 +28,9 @@ const int ID = 59102473;
 int _timeout;
 String _buffer;
 
-//const String number = "+525620577634"; //Oxxo Cel
+const String number = "+525620577634"; //Oxxo Cel
 //const String number = "+525554743913"; //Telcel
-const String number = "+525545464585"; //Telcel
+//const String number = "+525545464585"; //Telcel
 
 unsigned long chars;
 unsigned short sentences, failed_checksum;
@@ -50,7 +50,7 @@ void configureAlarm(){
   rtc.disableAlarm(2);
 
   //Set Alarm to be trigged in X 
-  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 2, 0), DS3231_A1_Minute);  // this mode triggers the alarm when the seconds match.
+  rtc.setAlarm1(rtc.now() + TimeSpan(0, 1, 7, 0), DS3231_A1_Date); // Esta alarma se activa cuando la fecha, hora, minuto y segundo coinciden exactamente
 
   alarmFired = false;
 }
@@ -109,7 +109,7 @@ void setup() {
   digitalWrite(STM_LED, LOW);
   //digitalWrite(LEFT_LED, HIGH);
 
-  configureGPS(NEO8M);
+  //configureGPS(NEO8M);
 
   if (!rtc.begin()) {        // si falla la inicializacion del modulo
     //Serial.println("Modulo RTC no encontrado !");  // muestra mensaje de error
@@ -118,23 +118,26 @@ void setup() {
 
    if(rtc.lostPower()) {
          // this will adjust to the date and time at compilation
-         //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+         rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+         //rtc.adjust(DateTime(2024, 11, 22, 10, 22, 11)); 
    }
    
   //rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
             // al momento de la compilacion. Comentar esta linea
             // y volver a subir para normal operacion
   //rtc.adjust(DateTime(2024, 11, 22, 10, 22, 11)); 
-  DateTime localTime(__DATE__, __TIME__);
-  DateTime utcTime = localTime + TimeSpan(6 * 3600); // Sumas 6 horas
-  
-  rtc.adjust(utcTime);
+//  DateTime localTime(__DATE__, __TIME__);
+//  DateTime utcTime = localTime + TimeSpan(6 * 3600); // Sumas 6 horas
+//  
+//  rtc.adjust(utcTime);
 
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
   configureAlarm();
   
-  //delay(12000);
+  delay(12000);
+  notificarEncendido();
+  
   //enviarMensaje("Rastreador encendido");
   delay(2000);
   digitalWrite(STM_LED,HIGH);
@@ -304,6 +307,27 @@ String createMessageToSend(String datosGPS, String cellTowerInfo, String battery
     output += batteryCharge + ",";
     output += datosGPS;
   return output;
+}
+
+void notificarEncendido()
+{
+  digitalWrite(STM_LED, LOW);
+  DateTime now = rtc.now();
+
+  char buffer[20];
+  sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d", 
+          now.year(), now.month(), now.day(), 
+          now.hour(), now.minute(), now.second());
+  
+  String currentTime = String(buffer);
+
+  String SMS = "tracker:" + String(ID) + ",";
+    SMS += "time:" + currentTime + ",";
+  enviarMensaje(SMS);
+
+  delay(2000);
+  digitalWrite(STM_LED,HIGH);
+  
 }
 
 String leerYGuardarGPS() {
