@@ -12,10 +12,10 @@
 HardwareSerial SIM800L(1);
 
 // Datos de la red WiFi
-const char* SSID = "XXXXXX";
-const char* PASSWORD = "YYYYYYYYYYY";
-const String TOKEN = "ZZZZZZZZZZZZZZZZ";
-const String number = "+52AAAAAAAAA";
+const char* SSID = "IZZI-53E3";
+const char* PASSWORD = "F0AF853B53E3";
+const String TOKEN = "1fbb3d99ca08eedc1322ceefb678eb7ae3f6063459c39621b88a4ec83dc810eb";
+const String number = "+525545464585";
 
 /* Declaracion de puertos del ESP */
 const int LED = 2;
@@ -292,11 +292,13 @@ void encenderLed(){
 void loop() {
   if (Serial.available() > 0) {
     String message = Serial.readString();
-    Serial.println("Ahol: " + message);
+    message.trim();
+    Serial.println("Comando: " + message);
     if(message == "r"){
       RecieveMessage();
     }
     if(message == "borrar"){
+      Serial.println("Borrando...");
       enviarComando("AT+CMGDA=\"DEL ALL\"",1000);
     }
   }
