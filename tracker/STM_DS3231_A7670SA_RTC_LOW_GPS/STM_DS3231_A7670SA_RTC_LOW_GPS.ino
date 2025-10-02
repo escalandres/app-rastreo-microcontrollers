@@ -25,9 +25,9 @@ const int ID = 48273619;
 int _timeout;
 String _buffer;
 
-//const String number = "+525620577634"; //Oxxo Cel
+const String number = "+525620577634"; //Oxxo Cel
 //const String number = "+525554743913"; //Telcel
-const String number = "+525545464585"; //Telcel
+//const String number = "+525545464585"; //Telcel
 
 unsigned long chars;
 unsigned short sentences, failed_checksum;
@@ -105,7 +105,7 @@ void setup() {
   digitalWrite(STM_LED, LOW);
   //digitalWrite(LEFT_LED, HIGH);
 
-  configureGPS(NEO8M);
+  //configureGPS(NEO8M);
 
   if (!rtc.begin()) {        // si falla la inicializacion del modulo
     //Serial.println("Modulo RTC no encontrado !");  // muestra mensaje de error
@@ -531,19 +531,21 @@ String obtenerVoltajeBateria(){
     return sms;
 }
 
-//float leerVoltaje(int pin) {
-//    int lecturaADC = analogRead(pin);
-//    float voltajeSalida = (lecturaADC / 4095.0) * 3.3;
-//    float voltajeBateria = voltajeSalida * 4.3;  // Ajusta según tu divisor
-//    return voltajeBateria;
-//}
-
 float leerVoltaje(int pin) {
+    const float R1 = 51000.0;  // ohms
+    const float R2 = 20000.0;  // ohms
     int lecturaADC = analogRead(pin);
-    float voltajeSalida = (lecturaADC * 3.3) / 4095.0;
-    float voltajeBateria = voltajeSalida / 0.758;  // Ajusta según tu divisor
+    float voltajeSalida = (lecturaADC / 4095.0) * 3.3;  // Voltaje en el pin ADC
+    float voltajeBateria = voltajeSalida * ((R1 + R2) / R2);
     return voltajeBateria;
 }
+
+//float leerVoltaje(int pin) {
+//    int lecturaADC = analogRead(pin);
+//    float voltajeSalida = (lecturaADC * 3.3) / 4095.0;
+//    float voltajeBateria = voltajeSalida / 0.758;  // Ajusta según tu divisor
+//    return voltajeBateria;
+//}
 
 //float leerVoltajeSuavizado(int pin, float anterior, float alpha) {
 //  float lectura = analogRead(pin) * 3.3 / 4095.0 / 0.758;
