@@ -17,17 +17,16 @@ const int SQW_PIN = PB0;
 const int STM_LED = PC13;
 const int BATERIA = PA0;
 String latitude, longitude;
-//float voltajeBateria = 0.0;
-//const float alpha = 0.1;
+
 /* Constantes y Variables Globales */
 const int ID = 48273619;
 
 int _timeout;
 String _buffer;
 
-const String number = "+525620577634"; //Oxxo Cel
+const String number = "+525620577634"; // Oxxo Cel
 //const String number = "+525554743913"; //Telcel
-//const String number = "+525545464585"; //Telcel
+//const String number = "+525545464585"; // Mi Telcel
 
 unsigned long chars;
 unsigned short sentences, failed_checksum;
@@ -103,7 +102,6 @@ void setup() {
   pinMode(STM_LED, OUTPUT);
   analogReadResolution(12);
   digitalWrite(STM_LED, LOW);
-  //digitalWrite(LEFT_LED, HIGH);
 
   //configureGPS(NEO8M);
 
@@ -112,21 +110,13 @@ void setup() {
     while (1);         // bucle infinito que detiene ejecucion del programa
   }
 
-   if(rtc.lostPower()) {
-         // this will adjust to the date and time at compilation
-         //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-         DateTime localTime(__DATE__, __TIME__);
-        DateTime utcTime = localTime + TimeSpan(6 * 3600); // Sumas 6 horas
-        rtc.adjust(utcTime);
-   }
-   
-  //rtc.adjust(DateTime(__DATE__, __TIME__));  // funcion que permite establecer fecha y horario
-            // al momento de la compilacion. Comentar esta linea
-            // y volver a subir para normal operacion
-//  DateTime localTime(__DATE__, __TIME__);
-//  DateTime utcTime = localTime + TimeSpan(6 * 3600); // Sumas 6 horas
-//  rtc.adjust(utcTime);
-  //rtc.adjust(DateTime(2024, 11, 22, 10, 22, 11)); 
+  if(rtc.lostPower()) {
+      DateTime localTime(__DATE__, __TIME__);
+      DateTime utcTime = localTime + TimeSpan(6 * 3600); // Convertir a UTC sumando 6 horas
+      // Ajustar el RTC a la fecha y hora de compilación en UTC
+      rtc.adjust(utcTime);
+  }
+
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
   configureAlarm();
@@ -307,13 +297,19 @@ String createMessageToSend(String datosGPS, String cellTowerInfo, String battery
 
 void notificarEncendido()
 {
+  digitalWrite(STM_LED, HIGH);
+  delay(500);
+  digitalWrite(STM_LED, LOW);
+  delay(500);
+  digitalWrite(STM_LED, HIGH);
+  delay(500);
   digitalWrite(STM_LED, LOW);
   DateTime now = rtc.now();
 
   char buffer[20];
   sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d", 
-          now.year(), now.month(), now.day(), 
-          now.hour(), now.minute(), now.second());
+        now.year(), now.month(), now.day(), 
+        now.hour(), now.minute(), now.second());
   
   String currentTime = String(buffer);
 
@@ -442,11 +438,7 @@ void corregirRTC() {
     }
 }
 
-
 String getCellInfo() {
-
-    //apagarLED();
-
     String lac = "";
     String cellId = "";
     String mcc = "";
@@ -455,6 +447,7 @@ String getCellInfo() {
 
     // Solicitar información de la red con A7670SA
     flushA7670SA();
+
     enviarComando("AT+CPSI?",2000);
     String cpsiResponse = readA7670SAResponse();
     //enviarMensaje("CPSI" + cpsiResponse);
@@ -497,7 +490,7 @@ String getCellInfo() {
         int cellIdEnd = cpsiResponse.indexOf(",", cellIdStart);
         cellId = cpsiResponse.substring(cellIdStart, cellIdEnd);
     }
-    //digitalWrite(RIGHT_LED, LOW);
+
     // Convertir de Hex a Decimal
     lac = hexToDec(lac);
 
@@ -510,24 +503,20 @@ String getCellInfo() {
     return json;
 }
 
-
 String hexToDec(String hexStr) {
   long decVal = strtol(hexStr.c_str(), NULL, 16);
   return String(decVal);
 }
 
-
 String obtenerVoltajeBateria(){
-  //apagarLED();
-  //digitalWrite(LEFT_LED,HIGH);
-  //enviarMensaje("obtenerVoltajeBateria");
+
+    //enviarMensaje("obtenerVoltajeBateria");
     float voltaje = leerVoltaje(BATERIA);
     //enviarMensaje("Voltaje:"+String(voltaje));
-//    float voltaje = leerVoltajeSuavizado(BATERIA, voltajeBateria, alpha);
+    //float voltaje = leerVoltajeSuavizado(BATERIA, voltajeBateria, alpha);
     int nivelBateria = calcularNivelBateria(voltaje);
-//enviarMensaje("nivelBateria:"+String(nivelBateria));
+    //enviarMensaje("nivelBateria:"+String(nivelBateria));
     String sms = "nb:"+ String(nivelBateria);
-    //digitalWrite(LEFT_LED,LOW);
     return sms;
 }
 
@@ -539,20 +528,6 @@ float leerVoltaje(int pin) {
     float voltajeBateria = voltajeSalida * ((R1 + R2) / R2);
     return voltajeBateria;
 }
-
-//float leerVoltaje(int pin) {
-//    int lecturaADC = analogRead(pin);
-//    float voltajeSalida = (lecturaADC * 3.3) / 4095.0;
-//    float voltajeBateria = voltajeSalida / 0.758;  // Ajusta según tu divisor
-//    return voltajeBateria;
-//}
-
-//float leerVoltajeSuavizado(int pin, float anterior, float alpha) {
-//  float lectura = analogRead(pin) * 3.3 / 4095.0 / 0.758;
-//  return (alpha * lectura) + ((1 - alpha) * anterior);
-//}
-
-
 
 int calcularNivelBateria(float voltaje) {
   const float voltajeMax = 4.2; // Voltaje máximo de la batería (por ejemplo, Li-Ion)
