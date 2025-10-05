@@ -488,14 +488,14 @@ String obtenerVoltajeBateria() {
 }
 
 float leerVoltaje(int pin) {
-  const float R1 = 51000.0;  // ohms
-  const float R2 = 20000.0;  // ohms
-  const float Vref = 3.3;    // Voltaje de referencia del ADC
-  const float factorDivisor = (R1 + R2) / R2;
+  const float R1 = 51000.0;
+  const float R2 = 20000.0;
+  const float Vref = 3.3;  // referencia ADC
+  const float factorDivisor = (R1 + R2) / R2;  // ≈ 3.55
 
   int lecturaADC = analogRead(pin);
-  float voltajeSalida = (lecturaADC / 4095.0) * Vref;
-  float voltajeBateria = voltajeSalida * factorDivisor;
+  float voltajeADC = (lecturaADC / 4095.0) * Vref;
+  float voltajeBateria = voltajeADC * factorDivisor;
 
   return voltajeBateria;
 }
