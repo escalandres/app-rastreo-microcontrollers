@@ -1,14 +1,13 @@
-
 /* Declaracion de librerias */
 #include <Wire.h>
 #include <HardwareSerial.h>
 #include <RTClib.h>
 #include <low_power.h>
 #include <STM32LowPower.h>
-#include <TinyGPSPlus.h> // Librería TinyGPS++
+#include <TinyGPSPlus.h>
 
 volatile bool alarmFired = false;
-RTC_DS3231 rtc;
+RTC_DS3231 rtc; // Objeto Reloj de precision RTC
 TinyGPSPlus gps1; // Objeto GPS
 
 /* Declaracion de puertos del STM32F103C8T6 */
@@ -16,10 +15,10 @@ const int SLEEP_PIN = PB1;
 const int SQW_PIN = PB0;
 const int STM_LED = PC13;
 const int BATERIA = PA0;
-String latitude, longitude;
 
 /* Constantes y Variables Globales */
-const int ID = 48273619;
+const int idRastreador = 48273619;
+String latitude, longitude;
 
 int _timeout;
 String _buffer;
@@ -39,7 +38,7 @@ void setAlarmFired() {
   alarmFired = true;
 }
 
-void configureAlarm(){
+void configurarAlarma(){
   rtc.clearAlarm(1);
   rtc.clearAlarm(2);
   rtc.disableAlarm(1);
@@ -55,7 +54,7 @@ void setUpdateRate(Stream &gps) {
   // UBX-CFG-RATE: set update rate to 10000 ms (0.1 Hz)
   byte rateCfg[] = {
     0xB5, 0x62,       // Sync chars
-    0x06, 0x08,       // Class = CFG, ID = RATE
+    0x06, 0x08,       // Class = CFG, idRastreador = RATE
     0x06, 0x00,       // Length = 6
     0x10, 0x27,       // measRate = 10000 ms (0x2710)
     0x01, 0x00,       // navRate = 1
@@ -65,7 +64,7 @@ void setUpdateRate(Stream &gps) {
 }
 
 void disableNMEAMessages(Stream &gps) {
-  // Formato: UBX-CFG-MSG (Clase 0xF0 = NMEA, ID = tipo de mensaje)
+  // Formato: UBX-CFG-MSG (Clase 0xF0 = NMEA, idRastreador = tipo de mensaje)
   byte msgs[][9] = {
     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x00, 0x00}, // GxGGA
     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x01, 0x00}, // GxGLL
@@ -90,7 +89,7 @@ void configureGPS(Stream &gps){
 
 
 void setup() {
-  // put your setup code here, to run once:
+  // Inicializar puertos seriales
   Wire.begin();
   _buffer.reserve(50);
   A7670SA.begin(115200);
@@ -119,7 +118,7 @@ void setup() {
 
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
-  configureAlarm();
+  configurarAlarma();
   
   //delay(12000);
   //enviarMensaje("Rastreador encendido");
@@ -128,7 +127,7 @@ void setup() {
   //delay(2000);
   digitalWrite(STM_LED,HIGH);
   //digitalWrite(LEFT_LED,LOW);
-  sleepA7670SA(true);
+  dormirA7670SA(true);
   // Configure low power
   LowPower.begin();
   // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
@@ -143,14 +142,14 @@ void loop() {
     digitalWrite(STM_LED, HIGH);
     delay(2000);
     digitalWrite(STM_LED,LOW);
-    sleepA7670SA(false);
-    //sleepA7670SA(false);
-    startA7670SA();
+    dormirA7670SA(false);
+    //dormirA7670SA(false);
+    iniciarA7670SA();
     String datosGPS = leerYGuardarGPS();
 
-    SendMessage(datosGPS);
-    sleepA7670SA(true);
-    configureAlarm();
+    enviarDatosRastreador(datosGPS);
+    dormirA7670SA(true);
+    configurarAlarma();
     //LowPower.sleep();
     LowPower.deepSleep();
   }
@@ -167,7 +166,7 @@ void enviarComando(const char* comando, int espera = 1000) {
   //Serial.println();a
 }
 
-void startA7670SA(){
+void iniciarA7670SA(){
   //digitalWrite(LEFT_LED, HIGH);
    // 1. Probar comunicación AT
   enviarComando("AT", 1000);
@@ -181,7 +180,7 @@ void startA7670SA(){
   //digitalWrite(LEFT_LED, LOW);
 }
 
-void sleepA7670SA(bool dormir) {
+void dormirA7670SA(bool dormir) {
   if (dormir) {
     //Dormir A7670SA
     enviarComando("AT+CSCLK=1");    
@@ -237,7 +236,7 @@ void flushA7670SA() {
 void enviarMensaje(String SMS)
 {
   //digitalWrite(MID_LED,HIGH);
-  startA7670SA();
+  iniciarA7670SA();
   enviarComando("AT+CREG?",1000);
   enviarComando("AT+CMGF=1",1000);
   
@@ -254,18 +253,18 @@ void enviarMensaje(String SMS)
   //digitalWrite(MID_LED,LOW);
 }
 
-void SendMessage(String datosGPS)
+void enviarDatosRastreador(String datosGPS)
 {
   digitalWrite(STM_LED, LOW);
   
   String cellTowerInfo = "";
-  cellTowerInfo = getCellInfo();
+  cellTowerInfo = obtenerTorreCelular();
   //digitalWrite(LEFT_LED,LOW);
 
   String batteryCharge = "";
   batteryCharge = obtenerVoltajeBateria();
 
-  String SMS = createMessageToSend(datosGPS, cellTowerInfo, batteryCharge);
+  String SMS = crearMensaje(datosGPS, cellTowerInfo, batteryCharge);
   enviarMensaje(SMS);
 
   delay(2000);
@@ -273,7 +272,7 @@ void SendMessage(String datosGPS)
   
 }
 
-String createMessageToSend(String datosGPS, String cellTowerInfo, String batteryCharge){
+String crearMensaje(String datosGPS, String cellTowerInfo, String batteryCharge){
 
   //Verificar si el RTC tiene la hora y fecha correcta
   corregirRTC();
@@ -287,7 +286,7 @@ String createMessageToSend(String datosGPS, String cellTowerInfo, String battery
   
   String currentTime = String(buffer);
 
-  String output = "id:" + String(ID) + ",";
+  String output = "id:" + String(idRastreador) + ",";
     output += "time:" + currentTime + ",";
     output += cellTowerInfo + ",";
     output += batteryCharge + ",";
@@ -313,7 +312,7 @@ void notificarEncendido()
   
   String currentTime = String(buffer);
 
-  String SMS = "El rastreador: " + String(ID) + ",";
+  String SMS = "El rastreador: " + String(idRastreador) + ",";
     SMS += " esta encendido. Tiempo: " + currentTime;
   enviarMensaje(SMS);
 
@@ -321,54 +320,6 @@ void notificarEncendido()
   digitalWrite(STM_LED,HIGH);
   
 }
-
-//String leerYGuardarGPS() {
-//  //enviarMensaje(" ---Buscando señal--- ");
-//
-//  String nuevaLat = "";
-//  String nuevaLon = "";
-//  String anteriorLat = latitude;  
-//  String anteriorLon = longitude;
-//  bool ubicacionActualizada = false;
-//  unsigned long startTime = millis();
-//  int intentos = 0;
-//
-//  while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) { 
-//    while (NEO8M.available()) {
-//      char c = NEO8M.read();
-//      gps1.encode(c);
-//      if (gps1.location.isUpdated()) { 
-//        nuevaLat = String(gps1.location.lat(), 6);
-//        nuevaLon = String(gps1.location.lng(), 6);
-//        //corregirRTC();
-//        if (nuevaLat != anteriorLat || nuevaLon != anteriorLon) { 
-//          latitude = nuevaLat;
-//          longitude = nuevaLon;
-//          ubicacionActualizada = true;
-//          break;
-//        }
-//      }
-//    }
-//    delay(50); 
-//    intentos++;
-//  }
-//
-//  //digitalWrite(RIGHT_LED, LOW);
-//  corregirRTC();
-//  if(!ubicacionActualizada){
-//    nuevaLat = latitude;
-//    nuevaLon = longitude;
-//  }
-//
-//  if (nuevaLat == "" || nuevaLon == "") {
-//    nuevaLat = "0.0";
-//    nuevaLon = "0.0";
-//  }
-//
-//  // return "\"lat\":\"" + nuevaLat + "\",\"lon\":\"" + nuevaLon + "\"";
-//  return "lat:" + nuevaLat + ",lon:" + nuevaLon;
-//
-//}
 
 String leerYGuardarGPS() {
     String nuevaLat = "";
@@ -431,7 +382,7 @@ void corregirRTC() {
     }
 }
 
-String getCellInfo() {
+String obtenerTorreCelular() {
     String lac = "";
     String cellId = "";
     String mcc = "";
@@ -478,7 +429,7 @@ String getCellInfo() {
         int lacEnd = cpsiResponse.indexOf(",", lacStart);
         lac = cpsiResponse.substring(lacStart, lacEnd);
 
-        // Extraer Cell ID
+        // Extraer Cell idRastreador
         int cellIdStart = lacEnd + 1;
         int cellIdEnd = cpsiResponse.indexOf(",", cellIdStart);
         cellId = cpsiResponse.substring(cellIdStart, cellIdEnd);
@@ -530,6 +481,7 @@ String hexToDec(String hexStr) {
 // }
 String obtenerVoltajeBateria() {
   float voltaje = leerVoltaje(BATERIA);
+  enviarMensaje("Voltaje: " + String(voltaje));
   int nivelBateria = calcularNivelBateria(voltaje);
   String sms = "nb:" + String(nivelBateria);
   return sms;
@@ -565,3 +517,51 @@ int calcularNivelBateria(float v) {
   else if (v >= 3.40) return 10;
   else return 0;
 }
+
+//String leerYGuardarGPS() {
+//  //enviarMensaje(" ---Buscando señal--- ");
+//
+//  String nuevaLat = "";
+//  String nuevaLon = "";
+//  String anteriorLat = latitude;  
+//  String anteriorLon = longitude;
+//  bool ubicacionActualizada = false;
+//  unsigned long startTime = millis();
+//  int intentos = 0;
+//
+//  while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) { 
+//    while (NEO8M.available()) {
+//      char c = NEO8M.read();
+//      gps1.encode(c);
+//      if (gps1.location.isUpdated()) { 
+//        nuevaLat = String(gps1.location.lat(), 6);
+//        nuevaLon = String(gps1.location.lng(), 6);
+//        //corregirRTC();
+//        if (nuevaLat != anteriorLat || nuevaLon != anteriorLon) { 
+//          latitude = nuevaLat;
+//          longitude = nuevaLon;
+//          ubicacionActualizada = true;
+//          break;
+//        }
+//      }
+//    }
+//    delay(50); 
+//    intentos++;
+//  }
+//
+//  //digitalWrite(RIGHT_LED, LOW);
+//  corregirRTC();
+//  if(!ubicacionActualizada){
+//    nuevaLat = latitude;
+//    nuevaLon = longitude;
+//  }
+//
+//  if (nuevaLat == "" || nuevaLon == "") {
+//    nuevaLat = "0.0";
+//    nuevaLon = "0.0";
+//  }
+//
+//  // return "\"lat\":\"" + nuevaLat + "\",\"lon\":\"" + nuevaLon + "\"";
+//  return "lat:" + nuevaLat + ",lon:" + nuevaLon;
+//
+//}
