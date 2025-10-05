@@ -44,7 +44,7 @@ void configurarAlarma(){
   rtc.disableAlarm(1);
   rtc.disableAlarm(2);
 
-  //Set Alarm to be trigged in X 
+  //Set Alarm to be trigged in X
   rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 1 , 0), DS3231_A1_Date);  // this mode triggers the alarm when the seconds match.
 
   alarmFired = false;
@@ -119,10 +119,10 @@ void setup() {
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
   configurarAlarma();
-  
+
   //delay(12000);
   //enviarMensaje("Rastreador encendido");
-  //delay(12000);
+  delay(2000);
   notificarEncendido();
   //delay(2000);
   digitalWrite(STM_LED,HIGH);
@@ -153,7 +153,7 @@ void loop() {
     //LowPower.sleep();
     LowPower.deepSleep();
   }
-  
+
 }
 
 void enviarComando(const char* comando, int espera = 1000) {
@@ -183,7 +183,7 @@ void iniciarA7670SA(){
 void dormirA7670SA(bool dormir) {
   if (dormir) {
     //Dormir A7670SA
-    enviarComando("AT+CSCLK=1");    
+    enviarComando("AT+CSCLK=1");
     delay(100);
     digitalWrite(SLEEP_PIN, LOW);  // DTR HIGH -> permite sleep en idle
     //Serial.println("A7670SA en modo Sleep (cuando idle).");
@@ -191,7 +191,7 @@ void dormirA7670SA(bool dormir) {
     //Despertar A7670SA
     digitalWrite(SLEEP_PIN, HIGH);   // DTR LOW -> despierta módulo
     delay(100);                     // Tiempo para que despierte
-    enviarComando("AT+CSCLK=0");   
+    enviarComando("AT+CSCLK=0");
     enviarComando("AT");          // Activar UART
     //Serial.println("A7670SA Despierto y sin sleep automático.");
   }
@@ -239,7 +239,7 @@ void enviarMensaje(String SMS)
   iniciarA7670SA();
   enviarComando("AT+CREG?",1000);
   enviarComando("AT+CMGF=1",1000);
-  
+
   //Serial.println ("Set SMS Number");
   enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 3000); //Mobile phone number to send message
 
@@ -256,7 +256,7 @@ void enviarMensaje(String SMS)
 void enviarDatosRastreador(String datosGPS)
 {
   digitalWrite(STM_LED, LOW);
-  
+
   String cellTowerInfo = "";
   cellTowerInfo = obtenerTorreCelular();
   //digitalWrite(LEFT_LED,LOW);
@@ -269,21 +269,21 @@ void enviarDatosRastreador(String datosGPS)
 
   delay(2000);
   digitalWrite(STM_LED,HIGH);
-  
+
 }
 
 String crearMensaje(String datosGPS, String cellTowerInfo, String batteryCharge){
 
   //Verificar si el RTC tiene la hora y fecha correcta
   corregirRTC();
-  
+
   DateTime now = rtc.now();
 
   char buffer[20];
-  sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d", 
-          now.year(), now.month(), now.day(), 
+  sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
+          now.year(), now.month(), now.day(),
           now.hour(), now.minute(), now.second());
-  
+
   String currentTime = String(buffer);
 
   String output = "id:" + String(idRastreador) + ",";
@@ -306,10 +306,10 @@ void notificarEncendido()
   DateTime now = rtc.now();
 
   char buffer[20];
-  sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d", 
-        now.year(), now.month(), now.day(), 
+  sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
+        now.year(), now.month(), now.day(),
         now.hour(), now.minute(), now.second());
-  
+
   String currentTime = String(buffer);
 
   String SMS = "El rastreador: " + String(idRastreador) + ",";
@@ -318,7 +318,7 @@ void notificarEncendido()
 
   delay(2000);
   digitalWrite(STM_LED,HIGH);
-  
+
 }
 
 String leerYGuardarGPS() {
@@ -334,7 +334,7 @@ String leerYGuardarGPS() {
             gps1.encode(c);
 
             // Verifica si la ubicación es válida y hay satélites disponibles
-            if (gps1.location.isUpdated() && gps1.location.isValid() && gps1.satellites.value() > 0) { 
+            if (gps1.location.isUpdated() && gps1.location.isValid() && gps1.satellites.value() > 0) {
                 nuevaLat = String(gps1.location.lat(), 6);
                 nuevaLon = String(gps1.location.lng(), 6);
 
@@ -452,33 +452,6 @@ String hexToDec(String hexStr) {
   return String(decVal);
 }
 
-// String obtenerVoltajeBateria(){
-//   //enviarMensaje("obtenerVoltajeBateria");
-//   float voltaje = leerVoltaje(BATERIA);
-//   //enviarMensaje("Voltaje:"+String(voltaje));
-//   //float voltaje = leerVoltajeSuavizado(BATERIA, voltajeBateria, alpha);
-//   int nivelBateria = calcularNivelBateria(voltaje);
-//   //enviarMensaje("nivelBateria:"+String(nivelBateria));
-//   String sms = "nb:"+ String(nivelBateria);
-//   return sms;
-// }
-
-// float leerVoltaje(int pin) {
-//   const float R1 = 51000.0;  // ohms
-//   const float R2 = 20000.0;  // ohms
-//   int lecturaADC = analogRead(pin);
-//   float voltajeSalida = (lecturaADC / 4095.0) * 3.3;  // Voltaje en el pin ADC
-//   float voltajeBateria = voltajeSalida * ((R1 + R2) / R2);
-//   return voltajeBateria;
-// }
-
-// int calcularNivelBateria(float voltaje) {
-//   const float voltajeMax = 4.2; // Voltaje máximo de la batería (por ejemplo, Li-Ion)
-//   const float voltajeMin = 3.0; // Voltaje mínimo antes de considerarla descargada
-//   float porcentaje = ((voltaje - voltajeMin) / (voltajeMax - voltajeMin)) * 100;
-//   porcentaje = constrain(porcentaje, 0, 100); // Limita el porcentaje entre 0 y 100%
-//   return (int)porcentaje;
-// }
 String obtenerVoltajeBateria() {
   float voltaje = leerVoltaje(BATERIA);
   enviarMensaje("Voltaje: " + String(voltaje));
@@ -493,8 +466,15 @@ float leerVoltaje(int pin) {
   const float Vref = 3.3;  // referencia ADC
   const float factorDivisor = (R1 + R2) / R2;  // ≈ 3.55
 
-  int lecturaADC = analogRead(pin);
-  enviarMensaje("lecturaADC: " + String(lecturaADC));
+  // int lecturaADC = analogRead(pin);
+  float suma = 0;
+  for (int i = 0; i < 20; i++) {
+    suma += leerVoltaje(pin);
+    delay(2);
+  }
+  int lecturaADC = suma / 20;
+  enviarMensaje("Lectura ADC: " + String(lecturaADC));
+  // Convertir lectura ADC a voltaje real de la batería
   float voltajeADC = (lecturaADC / 4095.0) * Vref;
   float voltajeBateria = voltajeADC * factorDivisor;
 
@@ -524,21 +504,21 @@ int calcularNivelBateria(float v) {
 //
 //  String nuevaLat = "";
 //  String nuevaLon = "";
-//  String anteriorLat = latitude;  
+//  String anteriorLat = latitude;
 //  String anteriorLon = longitude;
 //  bool ubicacionActualizada = false;
 //  unsigned long startTime = millis();
 //  int intentos = 0;
 //
-//  while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) { 
+//  while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) {
 //    while (NEO8M.available()) {
 //      char c = NEO8M.read();
 //      gps1.encode(c);
-//      if (gps1.location.isUpdated()) { 
+//      if (gps1.location.isUpdated()) {
 //        nuevaLat = String(gps1.location.lat(), 6);
 //        nuevaLon = String(gps1.location.lng(), 6);
 //        //corregirRTC();
-//        if (nuevaLat != anteriorLat || nuevaLon != anteriorLon) { 
+//        if (nuevaLat != anteriorLat || nuevaLon != anteriorLon) {
 //          latitude = nuevaLat;
 //          longitude = nuevaLon;
 //          ubicacionActualizada = true;
@@ -546,7 +526,7 @@ int calcularNivelBateria(float v) {
 //        }
 //      }
 //    }
-//    delay(50); 
+//    delay(50);
 //    intentos++;
 //  }
 //
