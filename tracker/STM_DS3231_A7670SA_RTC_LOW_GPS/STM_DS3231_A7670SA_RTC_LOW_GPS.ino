@@ -508,31 +508,62 @@ String hexToDec(String hexStr) {
   return String(decVal);
 }
 
-String obtenerVoltajeBateria(){
+// String obtenerVoltajeBateria(){
+//   //enviarMensaje("obtenerVoltajeBateria");
+//   float voltaje = leerVoltaje(BATERIA);
+//   //enviarMensaje("Voltaje:"+String(voltaje));
+//   //float voltaje = leerVoltajeSuavizado(BATERIA, voltajeBateria, alpha);
+//   int nivelBateria = calcularNivelBateria(voltaje);
+//   //enviarMensaje("nivelBateria:"+String(nivelBateria));
+//   String sms = "nb:"+ String(nivelBateria);
+//   return sms;
+// }
 
-    //enviarMensaje("obtenerVoltajeBateria");
-    float voltaje = leerVoltaje(BATERIA);
-    //enviarMensaje("Voltaje:"+String(voltaje));
-    //float voltaje = leerVoltajeSuavizado(BATERIA, voltajeBateria, alpha);
-    int nivelBateria = calcularNivelBateria(voltaje);
-    //enviarMensaje("nivelBateria:"+String(nivelBateria));
-    String sms = "nb:"+ String(nivelBateria);
-    return sms;
+// float leerVoltaje(int pin) {
+//   const float R1 = 51000.0;  // ohms
+//   const float R2 = 20000.0;  // ohms
+//   int lecturaADC = analogRead(pin);
+//   float voltajeSalida = (lecturaADC / 4095.0) * 3.3;  // Voltaje en el pin ADC
+//   float voltajeBateria = voltajeSalida * ((R1 + R2) / R2);
+//   return voltajeBateria;
+// }
+
+// int calcularNivelBateria(float voltaje) {
+//   const float voltajeMax = 4.2; // Voltaje máximo de la batería (por ejemplo, Li-Ion)
+//   const float voltajeMin = 3.0; // Voltaje mínimo antes de considerarla descargada
+//   float porcentaje = ((voltaje - voltajeMin) / (voltajeMax - voltajeMin)) * 100;
+//   porcentaje = constrain(porcentaje, 0, 100); // Limita el porcentaje entre 0 y 100%
+//   return (int)porcentaje;
+// }
+String obtenerVoltajeBateria() {
+  float voltaje = leerVoltaje(BATERIA);
+  int nivelBateria = calcularNivelBateria(voltaje);
+  String sms = "nb:" + String(nivelBateria);
+  return sms;
 }
 
 float leerVoltaje(int pin) {
-    const float R1 = 51000.0;  // ohms
-    const float R2 = 20000.0;  // ohms
-    int lecturaADC = analogRead(pin);
-    float voltajeSalida = (lecturaADC / 4095.0) * 3.3;  // Voltaje en el pin ADC
-    float voltajeBateria = voltajeSalida * ((R1 + R2) / R2);
-    return voltajeBateria;
+  const float R1 = 51000.0;  // ohms
+  const float R2 = 20000.0;  // ohms
+  const float Vref = 3.3;    // Voltaje de referencia del ADC
+  const float factorDivisor = (R1 + R2) / R2;
+
+  int lecturaADC = analogRead(pin);
+  float voltajeSalida = (lecturaADC / 4095.0) * Vref;
+  float voltajeBateria = voltajeSalida * factorDivisor;
+
+  return voltajeBateria;
 }
 
-int calcularNivelBateria(float voltaje) {
-  const float voltajeMax = 4.2; // Voltaje máximo de la batería (por ejemplo, Li-Ion)
-  const float voltajeMin = 3.0; // Voltaje mínimo antes de considerarla descargada
-  float porcentaje = ((voltaje - voltajeMin) / (voltajeMax - voltajeMin)) * 100;
-  porcentaje = constrain(porcentaje, 0, 100); // Limita el porcentaje entre 0 y 100%
-  return (int)porcentaje;
+int calcularNivelBateria(float v) {
+  if (v >= 4.20) return 100;
+  else if (v >= 4.10) return 95;
+  else if (v >= 4.00) return 85;
+  else if (v >= 3.90) return 75;
+  else if (v >= 3.80) return 65;
+  else if (v >= 3.70) return 50;
+  else if (v >= 3.60) return 35;
+  else if (v >= 3.50) return 20;
+  else if (v >= 3.40) return 10;
+  else return 0;
 }
