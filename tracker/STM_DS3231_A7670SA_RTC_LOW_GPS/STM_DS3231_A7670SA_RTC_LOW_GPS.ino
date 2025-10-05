@@ -494,6 +494,7 @@ float leerVoltaje(int pin) {
   const float factorDivisor = (R1 + R2) / R2;  // ≈ 3.55
 
   int lecturaADC = analogRead(pin);
+  enviarMensaje("lecturaADC: " + String(lecturaADC));
   float voltajeADC = (lecturaADC / 4095.0) * Vref;
   float voltajeBateria = voltajeADC * factorDivisor;
 
