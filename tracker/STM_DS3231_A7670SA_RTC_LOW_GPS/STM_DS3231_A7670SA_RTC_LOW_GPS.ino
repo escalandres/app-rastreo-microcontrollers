@@ -468,12 +468,13 @@ float leerVoltaje(int pin) {
 
   // int lecturaADC = analogRead(pin);
   float suma = 0;
-  for (int i = 0; i < 20; i++) {
-    suma += leerVoltaje(pin);
-    delay(2);
+  for (int i = 0; i < 10; i++) {
+    suma += analogRead(pin);
+    delay(5);
   }
-  int lecturaADC = suma / 20;
-  enviarMensaje("Lectura ADC: " + String(lecturaADC));
+
+  int lecturaADC = suma / 10;
+  // enviarMensaje("Lectura ADC: " + String(lecturaADC));
   // Convertir lectura ADC a voltaje real de la batería
   float voltajeADC = (lecturaADC / 4095.0) * Vref;
   float voltajeBateria = voltajeADC * factorDivisor;
