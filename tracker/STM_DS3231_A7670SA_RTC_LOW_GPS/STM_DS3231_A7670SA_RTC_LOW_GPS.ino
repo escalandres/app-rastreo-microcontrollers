@@ -45,7 +45,7 @@ void configurarAlarma(){
   rtc.disableAlarm(2);
 
   //Set Alarm to be trigged in X
-  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 1 , 0), DS3231_A1_Date);  // this mode triggers the alarm when the seconds match.
+  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 5, 0), DS3231_A1_Date);  // this mode triggers the alarm when the seconds match.
 
   alarmFired = false;
 }
