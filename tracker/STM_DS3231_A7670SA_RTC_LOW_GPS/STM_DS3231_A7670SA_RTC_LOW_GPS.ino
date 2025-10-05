@@ -96,7 +96,7 @@ void setup() {
   A7670SA.begin(115200);
   NEO8M.begin(9600);
 
-  /* COnfiguracion de puertos */
+  /* Configuracion de puertos */
   pinMode(SLEEP_PIN, OUTPUT);
   pinMode(SQW_PIN, INPUT_PULLUP);
   pinMode(STM_LED, OUTPUT);
@@ -124,7 +124,7 @@ void setup() {
   //delay(12000);
   //enviarMensaje("Rastreador encendido");
   //delay(12000);
-  //notificarEncendido();
+  notificarEncendido();
   //delay(2000);
   digitalWrite(STM_LED,HIGH);
   //digitalWrite(LEFT_LED,LOW);
@@ -313,8 +313,8 @@ void notificarEncendido()
   
   String currentTime = String(buffer);
 
-  String SMS = "tracker:" + String(ID) + ",";
-    SMS += "time:" + currentTime;
+  String SMS = "El rastreador: " + String(ID) + ",";
+    SMS += " esta encendido. Tiempo: " + currentTime;
   enviarMensaje(SMS);
 
   delay(2000);
@@ -407,33 +407,26 @@ String leerYGuardarGPS() {
 }
 
 void corregirRTC() {
-    //enviarMensaje("Verificando RTC....");
-
     DateTime now = rtc.now();
-    if (now.year() != 2025 ) {
-      delay(1500);
-      //enviarMensaje("Actualizando RTC....");
-        if (gps1.date.isValid() && gps1.time.isValid()) {
-            int year = gps1.date.year();
-            int month = gps1.date.month();
-            int day = gps1.date.day();
-            int hour = gps1.time.hour();
-            int minute = gps1.time.minute();
-            int second = gps1.time.second();
 
-            // Validar que no vengan ceros o fechas erróneas
-            if (year > 2024 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-                rtc.adjust(DateTime(year, month, day, hour, minute, second));
-                enviarMensaje("RTC ajustado a la fecha y hora del GPS.");
-            } else {
-                // Si la fecha es inválida, ajustar a una hora fija de respaldo
-                rtc.adjust(DateTime(2024, 1, 1, 0, 0, 0));
-                enviarMensaje("RTC ajustado a hora predeterminada por datos inválidos.");
-            }
-        } else {
-            // Si no hay datos válidos en el GPS
-            rtc.adjust(DateTime(2024, 1, 1, 0, 0, 0));
-            enviarMensaje("RTC ajustado a hora predeterminada por falta de datos.");
+    if (gps1.date.isValid() && gps1.time.isValid()) {
+        int gpsYear   = gps1.date.year();
+        int gpsMonth  = gps1.date.month();
+        int gpsDay    = gps1.date.day();
+        int gpsHour   = gps1.time.hour();
+        int gpsMinute = gps1.time.minute();
+        int gpsSecond = gps1.time.second();
+
+        DateTime gpsTime(gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
+
+        // Diferencia en segundos
+        long diff = (long)now.unixtime() - (long)gpsTime.unixtime();
+        if (diff < 0) diff = -diff;
+
+        // Ajustar si hay diferencia mayor a 2-3 segundos
+        if (diff > 2) {
+            rtc.adjust(gpsTime);
+            enviarMensaje("RTC ajustado a la hora del GPS (desfase " + String(diff) + " s).");
         }
     }
 }
@@ -558,10 +551,15 @@ float leerVoltaje(int pin) {
 int calcularNivelBateria(float v) {
   if (v >= 4.20) return 100;
   else if (v >= 4.10) return 95;
+  else if (v >= 4.05) return 90;
   else if (v >= 4.00) return 85;
+  else if (v >= 3.95) return 80;
   else if (v >= 3.90) return 75;
+  else if (v >= 3.85) return 70;
   else if (v >= 3.80) return 65;
-  else if (v >= 3.70) return 50;
+  else if (v >= 3.75) return 60;
+  else if (v >= 3.70) return 55;
+  else if (v >= 3.65) return 45;
   else if (v >= 3.60) return 35;
   else if (v >= 3.50) return 20;
   else if (v >= 3.40) return 10;
