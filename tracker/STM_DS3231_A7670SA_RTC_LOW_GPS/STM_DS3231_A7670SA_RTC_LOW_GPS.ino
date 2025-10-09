@@ -5,7 +5,9 @@
 #include <low_power.h>
 #include <STM32LowPower.h>
 #include <TinyGPSPlus.h>
+#include <EEPROM.h>
 
+/* Declaracion de variables globales */
 volatile bool alarmFired = false;
 RTC_DS3231 rtc; // Objeto Reloj de precision RTC
 TinyGPSPlus gps1; // Objeto GPS
@@ -17,18 +19,32 @@ const int STM_LED = PC13;
 const int BATERIA = PA0;
 
 /* Constantes y Variables Globales */
-const int idRastreador = 48273619;
+struct Config {
+  int idRastreador = "TRK00001";         // ID unico del rastreador
+  String admin = "+525620577634";       // Numero de telefono del administrador
+  String numUsuario = "";  // Numero de usuario que recibe los SMS;
+  int intervaloSegundos = 0;            // Intervalo de envio de datos en segundos
+  int intervaloMinutos = 5;             // Intervalo de envio de datos en minutos
+  int intervaloHoras = 0;               // Intervalo de envio de datos en horas
+  int intervaloDias = 0;                // Intervalo de envio de datos en dias
+  bool modoAhorro = false;              // Modo ahorro de energia (true/false) 
+  String pin = "589649";                // PIN para aceptar comandos SMS
+  bool configurado = false;
+};
+
+Config config;
+
 String latitude, longitude;
 
 int _timeout;
 String _buffer;
 
-const String number = "+525620577634"; // Oxxo Cel
+// const String number = "+525620577634"; // Oxxo Cel
 //const String number = "+525554743913"; //Telcel
 //const String number = "+525545464585"; // Mi Telcel
 
-unsigned long chars;
-unsigned short sentences, failed_checksum;
+// unsigned long chars;
+// unsigned short sentences, failed_checksum;
 
 // Definir el puerto serial A7670SA
 HardwareSerial A7670SA(PA3, PA2);
@@ -38,55 +54,59 @@ void setAlarmFired() {
   alarmFired = true;
 }
 
-void configurarAlarma(){
+void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos = 300) {
   rtc.clearAlarm(1);
   rtc.clearAlarm(2);
   rtc.disableAlarm(1);
   rtc.disableAlarm(2);
 
   //Set Alarm to be trigged in X
-  rtc.setAlarm1(rtc.now() + TimeSpan(0, 0, 5, 0), DS3231_A1_Date);  // this mode triggers the alarm when the seconds match.
+  rtc.setAlarm1(rtc.now() + TimeSpan(dias, horas, minutos, segundos), DS3231_A1_Date);  // this mode triggers the alarm when the seconds match.
 
   alarmFired = false;
 }
 
-void setUpdateRate(Stream &gps) {
-  // UBX-CFG-RATE: set update rate to 10000 ms (0.1 Hz)
-  byte rateCfg[] = {
-    0xB5, 0x62,       // Sync chars
-    0x06, 0x08,       // Class = CFG, idRastreador = RATE
-    0x06, 0x00,       // Length = 6
-    0x10, 0x27,       // measRate = 10000 ms (0x2710)
-    0x01, 0x00,       // navRate = 1
-    0x01, 0x00        // timeRef = 1 (GPS time)
-  };
-  gps.write(rateCfg, sizeof(rateCfg));
+// void setUpdateRate(Stream &gps) {
+//   // UBX-config-RATE: set update rate to 10000 ms (0.1 Hz)
+//   byte rateconfig[] = {
+//     0xB5, 0x62,       // Sync chars
+//     0x06, 0x08,       // Class = config, idRastreador = RATE
+//     0x06, 0x00,       // Length = 6
+//     0x10, 0x27,       // measRate = 10000 ms (0x2710)
+//     0x01, 0x00,       // navRate = 1
+//     0x01, 0x00        // timeRef = 1 (GPS time)
+//   };
+//   gps.write(rateconfig, sizeof(rateconfig));
+// }
+
+// void disableNMEAMessages(Stream &gps) {
+//   // Formato: UBX-config-MSG (Clase 0xF0 = NMEA, idRastreador = tipo de mensaje)
+//   byte msgs[][9] = {
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x00, 0x00}, // GxGGA
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x01, 0x00}, // GxGLL
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x02, 0x00}, // GxGSA
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x03, 0x00}, // GxGSV
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x05, 0x00}, // GxVTG
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x06, 0x00}  // GxGRS
+//   };
+
+//   for (int i = 0; i < sizeof(msgs) / sizeof(msgs[0]); i++) {
+//     gps.write(msgs[i], sizeof(msgs[i]));
+//     delay(50); // Pequeña pausa entre comandos
+//   }
+// }
+
+// void configureGPS(Stream &gps){
+//   delay(500); // Esperar a que el GPS esté listo tras el power-up
+//   setUpdateRate(gps);
+//   delay(500); // Pausa corta entre comandos
+//   disableNMEAMessages(gps);
+// }
+
+void guardarConfigEEPROM() {
+    EEPROM.put(0, config);
+    EEPROM.commit();
 }
-
-void disableNMEAMessages(Stream &gps) {
-  // Formato: UBX-CFG-MSG (Clase 0xF0 = NMEA, idRastreador = tipo de mensaje)
-  byte msgs[][9] = {
-    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x00, 0x00}, // GxGGA
-    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x01, 0x00}, // GxGLL
-    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x02, 0x00}, // GxGSA
-    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x03, 0x00}, // GxGSV
-    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x05, 0x00}, // GxVTG
-    {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x06, 0x00}  // GxGRS
-  };
-
-  for (int i = 0; i < sizeof(msgs) / sizeof(msgs[0]); i++) {
-    gps.write(msgs[i], sizeof(msgs[i]));
-    delay(50); // Pequeña pausa entre comandos
-  }
-}
-
-void configureGPS(Stream &gps){
-  delay(500); // Esperar a que el GPS esté listo tras el power-up
-  setUpdateRate(gps);
-  delay(500); // Pausa corta entre comandos
-  disableNMEAMessages(gps);
-}
-
 
 void setup() {
   // Inicializar puertos seriales
@@ -94,6 +114,7 @@ void setup() {
   _buffer.reserve(50);
   A7670SA.begin(115200);
   NEO8M.begin(9600);
+  EEPROM.begin(512);
 
   /* Configuracion de puertos */
   pinMode(SLEEP_PIN, OUTPUT);
@@ -101,8 +122,6 @@ void setup() {
   pinMode(STM_LED, OUTPUT);
   analogReadResolution(12);
   digitalWrite(STM_LED, LOW);
-
-  //configureGPS(NEO8M);
 
   if (!rtc.begin()) {        // si falla la inicializacion del modulo
     //Serial.println("Modulo RTC no encontrado !");  // muestra mensaje de error
@@ -118,17 +137,63 @@ void setup() {
 
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
-  configurarAlarma();
+
+  // Leer configuracion desde EEPROM
+  EEPROM.get(0, config);
+  
+  // Si no estaba configurado, cargamos valores por defecto
+  if (!config.configurado) {
+    config.idRastreador = "TRK00001";         // ID unico del rastreador
+    config.admin = "+525620577634";           // Numero de telefono del administrador
+    config.numUsuario = "";                   // Numero de usuario que recibe los SMS;
+    config.intervaloSegundos = 0;             // Intervalo de envio de datos en segundos
+    config.intervaloMinutos = 5;              // Intervalo de envio de datos en minutos
+    config.intervaloHoras = 0;                // Intervalo de envio de datos en horas
+    config.intervaloDias = 0;                 // Intervalo de envio de datos en dias
+    config.modoAhorro = false;                // Modo ahorro de energia (true/false) 
+    config.pin = "589649";                    // PIN para aceptar comandos SMS
+    config.configurado = false;
+
+    EEPROM.put(0, config);
+    EEPROM.commit();
+  }
+
+  // Iniciar A7670SA
+  iniciarA7670SA();
 
   delay(2000);
   notificarEncendido();
   digitalWrite(STM_LED,HIGH);
-  dormirA7670SA(true);
-  // Configure low power
-  LowPower.begin();
-  // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
-  // Last parameter (LowPowerMode) should match with the low power state used
-  LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE); // SLEEP_MODE
+}
+
+void configurarModoAhorroEnergia(bool modoAhorro) {
+  if (modoAhorro) {
+    // Configurar para modo ahorro de energia
+    // Desactivar LED
+    pinMode(STM_LED, INPUT); // Cambiar a entrada para reducir consumo
+
+    // Configurar alarma RTC
+    configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
+
+    // Configurar A7670SA para sleep automatico en idle
+    dormirA7670SA(true);
+    // Configurar GPS para modo bajo consumo (si es posible)
+    //configureGPS(NEO8M);
+    // Aquí podrías enviar comandos específicos al GPS si soporta modos de bajo consumo
+    // Configure low power
+    LowPower.begin();
+    // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
+    // Last parameter (LowPowerMode) should match with the low power state used
+    LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE); // SLEEP_MODE
+  } else {
+    // Configurar para modo normal
+    pinMode(STM_LED, OUTPUT); // Cambiar a salida para usar el LED
+    digitalWrite(STM_LED, HIGH); // Encender LED
+    dormirA7670SA(false);
+    // Configurar GPS para modo normal (si es posible)
+    // Aquí podrías enviar comandos específicos al GPS si soporta modos normales
+    iniciarA7670SA();
+  }
 }
 
 void loop() {
@@ -142,13 +207,21 @@ void loop() {
     String datosGPS = leerYGuardarGPS();
 
     enviarDatosRastreador(datosGPS);
-    dormirA7670SA(true);
-    configurarAlarma();
-    //LowPower.sleep();
-    LowPower.deepSleep();
+    
+
+    if (config.modoAhorro) {
+      // configurarModoAhorroEnergia(config.modoAhorro);
+      //LowPower.sleep();
+      dormirA7670SA(true);
+      configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
+      LowPower.deepSleep();
+    }
+    
   }
 
 }
+
+// ---------- Funciones del A7670SA ----------
 
 void enviarComando(const char* comando, int espera = 1000) {
   A7670SA.println(comando);
@@ -190,7 +263,7 @@ void dormirA7670SA(bool dormir) {
   }
 }
 
-String readA7670SAResponse(unsigned long timeout = 2000) {
+String leerRespuestaA7670SA(unsigned long timeout = 2000) {
   String response = "";
   unsigned long startTime = millis();
 
@@ -226,7 +299,7 @@ void flushA7670SA() {
     }
 }
 
-void enviarMensaje(String SMS)
+void enviarSMS(String SMS, String number = config.admin)
 {
   iniciarA7670SA();
   enviarComando("AT+CREG?",1000);
@@ -244,6 +317,165 @@ void enviarMensaje(String SMS)
   delay(2000);
 }
 
+bool hayMensajesPendientes() {
+    enviarComando("AT+CPMS=\"SM\"\r"); // Selecciona la memoria SIM
+    delay(200);
+
+    String respuesta = leerRespuestaA7670SA(1000); // Lee respuesta con timeout de 1s
+
+    // Ejemplo de respuesta:
+    // +CPMS: 1,30,1,30,1,30
+    // Donde el primer número es la cantidad de SMS usados en la memoria
+
+    // Busca el número de mensajes almacenados
+    int index = respuesta.indexOf("+CPMS:");
+    if (index != -1) {
+        int coma = respuesta.indexOf(',', index);
+        if (coma != -1) {
+            int usados = respuesta.substring(index + 7, coma).toInt();
+            if (usados > 0) {
+                // Ahora verificamos si alguno está sin leer
+                enviarComando("AT+CMGL=\"REC UNREAD\"\r");
+                delay(500);
+                String lista = leerRespuesta(2000);
+
+                if (lista.indexOf("+CMGL:") != -1) {
+                    return true; // Hay mensajes sin leer
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+void leerMensajes() {
+    enviarComando("AT+CMGF=1\r"); // Modo texto
+    delay(100);
+    enviarComando("AT+CMGL=\"REC UNREAD\"\r"); // Lista mensajes no leídos
+    delay(500);
+
+    String respuesta = leerRespuestaA7670SA(4000);
+
+    // Ejemplo de respuesta:
+    // +CMGL: 1,"REC UNREAD","+521234567890",,"24/10/09,14:32:00+08"
+    // MODOAHORRO=ON
+
+    int index = 0;
+    while ((index = respuesta.indexOf("+CMGL:", index)) != -1) {
+        int id = respuesta.substring(index + 7, respuesta.indexOf(',', index)).toInt();
+
+        // Busca el texto del mensaje
+        int saltoLinea = respuesta.indexOf("\n", index);
+        int finMsg = respuesta.indexOf("+CMGL:", saltoLinea);
+        if (finMsg == -1) finMsg = respuesta.length();
+        String mensaje = respuesta.substring(saltoLinea + 1, finMsg);
+        mensaje.trim();
+
+        procesarComando(mensaje); // Aquí llamas tu lógica según el contenido
+
+        // Borra el mensaje después de procesarlo
+        String cmd = "AT+CMGD=" + String(id) + "\r";
+        enviarComando(cmd.c_str());
+        delay(200);
+
+        index = finMsg;
+    }
+}
+
+void procesarComando(String mensaje) {
+    mensaje.trim();
+    mensaje.toUpperCase(); // Para evitar problemas con mayúsculas/minúsculas
+
+    // --- Verificar formato PIN=xxxx; ---
+    if (!mensaje.startsWith("PIN=")) {
+        enviarSMS(config.numUsuario, "Falta el PIN en el comando.");
+        return;
+    }
+
+    int separador = mensaje.indexOf(';');
+    if (separador == -1) {
+        enviarSMS(config.numUsuario, "Formato inválido. Use: PIN=xxxx;COMANDO");
+        return;
+    }
+
+    String pinIngresado = mensaje.substring(4, separador);
+    pinIngresado.trim();
+
+    // Validar PIN
+    if (pinIngresado != config.pin) {
+        enviarSMS(config.numUsuario, "PIN incorrecto.");
+        return;
+    }
+
+    // Extraer comando real después del ;
+    String comando = mensaje.substring(separador + 1);
+    comando.trim();
+
+    // --- Activar o desactivar modo ahorro ---
+    else if (mensaje.startsWith("MODOAHORRO=")) {
+        if (mensaje.endsWith("ON")) {
+            config.modoAhorro = true;
+            enviarSMS(config.admin, "Modo ahorro activado.");
+        } else {
+            config.modoAhorro = false;
+            enviarSMS(config.admin, "Modo ahorro desactivado.");
+        }
+        guardarConfigEEPROM();
+    }
+
+    // --- Cambiar intervalo ---
+    else if (mensaje.startsWith("INTERVALO=")) {
+        String valor = mensaje.substring(10);
+        int tiempo = valor.toInt();
+
+        config.intervaloSegundos = 0;
+        config.intervaloMinutos = 0;
+        config.intervaloHoras = 0;
+        config.intervaloDias = 0;
+
+        if (valor.endsWith("S")) config.intervaloSegundos = tiempo;
+        else if (valor.endsWith("M")) config.intervaloMinutos = tiempo;
+        else if (valor.endsWith("H")) config.intervaloHoras = tiempo;
+        else if (valor.endsWith("D")) config.intervaloDias = tiempo;
+
+        guardarConfigEEPROM();
+        enviarSMS(config.admin, "Intervalo actualizado: " + valor);
+    }
+
+    // --- Cambiar número de usuario ---
+    else if (mensaje.startsWith("NUMERO=")) {
+        String nuevoNumero = mensaje.substring(7);
+        config.numUsuario = nuevoNumero;
+        guardarConfigEEPROM();
+        enviarSMS(config.admin, "Número de destino actualizado.");
+    }
+
+    // --- Iniciar rastreo ---
+    else if (mensaje == "INICIAR") {
+        config.rastreoActivo = true;
+        guardarConfigEEPROM();
+        enviarSMS(config.admin, "Rastreo activado.");
+    }
+
+    // --- Detener rastreo ---
+    else if (mensaje == "DETENER") {
+        config.rastreoActivo = false;
+        guardarConfigEEPROM();
+        enviarSMS(config.admin, "Rastreo detenido.");
+    }
+
+    // --- Comando desconocido ---
+    else {
+        enviarSMS(config.admin, "Comando no reconocido: " + mensaje);
+    }
+}
+
+
+
+
+// ---------- Funciones del rastreador ----------
+
 void enviarDatosRastreador(String datosGPS)
 {
   digitalWrite(STM_LED, LOW);
@@ -255,7 +487,7 @@ void enviarDatosRastreador(String datosGPS)
   batteryCharge = obtenerVoltajeBateria();
 
   String SMS = crearMensaje(datosGPS, cellTowerInfo, batteryCharge);
-  enviarMensaje(SMS);
+  enviarSMS(SMS);
 
   delay(2000);
   digitalWrite(STM_LED,HIGH);
@@ -304,7 +536,11 @@ void notificarEncendido()
 
   String SMS = "El rastreador: " + String(idRastreador) + ",";
     SMS += " esta encendido. Tiempo: " + currentTime;
-  enviarMensaje(SMS);
+  enviarSMS(SMS, config.admin);
+
+  if(config.numUsuario != ""){
+    enviarSMS(SMS, config.numUsuario);
+  }
 
   delay(2000);
   digitalWrite(STM_LED,HIGH);
@@ -367,7 +603,7 @@ void corregirRTC() {
         // Ajustar si hay diferencia mayor a 2-3 segundos
         if (diff > 2) {
             rtc.adjust(gpsTime);
-            enviarMensaje("RTC ajustado a la hora del GPS (desfase " + String(diff) + " s).");
+            enviarSMS("RTC ajustado a la hora del GPS (desfase " + String(diff) + " s).");
         }
     }
 }
@@ -383,7 +619,7 @@ String obtenerTorreCelular() {
     flushA7670SA();
 
     enviarComando("AT+CPSI?",2000);
-    String cpsiResponse = readA7670SAResponse();
+    String cpsiResponse = leerRespuestaA7670SA();
 
     // Extraer datos de la respuesta de AT+CPSI?
     int startIndex = cpsiResponse.indexOf("CPSI:");
@@ -433,7 +669,7 @@ String obtenerTorreCelular() {
     json += "mnc:" + mnc + ",";
     json += "lac:" + lac + ",";
     json += "cid:" + cellId;
-    //enviarMensaje(json);
+    //enviarSMS(json);
     return json;
 }
 
@@ -444,13 +680,14 @@ String hexToDec(String hexStr) {
 
 String obtenerVoltajeBateria() {
   float voltaje = leerVoltaje(BATERIA);
-  // enviarMensaje("Voltaje: " + String(voltaje));
+  // enviarSMS("Voltaje: " + String(voltaje));
   int nivelBateria = calcularNivelBateria(voltaje);
   String sms = "nb:" + String(nivelBateria);
   return sms;
 }
 
 float leerVoltaje(int pin) {
+  // Configuracion divisor de voltaje
   const float R1 = 51000.0;
   const float R2 = 20000.0;
   const float Vref = 3.3;  // referencia ADC
@@ -472,15 +709,14 @@ float leerVoltaje(int pin) {
 }
 
 int calcularNivelBateria(float v) {
-  if (v >= 4.20) return 100;
-  else if (v >= 4.10) return 95;
-  else if (v >= 4.05) return 90;
-  else if (v >= 4.00) return 85;
-  else if (v >= 3.95) return 80;
-  else if (v >= 3.90) return 75;
-  else if (v >= 3.85) return 70;
-  else if (v >= 3.80) return 65;
-  else if (v >= 3.75) return 60;
+  if (v >= 4.10) return 100;
+  else if (v >= 4.05) return 95;
+  else if (v >= 4.00) return 90;
+  else if (v >= 3.95) return 85;
+  else if (v >= 3.90) return 80;
+  else if (v >= 3.85) return 75;
+  else if (v >= 3.80) return 70;
+  else if (v >= 3.75) return 65;
   else if (v >= 3.70) return 55;
   else if (v >= 3.65) return 45;
   else if (v >= 3.60) return 35;
