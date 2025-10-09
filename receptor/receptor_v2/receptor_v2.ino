@@ -14,8 +14,8 @@ HardwareSerial SIM800L(1);
 const char* SSID = "IZZI-53E3";
 const char* PASSWORD = "F0AF853B53E3";
 const String TOKEN = "1fbb3d99ca08eedc1322ceefb678eb7ae3f6063459c39621b88a4ec83dc810eb";
-const String SERVER = "https://app-rastreo-backend.onrender.com";
-const String URL = SERVER + "/api/tracker/upload-data";
+const String SERVER = "https://app-rastreo-backend-1.onrender.com";
+const String URL = SERVER + "/api/tracker/";
 const String ENCENDIDO = SERVER + "/api/tracker/tracker-on";
 const String number = "+525545464585";
 
@@ -95,7 +95,7 @@ bool despertarServidor() {
   client.setCACert(rootCACertificate);
   HTTPClient http;
 
-  http.begin(client, SERVER + "/test");
+  http.begin(client, SERVER + "/despertar-servidor");
   int httpCode = http.GET();
   http.end();
 
@@ -219,7 +219,7 @@ void leerMensaje(int index) {
     return;
   }
 
-  if (message.indexOf("tracker:") != -1) {
+  if (message.indexOf("rastreador:") != -1) {
     despertarServidor();
     delay(5000);
     const int maxRetries = 3;
@@ -369,13 +369,7 @@ void loop() {
           enviarMensajeRecibido(payload);
           //delay(3000);
           //enviarMensajeRecibido("Test de envío SIM800L");
-      }else if (message.indexOf("tracker:") != -1) {
-//        if (enviarPostRequest(message)) {
-//          enviarMensajeRecibido("Mensaje enviado al servidor");
-//        }else{
-//          enviarMensajeRecibido("Ocurrió un error al enviar al servidor");
-//        }
-
+      }else if (message.indexOf("rastreador:") != -1) {
           despertarServidor();
           delay(5000);
           const int maxRetries = 3;
