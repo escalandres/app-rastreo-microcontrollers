@@ -30,6 +30,7 @@ struct Config {
   bool modoAhorro = false;              // Modo ahorro de energia (true/false) 
   String pin = "589649";                // PIN para aceptar comandos SMS
   bool configurado = false;
+  bool rastreoActivo = true;          // Indica si el rastreo está activo o no
 };
 
 Config config;
@@ -42,9 +43,6 @@ String _buffer;
 // const String number = "+525620577634"; // Oxxo Cel
 //const String number = "+525554743913"; //Telcel
 //const String number = "+525545464585"; // Mi Telcel
-
-// unsigned long chars;
-// unsigned short sentences, failed_checksum;
 
 // Definir el puerto serial A7670SA
 HardwareSerial A7670SA(PA3, PA2);
@@ -61,47 +59,10 @@ void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos
   rtc.disableAlarm(2);
 
   //Set Alarm to be trigged in X
-  rtc.setAlarm1(rtc.now() + TimeSpan(dias, horas, minutos, segundos), DS3231_A1_Date);  // this mode triggers the alarm when the seconds match.
+  rtc.setAlarm1(rtc.now() + TimeSpan(dias, horas, minutos, segundos), DS3231_A1_Second);  // this mode triggers the alarm when the seconds match.
 
   alarmFired = false;
 }
-
-// void setUpdateRate(Stream &gps) {
-//   // UBX-config-RATE: set update rate to 10000 ms (0.1 Hz)
-//   byte rateconfig[] = {
-//     0xB5, 0x62,       // Sync chars
-//     0x06, 0x08,       // Class = config, idRastreador = RATE
-//     0x06, 0x00,       // Length = 6
-//     0x10, 0x27,       // measRate = 10000 ms (0x2710)
-//     0x01, 0x00,       // navRate = 1
-//     0x01, 0x00        // timeRef = 1 (GPS time)
-//   };
-//   gps.write(rateconfig, sizeof(rateconfig));
-// }
-
-// void disableNMEAMessages(Stream &gps) {
-//   // Formato: UBX-config-MSG (Clase 0xF0 = NMEA, idRastreador = tipo de mensaje)
-//   byte msgs[][9] = {
-//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x00, 0x00}, // GxGGA
-//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x01, 0x00}, // GxGLL
-//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x02, 0x00}, // GxGSA
-//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x03, 0x00}, // GxGSV
-//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x05, 0x00}, // GxVTG
-//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x06, 0x00}  // GxGRS
-//   };
-
-//   for (int i = 0; i < sizeof(msgs) / sizeof(msgs[0]); i++) {
-//     gps.write(msgs[i], sizeof(msgs[i]));
-//     delay(50); // Pequeña pausa entre comandos
-//   }
-// }
-
-// void configureGPS(Stream &gps){
-//   delay(500); // Esperar a que el GPS esté listo tras el power-up
-//   setUpdateRate(gps);
-//   delay(500); // Pausa corta entre comandos
-//   disableNMEAMessages(gps);
-// }
 
 void guardarConfigEEPROM() {
     EEPROM.put(0, config);
@@ -177,14 +138,18 @@ void configurarModoAhorroEnergia(bool modoAhorro) {
 
     // Configurar A7670SA para sleep automatico en idle
     dormirA7670SA(true);
+
     // Configurar GPS para modo bajo consumo (si es posible)
     //configureGPS(NEO8M);
     // Aquí podrías enviar comandos específicos al GPS si soporta modos de bajo consumo
+
     // Configure low power
     LowPower.begin();
     // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
     // Last parameter (LowPowerMode) should match with the low power state used
     LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE); // SLEEP_MODE
+
+    LowPower.deepSleep();
   } else {
     // Configurar para modo normal
     pinMode(STM_LED, OUTPUT); // Cambiar a salida para usar el LED
@@ -197,28 +162,29 @@ void configurarModoAhorroEnergia(bool modoAhorro) {
 }
 
 void loop() {
-
   if(alarmFired){
-    digitalWrite(STM_LED, HIGH);
-    delay(2000);
+    pinMode(STM_LED, OUTPUT);
+    // Enciende led del STM32
     digitalWrite(STM_LED,LOW);
+    // Encender modulo A7670SA
     dormirA7670SA(false);
     iniciarA7670SA();
+    delay(2000);
+    // Revisar si hay mensajes SMS pendientes
+    if (hayMensajesPendientes()) {
+      leerMensajes();
+    }
+    // Leer GPS
     String datosGPS = leerYGuardarGPS();
 
+    // Enviar datos de rastreo
     enviarDatosRastreador(datosGPS);
-    
 
-    if (config.modoAhorro) {
-      // configurarModoAhorroEnergia(config.modoAhorro);
-      //LowPower.sleep();
-      dormirA7670SA(true);
-      configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
-      LowPower.deepSleep();
-    }
-    
+    // Apagar led del STM32
+    digitalWrite(STM_LED,HIGH);
+    // Configurar modo ahorro de energia si está activado
+    configurarModoAhorroEnergia(config.modoAhorro);   
   }
-
 }
 
 // ---------- Funciones del A7670SA ----------
@@ -248,18 +214,14 @@ void iniciarA7670SA(){
 
 void dormirA7670SA(bool dormir) {
   if (dormir) {
-    //Dormir A7670SA
     enviarComando("AT+CSCLK=1");
     delay(100);
-    digitalWrite(SLEEP_PIN, LOW);  // DTR HIGH -> permite sleep en idle
-    //Serial.println("A7670SA en modo Sleep (cuando idle).");
+    digitalWrite(SLEEP_PIN, HIGH);  // HIGH permite que el módulo entre en sleep
   } else {
-    //Despertar A7670SA
-    digitalWrite(SLEEP_PIN, HIGH);   // DTR LOW -> despierta módulo
-    delay(100);                     // Tiempo para que despierte
+    digitalWrite(SLEEP_PIN, LOW);   // LOW despierta el módulo
+    delay(100);
     enviarComando("AT+CSCLK=0");
-    enviarComando("AT");          // Activar UART
-    //Serial.println("A7670SA Despierto y sin sleep automático.");
+    enviarComando("AT");
   }
 }
 
@@ -337,7 +299,7 @@ bool hayMensajesPendientes() {
                 // Ahora verificamos si alguno está sin leer
                 enviarComando("AT+CMGL=\"REC UNREAD\"\r");
                 delay(500);
-                String lista = leerRespuesta(2000);
+                String lista = leerRespuestaA7670SA(2000);
 
                 if (lista.indexOf("+CMGL:") != -1) {
                     return true; // Hay mensajes sin leer
@@ -389,13 +351,13 @@ void procesarComando(String mensaje) {
 
     // --- Verificar formato PIN=xxxx; ---
     if (!mensaje.startsWith("PIN=")) {
-        enviarSMS(config.numUsuario, "Falta el PIN en el comando.");
+        enviarSMS("Falta el PIN en el comando.",config.numUsuario);
         return;
     }
 
     int separador = mensaje.indexOf(';');
     if (separador == -1) {
-        enviarSMS(config.numUsuario, "Formato inválido. Use: PIN=xxxx;COMANDO");
+        enviarSMS("Formato inválido. Use: PIN=xxxx;COMANDO",config.numUsuario);
         return;
     }
 
@@ -404,22 +366,23 @@ void procesarComando(String mensaje) {
 
     // Validar PIN
     if (pinIngresado != config.pin) {
-        enviarSMS(config.numUsuario, "PIN incorrecto.");
+        enviarSMS("PIN incorrecto.", config.numUsuario);
         return;
     }
 
     // Extraer comando real después del ;
     String comando = mensaje.substring(separador + 1);
     comando.trim();
+    comando.toUpperCase();
 
     // --- Activar o desactivar modo ahorro ---
     else if (mensaje.startsWith("MODOAHORRO=")) {
         if (mensaje.endsWith("ON")) {
             config.modoAhorro = true;
-            enviarSMS(config.admin, "Modo ahorro activado.");
+            enviarSMS("Modo ahorro activado.", config.admin);
         } else {
             config.modoAhorro = false;
-            enviarSMS(config.admin, "Modo ahorro desactivado.");
+            enviarSMS("Modo ahorro desactivado.", config.admin);
         }
         guardarConfigEEPROM();
     }
@@ -427,6 +390,7 @@ void procesarComando(String mensaje) {
     // --- Cambiar intervalo ---
     else if (mensaje.startsWith("INTERVALO=")) {
         String valor = mensaje.substring(10);
+        valor.trim();
         int tiempo = valor.toInt();
 
         config.intervaloSegundos = 0;
@@ -440,39 +404,49 @@ void procesarComando(String mensaje) {
         else if (valor.endsWith("D")) config.intervaloDias = tiempo;
 
         guardarConfigEEPROM();
-        enviarSMS(config.admin, "Intervalo actualizado: " + valor);
+        enviarSMS("Intervalo actualizado: " + valor, config.admin);
     }
 
     // --- Cambiar número de usuario ---
     else if (mensaje.startsWith("NUMERO=")) {
         String nuevoNumero = mensaje.substring(7);
+        nuevoNumero.trim();
+        if (!nuevoNumero.startsWith("+") || nuevoNumero.length() < 10) {
+            enviarSMS("Número inválido. Debe incluir código de país y ser válido.", config.admin);
+            return;
+        }
         config.numUsuario = nuevoNumero;
         guardarConfigEEPROM();
-        enviarSMS(config.admin, "Número de destino actualizado.");
+        enviarSMS("Número de destino actualizado.", config.admin);
     }
 
     // --- Iniciar rastreo ---
     else if (mensaje == "INICIAR") {
         config.rastreoActivo = true;
         guardarConfigEEPROM();
-        enviarSMS(config.admin, "Rastreo activado.");
+        enviarSMS("Rastreo activado.", config.admin);
     }
 
     // --- Detener rastreo ---
     else if (mensaje == "DETENER") {
         config.rastreoActivo = false;
         guardarConfigEEPROM();
-        enviarSMS(config.admin, "Rastreo detenido.");
+        enviarSMS("Rastreo detenido.", config.admin);
+    }
+
+    else if (comando == "ESTADO") {
+      String info = "ID:" + config.idRastreador + "\n" +
+                    "Modo ahorro: " + String(config.modoAhorro ? "ON" : "OFF") + "\n" +
+                    "Intervalo: " + String(config.intervaloMinutos) + " min\n" +
+                    "Rastreo: " + String(config.rastreoActivo ? "ON" : "OFF");
+      enviarSMS(info, config.admin);
     }
 
     // --- Comando desconocido ---
     else {
-        enviarSMS(config.admin, "Comando no reconocido: " + mensaje);
+        enviarSMS("Comando no reconocido: " + comando, config.admin);
     }
 }
-
-
-
 
 // ---------- Funciones del rastreador ----------
 
@@ -600,11 +574,25 @@ void corregirRTC() {
         long diff = (long)now.unixtime() - (long)gpsTime.unixtime();
         if (diff < 0) diff = -diff;
 
-        // Ajustar si hay diferencia mayor a 2-3 segundos
+        // Solo ajustar si la diferencia es significativa
         if (diff > 2) {
             rtc.adjust(gpsTime);
-            enviarSMS("RTC ajustado a la hora del GPS (desfase " + String(diff) + " s).");
+
+            static unsigned long ultimaCorreccion = 0;
+            unsigned long tiempoActual = millis();
+
+            // Enviar SMS solo si ha pasado más de 1 hora desde la última corrección
+            if (tiempoActual - ultimaCorreccion > 3600000UL || ultimaCorreccion == 0) {
+                ultimaCorreccion = tiempoActual;
+
+                String mensaje = "RTC ajustado con hora GPS (diferencia " + String(diff) + "s)";
+                enviarSMS(mensaje);
+            }
         }
+    }else {
+        // GPS aún no tiene hora válida
+        // (opcional) podrías forzar sincronizar con la última hora conocida
+        // enviarSMS("RTC no sincronizado: GPS sin datos válidos");
     }
 }
 
@@ -655,7 +643,7 @@ String obtenerTorreCelular() {
         int lacEnd = cpsiResponse.indexOf(",", lacStart);
         lac = cpsiResponse.substring(lacStart, lacEnd);
 
-        // Extraer Cell idRastreador
+        // Extraer Cell ID
         int cellIdStart = lacEnd + 1;
         int cellIdEnd = cpsiResponse.indexOf(",", cellIdStart);
         cellId = cpsiResponse.substring(cellIdStart, cellIdEnd);
@@ -724,3 +712,40 @@ int calcularNivelBateria(float v) {
   else if (v >= 3.40) return 10;
   else return 0;
 }
+
+// void setUpdateRate(Stream &gps) {
+//   // UBX-config-RATE: set update rate to 10000 ms (0.1 Hz)
+//   byte rateconfig[] = {
+//     0xB5, 0x62,       // Sync chars
+//     0x06, 0x08,       // Class = config, idRastreador = RATE
+//     0x06, 0x00,       // Length = 6
+//     0x10, 0x27,       // measRate = 10000 ms (0x2710)
+//     0x01, 0x00,       // navRate = 1
+//     0x01, 0x00        // timeRef = 1 (GPS time)
+//   };
+//   gps.write(rateconfig, sizeof(rateconfig));
+// }
+
+// void disableNMEAMessages(Stream &gps) {
+//   // Formato: UBX-config-MSG (Clase 0xF0 = NMEA, idRastreador = tipo de mensaje)
+//   byte msgs[][9] = {
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x00, 0x00}, // GxGGA
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x01, 0x00}, // GxGLL
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x02, 0x00}, // GxGSA
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x03, 0x00}, // GxGSV
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x05, 0x00}, // GxVTG
+//     {0xB5, 0x62, 0x06, 0x01, 0x03, 0x00, 0xF0, 0x06, 0x00}  // GxGRS
+//   };
+
+//   for (int i = 0; i < sizeof(msgs) / sizeof(msgs[0]); i++) {
+//     gps.write(msgs[i], sizeof(msgs[i]));
+//     delay(50); // Pequeña pausa entre comandos
+//   }
+// }
+
+// void configureGPS(Stream &gps){
+//   delay(500); // Esperar a que el GPS esté listo tras el power-up
+//   setUpdateRate(gps);
+//   delay(500); // Pausa corta entre comandos
+//   disableNMEAMessages(gps);
+// }
