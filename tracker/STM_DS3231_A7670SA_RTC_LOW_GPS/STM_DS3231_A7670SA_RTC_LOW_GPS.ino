@@ -162,28 +162,45 @@ void configurarModoAhorroEnergia(bool modoAhorro) {
 }
 
 void loop() {
-  if(alarmFired){
-    pinMode(STM_LED, OUTPUT);
-    // Enciende led del STM32
-    digitalWrite(STM_LED,LOW);
-    // Encender modulo A7670SA
-    dormirA7670SA(false);
-    iniciarA7670SA();
-    delay(2000);
+  if(config.rastreoActivo == true){
+    // Si el rastreo está desactivado, dormir por un tiempo y volver a checar
+    if(alarmFired){
+      pinMode(STM_LED, OUTPUT);
+      // Enciende led del STM32
+      digitalWrite(STM_LED,LOW);
+      // Encender modulo A7670SA
+      dormirA7670SA(false);
+      iniciarA7670SA();
+      delay(2000);
+      // Revisar si hay mensajes SMS pendientes
+      if (hayMensajesPendientes()) {
+        leerMensajes();
+      }
+      // Leer GPS
+      String datosGPS = leerYGuardarGPS();
+
+      // Enviar datos de rastreo
+      enviarDatosRastreador(datosGPS);
+      delay(3000);
+      // Apagar led del STM32
+      digitalWrite(STM_LED,HIGH);
+      
+      // Limpiar bandera de alarma
+      alarmFired = false;
+
+      // Configurar modo ahorro de energia si está activado
+      configurarModoAhorroEnergia(config.modoAhorro);
+    }
+  }
+  else{
+    // Si el rastreo está desactivado
     // Revisar si hay mensajes SMS pendientes
     if (hayMensajesPendientes()) {
       leerMensajes();
     }
-    // Leer GPS
-    String datosGPS = leerYGuardarGPS();
 
-    // Enviar datos de rastreo
-    enviarDatosRastreador(datosGPS);
-
-    // Apagar led del STM32
-    digitalWrite(STM_LED,HIGH);
-    // Configurar modo ahorro de energia si está activado
-    configurarModoAhorroEnergia(config.modoAhorro);   
+    // dormir por un tiempo y volver a checar
+    delay(20000);
   }
 }
 
