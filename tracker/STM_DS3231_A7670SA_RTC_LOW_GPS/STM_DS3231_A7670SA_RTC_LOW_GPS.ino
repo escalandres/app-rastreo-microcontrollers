@@ -66,7 +66,7 @@ void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos
 
 void guardarConfigEEPROM() {
     EEPROM.put(0, config);
-    EEPROM.commit();
+    //EEPROM.commit();
 }
 
 void setup() {
@@ -75,7 +75,7 @@ void setup() {
   _buffer.reserve(50);
   A7670SA.begin(115200);
   NEO8M.begin(9600);
-  EEPROM.begin(512);
+  //EEPROM.begin(512);
 
   /* Configuracion de puertos */
   pinMode(SLEEP_PIN, OUTPUT);
@@ -116,7 +116,7 @@ void setup() {
     config.configurado = false;
 
     EEPROM.put(0, config);
-    EEPROM.commit();
+    ////EEPROM.commit();
   }
 
   // Iniciar A7670SA
@@ -393,7 +393,7 @@ void procesarComando(String mensaje) {
     comando.toUpperCase();
 
     // --- Activar o desactivar modo ahorro ---
-    else if (mensaje.startsWith("MODOAHORRO=")) {
+    if (mensaje.startsWith("MODOAHORRO=")) {
         if (mensaje.endsWith("ON")) {
             config.modoAhorro = true;
             enviarSMS("Modo ahorro activado.", config.admin);
@@ -452,7 +452,7 @@ void procesarComando(String mensaje) {
     }
 
     else if (comando == "ESTADO") {
-      String info = "ID:" + config.idRastreador + "\n" +
+      String info = "ID:" + String(config.idRastreador) + "\n" +
                     "Modo ahorro: " + String(config.modoAhorro ? "ON" : "OFF") + "\n" +
                     "Intervalo: " + String(config.intervaloMinutos) + " min\n" +
                     "Rastreo: " + String(config.rastreoActivo ? "ON" : "OFF");
@@ -499,7 +499,7 @@ String crearMensaje(String datosGPS, String cellTowerInfo, String batteryCharge)
 
   String currentTime = String(buffer);
 
-  String output = "id:" + String(idRastreador) + ",";
+  String output = "id:" + String(config.idRastreador) + ",";
     output += "time:" + currentTime + ",";
     output += cellTowerInfo + ",";
     output += batteryCharge + ",";
@@ -525,7 +525,7 @@ void notificarEncendido()
 
   String currentTime = String(buffer);
 
-  String SMS = "El rastreador: " + String(idRastreador) + ",";
+  String SMS = "El rastreador: " + String(config.idRastreador) + ",";
     SMS += " esta encendido. Tiempo: " + currentTime;
   enviarSMS(SMS, config.admin);
 
