@@ -20,17 +20,17 @@ const int BATERIA = PA0;
 
 /* Constantes y Variables Globales */
 struct Config {
-  int idRastreador = "TRK00001";         // ID unico del rastreador
-  String admin = "+525620577634";       // Numero de telefono del administrador
-  String numUsuario = "";  // Numero de usuario que recibe los SMS;
-  int intervaloSegundos = 0;            // Intervalo de envio de datos en segundos
-  int intervaloMinutos = 5;             // Intervalo de envio de datos en minutos
-  int intervaloHoras = 0;               // Intervalo de envio de datos en horas
-  int intervaloDias = 0;                // Intervalo de envio de datos en dias
-  bool modoAhorro = false;              // Modo ahorro de energia (true/false) 
-  String pin = "589649";                // PIN para aceptar comandos SMS
-  bool configurado = false;
-  bool rastreoActivo = true;          // Indica si el rastreo está activo o no
+  int idRastreador;         // ID unico del rastreador
+  String admin;       // Numero de telefono del administrador
+  String numUsuario;  // Numero de usuario que recibe los SMS;
+  int intervaloSegundos;            // Intervalo de envio de datos en segundos
+  int intervaloMinutos;             // Intervalo de envio de datos en minutos
+  int intervaloHoras;               // Intervalo de envio de datos en horas
+  int intervaloDias;                // Intervalo de envio de datos en dias
+  bool modoAhorro;              // Modo ahorro de energia (true/false) 
+  String pin;                // PIN para aceptar comandos SMS
+  bool configurado;
+  bool rastreoActivo;          // Indica si el rastreo está activo o no
 };
 
 Config config;
@@ -104,7 +104,7 @@ void setup() {
   
   // Si no estaba configurado, cargamos valores por defecto
   if (!config.configurado) {
-    config.idRastreador = "TRK00001";         // ID unico del rastreador
+    config.idRastreador = 48273619;         // ID unico del rastreador
     config.admin = "+525620577634";           // Numero de telefono del administrador
     config.numUsuario = "";                   // Numero de usuario que recibe los SMS;
     config.intervaloSegundos = 0;             // Intervalo de envio de datos en segundos
