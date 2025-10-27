@@ -366,24 +366,31 @@ void procesarComando(String mensaje) {
     mensaje.trim();
     mensaje.toUpperCase(); // Para evitar problemas con mayúsculas/minúsculas
 
-    // --- Verificar formato PIN=xxxx; ---
+    // --- Verificar formato PIN=xxxxxx; ---
     if (!mensaje.startsWith("PIN=")) {
-        enviarSMS("Falta el PIN en el comando.",config.numUsuario);
+        if(config.numUsuario != ""){
+          enviarSMS("Falta el prefijo PIN en el comando.", config.numUsuario);
+        }
         return;
     }
 
+    int igual = mensaje.indexOf('=');
     int separador = mensaje.indexOf(';');
     if (separador == -1) {
-        enviarSMS("Formato inválido. Use: PIN=xxxx;COMANDO",config.numUsuario);
+        if(config.numUsuario != ""){
+          enviarSMS("Formato inválido. Use: PIN=xxxxxx;COMANDO", config.numUsuario);
+        }
         return;
     }
 
-    String pinIngresado = mensaje.substring(4, separador);
+    String pinIngresado = mensaje.substring(igual + 1, separador);
     pinIngresado.trim();
 
     // Validar PIN
     if (pinIngresado != config.pin) {
-        enviarSMS("PIN incorrecto.", config.numUsuario);
+        if(config.numUsuario != ""){
+          enviarSMS("🔒 PIN incorrecto.", config.numUsuario);
+        }
         return;
     }
 
@@ -393,75 +400,154 @@ void procesarComando(String mensaje) {
     comando.toUpperCase();
 
     // --- Activar o desactivar modo ahorro ---
-    if (mensaje.startsWith("MODOAHORRO=")) {
-        if (mensaje.endsWith("ON")) {
+    if (comando.indexOf("MODOAHORRO=")  != -1) {
+        if (comando.endsWith("ON")) {
             config.modoAhorro = true;
+            if(config.numUsuario != ""){
+              enviarSMS("Modo ahorro activado.", config.numUsuario);
+            }
             enviarSMS("Modo ahorro activado.", config.admin);
         } else {
             config.modoAhorro = false;
             enviarSMS("Modo ahorro desactivado.", config.admin);
+            if(config.numUsuario != ""){
+              enviarSMS("Modo ahorro desactivado.", config.numUsuario);
+            }
         }
         guardarConfigEEPROM();
     }
 
     // --- Cambiar intervalo ---
-    else if (mensaje.startsWith("INTERVALO=")) {
-        String valor = mensaje.substring(10);
-        valor.trim();
-        int tiempo = valor.toInt();
+    else if (comando.indexOf("INTERVALO=") != -1) {
+      String valor = comando.substring(10);
+      valor.trim();
 
-        config.intervaloSegundos = 0;
-        config.intervaloMinutos = 0;
-        config.intervaloHoras = 0;
-        config.intervaloDias = 0;
+      // Reiniciar todos los valores
+      config.intervaloSegundos = 0;
+      config.intervaloMinutos = 0;
+      config.intervaloHoras = 0;
+      config.intervaloDias = 0;
 
-        if (valor.endsWith("S")) config.intervaloSegundos = tiempo;
-        else if (valor.endsWith("M")) config.intervaloMinutos = tiempo;
-        else if (valor.endsWith("H")) config.intervaloHoras = tiempo;
-        else if (valor.endsWith("D")) config.intervaloDias = tiempo;
+      int i = 0;
+      while (i < valor.length()) {
+          String numero = "";
+          // Extraer número
+          while (i < valor.length() && isDigit(valor[i])) {
+              numero += valor[i];
+              i++;
+          }
 
-        guardarConfigEEPROM();
-        enviarSMS("Intervalo actualizado: " + valor, config.admin);
-    }
+          // Si no hay número, sal del bucle
+          if (numero == "") break;
+
+          int cantidad = numero.toInt();
+
+          // Extraer sufijo
+          if (i < valor.length()) {
+              char sufijo = valor[i];
+              i++;
+              if (sufijo == 'S') config.intervaloSegundos += cantidad;
+              else if (sufijo == 'M') config.intervaloMinutos += cantidad;
+              else if (sufijo == 'H') config.intervaloHoras += cantidad;
+              else if (sufijo == 'D') config.intervaloDias += cantidad;
+              else {
+                  enviarSMS("Unidad inválida: use S, M, H o D.", config.admin);
+                  if (config.numUsuario != "") {
+                      enviarSMS("Unidad inválida: use S, M, H o D.", config.numUsuario);
+                  }
+                  return;
+              }
+          }
+      }
+
+      guardarConfigEEPROM();
+
+      String resumen = "Intervalo actualizado: ";
+      if (config.intervaloDias > 0) resumen += String(config.intervaloDias) + "D";
+      if (config.intervaloHoras > 0) resumen += String(config.intervaloHoras) + "H";
+      if (config.intervaloMinutos > 0) resumen += String(config.intervaloMinutos) + "M";
+      if (config.intervaloSegundos > 0) resumen += String(config.intervaloSegundos) + "S";
+
+      if(config.numUsuario != ""){
+        enviarSMS(resumen, config.numUsuario);
+      }
+      enviarSMS(resumen, config.admin);
+  }
 
     // --- Cambiar número de usuario ---
-    else if (mensaje.startsWith("NUMERO=")) {
-        String nuevoNumero = mensaje.substring(7);
-        nuevoNumero.trim();
-        if (!nuevoNumero.startsWith("+") || nuevoNumero.length() < 10) {
-            enviarSMS("Número inválido. Debe incluir código de país y ser válido.", config.admin);
-            return;
-        }
-        config.numUsuario = nuevoNumero;
-        guardarConfigEEPROM();
-        enviarSMS("Número de destino actualizado.", config.admin);
-    }
+    else if (comando.indexOf("SETNUM=") != -1) {
+      String nuevoNumero = comando.substring(7);
+      nuevoNumero.trim();
+
+      // --- Validar formato internacional ---
+      if (!nuevoNumero.startsWith("+")) {
+          enviarSMS("Número inválido. Debe iniciar con '+'.", config.admin);
+          return;
+      }
+
+      // --- Verificar que solo tenga dígitos después del '+' ---
+      bool formatoValido = true;
+      for (int i = 1; i < nuevoNumero.length(); i++) {
+          if (!isDigit(nuevoNumero[i])) {
+              formatoValido = false;
+              break;
+          }
+      }
+
+      // --- Verificar longitud válida ---
+      int digitos = nuevoNumero.length() - 1; // sin contar el '+'
+      if (!formatoValido || digitos < 10 || digitos > 15) {
+          enviarSMS("Número inválido. Debe incluir código de país y tener 10-15 dígitos.", config.admin);
+          return;
+      }
+
+      // --- Guardar si es válido ---
+      config.numUsuario = nuevoNumero;
+      guardarConfigEEPROM();
+
+      enviarSMS("✅ Número de destino actualizado: " + nuevoNumero, config.admin);
+      enviarSMS("Número configurado correctamente.", config.numUsuario);
+  }
 
     // --- Iniciar rastreo ---
-    else if (mensaje == "INICIAR") {
+    else if (comando.indexOf("RASTREAR ON") != -1) {
         config.rastreoActivo = true;
         guardarConfigEEPROM();
         enviarSMS("Rastreo activado.", config.admin);
     }
 
     // --- Detener rastreo ---
-    else if (mensaje == "DETENER") {
+    else if (comando.indexOf("RASTREAR OFF") != -1) {
         config.rastreoActivo = false;
         guardarConfigEEPROM();
         enviarSMS("Rastreo detenido.", config.admin);
     }
 
-    else if (comando == "ESTADO") {
+    else if (comando.indexOf("STATUS") != -1) {
       String info = "ID:" + String(config.idRastreador) + "\n" +
-                    "Modo ahorro: " + String(config.modoAhorro ? "ON" : "OFF") + "\n" +
-                    "Intervalo: " + String(config.intervaloMinutos) + " min\n" +
-                    "Rastreo: " + String(config.rastreoActivo ? "ON" : "OFF");
+                    "Ahorro: " + String(config.modoAhorro ? "ON" : "OFF") + "\n" +
+                    "Int: " + String(config.intervaloMinutos) + " min\n" +
+                    "Ras: " + String(config.rastreoActivo ? "ON" : "OFF");
       enviarSMS(info, config.admin);
+    }
+
+    else if (comando.indexOf("UBICACION") != -1) {
+      String datosGPS = leerYGuardarGPS();
+      String cellTowerInfo = obtenerTorreCelular();
+      datosGPS += "," + cellTowerInfo;
+      String smsUbicacion = "Ubicación actual:\n" + datosGPS;
+      enviarSMS(smsUbicacion, config.admin);
+      if(config.numUsuario != ""){
+        enviarSMS(smsUbicacion, config.numUsuario);
+      }
     }
 
     // --- Comando desconocido ---
     else {
-        enviarSMS("Comando no reconocido: " + comando, config.admin);
+      enviarSMS("Comando no reconocido: " + comando, config.admin);
+      if(config.numUsuario != ""){
+        enviarSMS("Comando no reconocido: " + comando, config.numUsuario);
+      }
     }
 }
 
