@@ -115,7 +115,7 @@ void setup() {
     config.pin = "589649";                    // PIN para aceptar comandos SMS
     config.configurado = false;
 
-    EEPROM.put(0, config);
+    guardarConfigEEPROM()
     ////EEPROM.commit();
   }
 
@@ -503,6 +503,7 @@ void procesarComando(String mensaje) {
 
       // --- Guardar si es válido ---
       config.numUsuario = nuevoNumero;
+      config.configurado = true;  // 🔹 Marcar como configurado
       guardarConfigEEPROM();
 
       enviarSMS("✅ Número de destino actualizado: " + nuevoNumero, config.admin);
