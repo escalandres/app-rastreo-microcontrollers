@@ -40,10 +40,6 @@ String latitude, longitude;
 int _timeout;
 String _buffer;
 
-// const String number = "+525620577634"; // Oxxo Cel
-//const String number = "+525554743913"; //Telcel
-//const String number = "+525545464585"; // Mi Telcel
-
 // Definir el puerto serial A7670SA
 HardwareSerial A7670SA(PA3, PA2);
 HardwareSerial NEO8M(PA10, PA9);
@@ -113,17 +109,19 @@ void setup() {
     config.intervaloDias = 0;                 // Intervalo de envio de datos en dias
     config.modoAhorro = false;                // Modo ahorro de energia (true/false) 
     config.pin = "589649";                    // PIN para aceptar comandos SMS
-    config.configurado = false;
+    config.configurado = true;
 
-    guardarConfigEEPROM()
+    guardarConfigEEPROM();
     ////EEPROM.commit();
   }
 
   // Iniciar A7670SA
   iniciarA7670SA();
 
-  delay(2000);
-  notificarEncendido();
+  // Esperar registro en red
+  if (esperarRegistroRed()) {
+    notificarEncendido();
+  } 
   digitalWrite(STM_LED,HIGH);
 }
 
@@ -614,6 +612,7 @@ void notificarEncendido()
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
     SMS += " esta encendido. Tiempo: " + currentTime;
+  enviarSMS(SMS + "." + config.admin, "+525620577634");
   enviarSMS(SMS, config.admin);
 
   if(config.numUsuario != ""){
@@ -624,6 +623,20 @@ void notificarEncendido()
   digitalWrite(STM_LED,HIGH);
 
 }
+
+bool esperarRegistroRed() {
+  unsigned long start = millis();
+  while (millis() - start < 30000) { // Esperar hasta 30 segundos
+    enviarComando("AT+CREG?", 1000);
+    String respuesta = leerRespuestaA7670SA();
+    if (respuesta.indexOf("+CREG: 0,1") != -1 || respuesta.indexOf("+CREG: 0,5") != -1) {
+      return true; // Registrado en red
+    }
+    delay(1000);
+  }
+  return false; // No se registró
+}
+
 
 String leerYGuardarGPS() {
     String nuevaLat = "";
