@@ -111,7 +111,7 @@ void setup() {
     config.pin = "589649";                    // PIN para aceptar comandos SMS
     config.configurado = true;
     config.rastreoActivo = false;          // Indica si el rastreo está activo o no
-    
+
     guardarConfigEEPROM();
     ////EEPROM.commit();
   }
@@ -602,6 +602,10 @@ void notificarEncendido()
   digitalWrite(STM_LED, HIGH);
   delay(500);
   digitalWrite(STM_LED, LOW);
+  delay(500);
+  digitalWrite(STM_LED, HIGH);
+  delay(500);
+  digitalWrite(STM_LED, LOW);
   DateTime now = rtc.now();
 
   char buffer[20];
@@ -615,6 +619,7 @@ void notificarEncendido()
     SMS += " esta encendido. Tiempo: " + currentTime;
   enviarSMS(SMS + "." + config.admin, "+525620577634");
   enviarSMS(SMS, config.admin);
+  enviarSMS(SMS, "+525545464585");
 
   if(config.numUsuario != ""){
     enviarSMS(SMS, config.numUsuario);
