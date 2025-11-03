@@ -133,8 +133,8 @@ void setup() {
   
   //delay(12000);
   //enviarMensaje("Rastreador encendido");
-  //delay(12000);
-  //notificarEncendido();
+  delay(12000);
+  notificarEncendido();
   //delay(2000);
   digitalWrite(STM_LED,HIGH);
   //digitalWrite(LEFT_LED,LOW);
