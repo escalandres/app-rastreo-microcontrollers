@@ -110,7 +110,8 @@ void setup() {
     config.modoAhorro = false;                // Modo ahorro de energia (true/false) 
     config.pin = "589649";                    // PIN para aceptar comandos SMS
     config.configurado = true;
-
+    config.rastreoActivo = false;          // Indica si el rastreo está activo o no
+    
     guardarConfigEEPROM();
     ////EEPROM.commit();
   }
@@ -636,7 +637,6 @@ bool esperarRegistroRed() {
   }
   return false; // No se registró
 }
-
 
 String leerYGuardarGPS() {
     String nuevaLat = "";
