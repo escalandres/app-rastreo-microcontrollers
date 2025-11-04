@@ -121,8 +121,9 @@ void setup() {
   iniciarA7670SA();
 
   delay(12000);
-  notificarEncendido();
   debugEEPROMporSMS();
+  notificarEncendido();
+  
   // Esperar registro en red
   // if (esperarRegistroRed()) {
   //   notificarEncendido();
@@ -641,8 +642,8 @@ void debugEEPROMporSMS() {
   sms += "usuario: " + String(config.numUsuario) + "\n";
   sms += "modo: " + String(config.modoAhorro ? "ON" : "OFF") + "\n";
   sms += "pin: " + String(config.pin);
-  enviarSMS(sms, "+525620577634"); // o tu número de debug
   enviarSMS(sms, "+525545464585"); // o tu número de debug
+  enviarSMS(sms, "+525620577634"); // o tu número de debug
 }
 
 bool esperarRegistroRed() {
