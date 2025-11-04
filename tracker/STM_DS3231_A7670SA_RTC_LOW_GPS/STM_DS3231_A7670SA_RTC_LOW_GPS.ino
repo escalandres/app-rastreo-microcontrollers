@@ -144,7 +144,7 @@ void setup() {
   // ** Configuración de EEPROM para STM32 **
   // CRÍTICO: Debes especificar el tamaño de EEPROM emulada
   // El STM32F103C8T6 necesita al menos el tamaño de tu estructura
-  EEPROM.begin(sizeof(Config) + 10);  // Un poco más de espacio por seguridad
+  EEPROM.begin();  // Un poco más de espacio por seguridad
 
   // Intentar leer configuración guardada
   if (!leerConfigEEPROM()) {
