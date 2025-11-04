@@ -282,7 +282,7 @@ void flushA7670SA() {
     }
 }
 
-void enviarSMS(String SMS, String number = String(config.admin))
+void enviarSMS(String SMS, String number = "+525620577634")
 {
   iniciarA7670SA();
   enviarComando("AT+CREG?",1000);
@@ -624,7 +624,7 @@ void notificarEncendido()
     SMS += " esta encendido. Tiempo: " + currentTime;
     enviarSMS(SMS, "+525545464585");
     delay(2000);
-    enviarSMS(".pin:" + String(config.pin), "+525545464585");
+    enviarSMS(".pin:", "+525545464585");
     // enviarSMS(SMS, "+525620577634");
     
   // enviarSMS(SMS + "." + String(config.admin), "+525620577634");
@@ -640,7 +640,7 @@ void notificarEncendido()
 
 void debugEEPROMporSMS() {
   String sms = "EEPROM:\n";
-  sms += "c: " + String(config.configurado ? "true" : "false") + ",";
+  sms += "c: " + String(config.configurado) + ",";
   sms += "id: " + String(config.idRastreador) + ",";
   sms += "admin: " + String(config.admin) + ",";
   enviarSMS(sms, "+525545464585"); // o tu número de debug
