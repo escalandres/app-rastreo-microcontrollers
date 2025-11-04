@@ -29,7 +29,7 @@ struct Config {
   int intervaloHoras;               // Intervalo de envio de datos en horas
   int intervaloDias;                // Intervalo de envio de datos en dias
   bool modoAhorro;              // Modo ahorro de energia (true/false) 
-  char pin8[8];                // PIN para aceptar comandos SMS
+  char pin[8];                // PIN para aceptar comandos SMS
   bool configurado;
   bool rastreoActivo;          // Indica si el rastreo está activo o no
 };
