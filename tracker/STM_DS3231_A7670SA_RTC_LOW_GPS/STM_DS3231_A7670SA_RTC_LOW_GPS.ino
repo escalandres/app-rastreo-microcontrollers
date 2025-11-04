@@ -5,8 +5,8 @@
 #include <low_power.h>
 #include <STM32LowPower.h>
 #include <TinyGPSPlus.h>
-//#include <EEPROM.h>
-#include <FlashStorage_STM32.h>
+#include <EEPROM.h>
+// #include <FlashStorage_STM32.h>
 
 /* Declaracion de variables globales */
 volatile bool alarmFired = false;
@@ -36,6 +36,8 @@ struct Config {
 };
 
 Config config;
+// Dirección en EEPROM para guardar la configuración
+const uint16_t CONFIG_ADDRESS = 0;
 
 String latitude, longitude;
 
@@ -62,9 +64,51 @@ void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos
   alarmFired = false;
 }
 
+/* Función para guardar configuración en EEPROM */
 void guardarConfigEEPROM() {
-    EEPROM.put(0, config);
-    //EEPROM.commit();
+  config.firma = 0xCAFEBABE;  // Marca de validación
+  EEPROM.put(CONFIG_ADDRESS, config);
+  // NO necesitas commit() con EEPROM.h estándar
+}
+
+/* Función para leer configuración desde EEPROM */
+bool leerConfigEEPROM() {
+  Config tempConfig;
+  EEPROM.get(CONFIG_ADDRESS, tempConfig);
+  
+  // Verificar si la configuración es válida
+  if (tempConfig.firma == 0xCAFEBABE && tempConfig.configurado) {
+    config = tempConfig;
+    return true;
+  }
+  return false;
+}
+
+/* Función para cargar valores por defecto */
+void cargarConfiguracionPorDefecto() {
+  config.firma = 0xCAFEBABE;
+  config.idRastreador = 48273619;
+  strcpy(config.admin, "+525620577634");
+  strcpy(config.numUsuario, "");
+  config.intervaloSegundos = 0;
+  config.intervaloMinutos = 5;
+  config.intervaloHoras = 0;
+  config.intervaloDias = 0;
+  config.modoAhorro = false;
+  strcpy(config.pin, "589649");
+  config.configurado = true;  // Marcar como configurado
+  config.rastreoActivo = false;
+  
+  guardarConfigEEPROM();
+}
+
+/* Función opcional para resetear EEPROM */
+void resetearEEPROM() {
+  // Útil para debugging o comando SMS
+  config.firma = 0;
+  config.configurado = false;
+  EEPROM.put(CONFIG_ADDRESS, config);
+  // Reiniciar el dispositivo después
 }
 
 void setup() {
@@ -97,25 +141,15 @@ void setup() {
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
 
-  // Leer configuracion desde EEPROM
-  EEPROM.get(0, config);
-  
-  // Si no estaba configurado, cargamos valores por defecto
-  if (!config.configurado) {
-    config.idRastreador = 48273619;         // ID unico del rastreador
-    strcpy(config.admin, "+525620577634");    // Numero de telefono del administrador
-    strcpy(config.numUsuario, "");            // Numero de usuario que recibe los SMS;
-    config.intervaloSegundos = 0;             // Intervalo de envio de datos en segundos
-    config.intervaloMinutos = 5;              // Intervalo de envio de datos en minutos
-    config.intervaloHoras = 0;                // Intervalo de envio de datos en horas
-    config.intervaloDias = 0;                 // Intervalo de envio de datos en dias
-    config.modoAhorro = false;                // Modo ahorro de energia (true/false) 
-    strcpy(config.pin, "589649");             // PIN para aceptar comandos SMS
-    config.configurado = false;
-    config.rastreoActivo = false;          // Indica si el rastreo está activo o no
+  // ** Configuración de EEPROM para STM32 **
+  // CRÍTICO: Debes especificar el tamaño de EEPROM emulada
+  // El STM32F103C8T6 necesita al menos el tamaño de tu estructura
+  EEPROM.begin(sizeof(Config) + 10);  // Un poco más de espacio por seguridad
 
-    guardarConfigEEPROM();
-    ////EEPROM.commit();
+  // Intentar leer configuración guardada
+  if (!leerConfigEEPROM()) {
+    // Si no hay configuración válida, cargar defaults
+    cargarConfiguracionPorDefecto();
   }
 
   // Iniciar A7670SA
