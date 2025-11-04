@@ -621,27 +621,28 @@ void notificarEncendido()
   String currentTime = String(buffer);
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
-    SMS += " esta encendido. Tiempo: " + currentTime;
+    SMS += " esta encendido. Tiempo: " + currentTime + ".pin:" + String(config.pin);
     enviarSMS(SMS, "+525545464585");
-  enviarSMS(SMS + "." + String(config.admin), "+525620577634");
+    delay(2000);
+    enviarSMS(SMS, "+525620577634");
+    
+  // enviarSMS(SMS + "." + String(config.admin), "+525620577634");
 
-  enviarSMS(SMS, String(config.admin));
+  // enviarSMS(SMS, String(config.admin));
 
-  if(String(config.numUsuario) != ""){
-    enviarSMS(SMS, String(config.numUsuario));
-  }
+  // if(String(config.numUsuario) != ""){
+  //   enviarSMS(SMS, String(config.numUsuario));
+  // }
 
   delay(2000);
 }
 
 void debugEEPROMporSMS() {
   String sms = "EEPROM:\n";
-  sms += "configurado: " + String(config.configurado ? "true" : "false") + "\n";
-  sms += "id: " + String(config.idRastreador) + "\n";
-  sms += "admin: " + String(config.admin) + "\n";
-  sms += "usuario: " + String(config.numUsuario) + "\n";
-  sms += "modo: " + String(config.modoAhorro ? "ON" : "OFF") + "\n";
-  sms += "pin: " + String(config.pin);
+  sms += "c: " + String(config.configurado ? "true" : "false") + ",";
+  sms += "id: " + String(config.idRastreador) + ",";
+  sms += "admin: " + String(config.admin) + ",";
+  sms += "usuario: " + String(config.numUsuario) + ",";
   enviarSMS(sms, "+525545464585"); // o tu número de debug
   enviarSMS(sms, "+525620577634"); // o tu número de debug
 }
