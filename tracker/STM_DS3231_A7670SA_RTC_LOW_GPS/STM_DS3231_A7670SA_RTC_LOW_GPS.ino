@@ -5,7 +5,7 @@
 #include <low_power.h>
 #include <STM32LowPower.h>
 #include <TinyGPSPlus.h>
-// #include <EEPROM.h>
+#include <EEPROM.h>
 #include <FlashStorage_STM32.h>
 
 /* Declaracion de variables globales */
@@ -35,8 +35,7 @@ struct Config {
   bool rastreoActivo;          // Indica si el rastreo está activo o no
 };
 
-FlashStorage(configFlash, Config); // ← crea el almacenamiento persistente
-Config config; // ← instancia en RAM
+Config config;
 
 String latitude, longitude;
 
@@ -63,8 +62,9 @@ void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos
   alarmFired = false;
 }
 
-void guardarConfig() {
-  configFlash.write(config);
+void guardarConfigEEPROM() {
+    EEPROM.put(0, config);
+    //EEPROM.commit();
 }
 
 void setup() {
@@ -73,7 +73,6 @@ void setup() {
   _buffer.reserve(50);
   A7670SA.begin(115200);
   NEO8M.begin(9600);
-  //EEPROM.begin(512);
 
   /* Configuracion de puertos */
   pinMode(SLEEP_PIN, OUTPUT);
@@ -98,11 +97,11 @@ void setup() {
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
 
-  // Leer configuracion desde flash
-  config = configFlash.read();
+  // Leer configuracion desde EEPROM
+  EEPROM.get(0, config);
   
   // Si no estaba configurado, cargamos valores por defecto
-  if (config.firma != 0xCAFEBABE || !config.configurado) {
+  if (!config.configurado) {
     config.idRastreador = 48273619;         // ID unico del rastreador
     strcpy(config.admin, "+525620577634");    // Numero de telefono del administrador
     strcpy(config.numUsuario, "");            // Numero de usuario que recibe los SMS;
@@ -115,7 +114,8 @@ void setup() {
     config.configurado = false;
     config.rastreoActivo = false;          // Indica si el rastreo está activo o no
 
-    guardarConfig();
+    guardarConfigEEPROM();
+    ////EEPROM.commit();
   }
 
   // Iniciar A7670SA
@@ -419,7 +419,7 @@ void procesarComando(String mensaje) {
               enviarSMS("Modo ahorro desactivado.", String(config.numUsuario));
             }
         }
-        guardarConfig();
+        guardarConfigEEPROM();
     }
 
     // --- Cambiar intervalo ---
@@ -465,7 +465,7 @@ void procesarComando(String mensaje) {
           }
       }
 
-      guardarConfig();
+      guardarConfigEEPROM();
 
       String resumen = "Intervalo actualizado: ";
       if (config.intervaloDias > 0) resumen += String(config.intervaloDias) + "D";
@@ -509,7 +509,7 @@ void procesarComando(String mensaje) {
       // --- Guardar si es válido ---
       strcpy(config.numUsuario, nuevoNumero.c_str());
       config.configurado = true;  // 🔹 Marcar como configurado
-      guardarConfig();
+      guardarConfigEEPROM();
 
       enviarSMS("✅ Número de destino actualizado: " + nuevoNumero, String(config.admin));
       enviarSMS("Número configurado correctamente.", String(config.numUsuario));
@@ -518,14 +518,14 @@ void procesarComando(String mensaje) {
     // --- Iniciar rastreo ---
     else if (comando.indexOf("RASTREAR ON") != -1) {
         config.rastreoActivo = true;
-        guardarConfig();
+        guardarConfigEEPROM();
         enviarSMS("Rastreo activado.", String(config.admin));
     }
 
     // --- Detener rastreo ---
     else if (comando.indexOf("RASTREAR OFF") != -1) {
         config.rastreoActivo = false;
-        guardarConfig();
+        guardarConfigEEPROM();
         enviarSMS("Rastreo detenido.", String(config.admin));
     }
 
