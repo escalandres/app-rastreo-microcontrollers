@@ -6,7 +6,6 @@
 #include <STM32LowPower.h>
 #include <TinyGPSPlus.h>
 #include <EEPROM.h>
-// #include <FlashStorage_STM32.h>
 
 /* Declaracion de variables globales */
 volatile bool alarmFired = false;
@@ -30,7 +29,7 @@ struct Config {
   int intervaloHoras;               // Intervalo de envio de datos en horas
   int intervaloDias;                // Intervalo de envio de datos en dias
   bool modoAhorro;              // Modo ahorro de energia (true/false) 
-  char pin[8];                // PIN para aceptar comandos SMS
+  char pin8[8];                // PIN para aceptar comandos SMS
   bool configurado;
   bool rastreoActivo;          // Indica si el rastreo está activo o no
 };
@@ -659,8 +658,7 @@ void notificarEncendido()
     SMS += " esta encendido. Tiempo: " + currentTime;
     // enviarSMS(SMS, "+525545464585");
     enviarSMS(SMS, "+525620577634");
-    delay(2000);
-    enviarSMS(".pin:", "+525620577634");
+
     // enviarSMS(".pin:", "+525545464585");
     // enviarSMS(SMS, "+525620577634");
     
@@ -676,12 +674,13 @@ void notificarEncendido()
 }
 
 void debugEEPROMporSMS() {
-  String sms = "EEPROM:\n";
-  sms += "c: " + String(config.configurado) + ",";
-  sms += "id: " + String(config.idRastreador) + ",";
-  sms += "admin: " + String(config.admin) + ",";
-  // enviarSMS(sms, "+525545464585"); // o tu número de debug
-  enviarSMS(sms, "+525620577634"); // o tu número de debug
+  String debug = "EEPROM:\n";
+  debug += "id:" + String(config.idRastreador) + ",";
+  debug += "ad:" + String(config.admin) + ",";
+  debug += "us:" + String(config.numUsuario) + ",";
+  debug += "mod:" + String(config.modoAhorro ? "ON" : "OFF") + ",";
+  debug += "pin:" + String(config.pin);
+  enviarSMS(debug, "+525620577634");
 }
 
 bool esperarRegistroRed() {
