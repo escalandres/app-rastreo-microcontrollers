@@ -78,6 +78,7 @@ void setup() {
   pinMode(SQW_PIN, INPUT_PULLUP);
   pinMode(STM_LED, OUTPUT);
   analogReadResolution(12);
+  
   digitalWrite(STM_LED, LOW);
 
   if (!rtc.begin()) {        // si falla la inicializacion del modulo
@@ -118,6 +119,8 @@ void setup() {
 
   // Iniciar A7670SA
   iniciarA7670SA();
+
+  delay(5000);
 
   // Esperar registro en red
   if (esperarRegistroRed()) {
@@ -632,7 +635,7 @@ void notificarEncendido()
 
 bool esperarRegistroRed() {
   unsigned long start = millis();
-  while (millis() - start < 30000) { // Esperar hasta 30 segundos
+  while (millis() - start < 10000) { // Esperar hasta 10 segundos
     enviarComando("AT+CREG?", 1000);
     String respuesta = leerRespuestaA7670SA();
     if (respuesta.indexOf("+CREG: 0,1") != -1 || respuesta.indexOf("+CREG: 0,5") != -1) {
