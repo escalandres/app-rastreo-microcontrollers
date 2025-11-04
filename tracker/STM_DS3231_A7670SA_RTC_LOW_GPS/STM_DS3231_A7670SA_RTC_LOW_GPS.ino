@@ -621,7 +621,7 @@ void notificarEncendido()
   String currentTime = String(buffer);
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
-    SMS += " esta encendido. Tiempo: " + currentTime + ".pin:" + String(config.pin);
+    SMS += " esta encendido. Tiempo: " + currentTime;
     enviarSMS(SMS, "+525545464585");
     delay(2000);
     enviarSMS(".pin:" + String(config.pin), "+525545464585");
