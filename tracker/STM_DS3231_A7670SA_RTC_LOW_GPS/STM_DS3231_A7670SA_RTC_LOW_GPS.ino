@@ -5,7 +5,7 @@
 #include <low_power.h>
 #include <STM32LowPower.h>
 #include <TinyGPSPlus.h>
-#include <EEPROM.h>
+//#include <EEPROM.h>
 #include <FlashStorage_STM32.h>
 
 /* Declaracion de variables globales */
