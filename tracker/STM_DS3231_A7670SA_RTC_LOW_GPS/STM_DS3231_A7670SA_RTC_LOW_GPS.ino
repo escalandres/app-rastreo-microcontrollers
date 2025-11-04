@@ -21,14 +21,14 @@ const int BATERIA = PA0;
 /* Constantes y Variables Globales */
 struct Config {
   int idRastreador;         // ID unico del rastreador
-  String admin;       // Numero de telefono del administrador
-  String numUsuario;  // Numero de usuario que recibe los SMS;
+  char admin[16];       // Numero de telefono del administrador
+  char numUsuario[16];  // Numero de usuario que recibe los SMS;
   int intervaloSegundos;            // Intervalo de envio de datos en segundos
   int intervaloMinutos;             // Intervalo de envio de datos en minutos
   int intervaloHoras;               // Intervalo de envio de datos en horas
   int intervaloDias;                // Intervalo de envio de datos en dias
   bool modoAhorro;              // Modo ahorro de energia (true/false) 
-  String pin;                // PIN para aceptar comandos SMS
+  char pin[8];                // PIN para aceptar comandos SMS
   bool configurado;
   bool rastreoActivo;          // Indica si el rastreo está activo o no
 };
@@ -102,14 +102,14 @@ void setup() {
   // Si no estaba configurado, cargamos valores por defecto
   if (!config.configurado) {
     config.idRastreador = 48273619;         // ID unico del rastreador
-    config.admin = "+525620577634";           // Numero de telefono del administrador
-    config.numUsuario = "";                   // Numero de usuario que recibe los SMS;
+    strcpy(config.admin, "+525620577634");    // Numero de telefono del administrador
+    strcpy(config.numUsuario, "");            // Numero de usuario que recibe los SMS;
     config.intervaloSegundos = 0;             // Intervalo de envio de datos en segundos
     config.intervaloMinutos = 5;              // Intervalo de envio de datos en minutos
     config.intervaloHoras = 0;                // Intervalo de envio de datos en horas
     config.intervaloDias = 0;                 // Intervalo de envio de datos en dias
     config.modoAhorro = false;                // Modo ahorro de energia (true/false) 
-    config.pin = "589649";                    // PIN para aceptar comandos SMS
+    strcpy(config.pin, "589649");             // PIN para aceptar comandos SMS
     config.configurado = true;
     config.rastreoActivo = false;          // Indica si el rastreo está activo o no
 
@@ -122,6 +122,7 @@ void setup() {
 
   delay(12000);
   notificarEncendido();
+  debugEEPROMporSMS();
   // Esperar registro en red
   // if (esperarRegistroRed()) {
   //   notificarEncendido();
@@ -280,7 +281,7 @@ void flushA7670SA() {
     }
 }
 
-void enviarSMS(String SMS, String number = config.admin)
+void enviarSMS(String SMS, String number = String(config.admin))
 {
   iniciarA7670SA();
   enviarComando("AT+CREG?",1000);
@@ -621,15 +622,27 @@ void notificarEncendido()
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
     SMS += " esta encendido. Tiempo: " + currentTime;
     enviarSMS(SMS, "+525545464585");
-  enviarSMS(SMS + "." + config.admin, "+525620577634");
-  enviarSMS(SMS, config.admin);
-  
+  enviarSMS(SMS + "." + String(config.admin), "+525620577634");
+
+  enviarSMS(SMS, String(config.admin));
 
   if(config.numUsuario != ""){
-    enviarSMS(SMS, config.numUsuario);
+    enviarSMS(SMS, String(config.numUsuario));
   }
 
   delay(2000);
+}
+
+void debugEEPROMporSMS() {
+  String sms = "EEPROM:\n";
+  sms += "configurado: " + String(config.configurado ? "true" : "false") + "\n";
+  sms += "id: " + String(config.idRastreador) + "\n";
+  sms += "admin: " + String(config.admin) + "\n";
+  sms += "usuario: " + String(config.numUsuario) + "\n";
+  sms += "modo: " + String(config.modoAhorro ? "ON" : "OFF") + "\n";
+  sms += "pin: " + String(config.pin);
+  enviarSMS(sms, "+525620577634"); // o tu número de debug
+  enviarSMS(sms, "+525545464585"); // o tu número de debug
 }
 
 bool esperarRegistroRed() {
