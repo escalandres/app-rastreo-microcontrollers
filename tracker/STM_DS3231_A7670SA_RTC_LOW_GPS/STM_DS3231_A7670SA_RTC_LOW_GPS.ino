@@ -20,18 +20,18 @@ const int BATERIA = PA0;
 
 /* Constantes y Variables Globales */
 struct Config {
-  uint32_t firma; // ← debe ser 0xCAFEBABE
+  uint32_t firma;           // ← debe ser 0xCAFEBABE
   int idRastreador;         // ID unico del rastreador
-  char admin[16];       // Numero de telefono del administrador
-  char numUsuario[16];  // Numero de usuario que recibe los SMS;
-  int intervaloSegundos;            // Intervalo de envio de datos en segundos
-  int intervaloMinutos;             // Intervalo de envio de datos en minutos
-  int intervaloHoras;               // Intervalo de envio de datos en horas
-  int intervaloDias;                // Intervalo de envio de datos en dias
-  bool modoAhorro;              // Modo ahorro de energia (true/false) 
-  char pin[8];                // PIN para aceptar comandos SMS
-  bool configurado;
-  bool rastreoActivo;          // Indica si el rastreo está activo o no
+  char admin[16];           // Numero de telefono del administrador
+  char numUsuario[16];      // Numero de usuario que recibe los SMS;
+  int intervaloSegundos;    // Intervalo de envio de datos en segundos
+  int intervaloMinutos;     // Intervalo de envio de datos en minutos
+  int intervaloHoras;       // Intervalo de envio de datos en horas
+  int intervaloDias;        // Intervalo de envio de datos en dias
+  bool modoAhorro;          // Modo ahorro de energia (true/false) 
+  char pin[8];              // PIN para aceptar comandos SMS
+  bool configurado;         // Indica si el rastreador ha sido configurado
+  bool rastreoActivo;       // Indica si el rastreo está activo o no
 };
 
 Config config;
