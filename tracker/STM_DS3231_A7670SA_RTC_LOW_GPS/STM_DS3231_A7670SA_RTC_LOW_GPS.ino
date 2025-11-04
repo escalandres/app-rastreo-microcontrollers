@@ -47,11 +47,13 @@ String _buffer;
 HardwareSerial A7670SA(PA3, PA2);
 HardwareSerial NEO8M(PA10, PA9);
 
+// -------- Funciones de alarma RTC --------
+
 void setAlarmFired() {
   alarmFired = true;
 }
 
-void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos = 300) {
+void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos = 0) {
   rtc.clearAlarm(1);
   rtc.clearAlarm(2);
   rtc.disableAlarm(1);
@@ -62,6 +64,8 @@ void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos
 
   alarmFired = false;
 }
+
+// -------- Funciones de EEPROM --------
 
 /* Función para guardar configuración en EEPROM */
 void guardarConfigEEPROM() {
@@ -140,10 +144,8 @@ void setup() {
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
 
-  // ** Configuración de EEPROM para STM32 **
-  // CRÍTICO: Debes especificar el tamaño de EEPROM emulada
-  // El STM32F103C8T6 necesita al menos el tamaño de tu estructura
-  EEPROM.begin();  // Un poco más de espacio por seguridad
+  // Configuración de EEPROM para STM32
+  EEPROM.begin();
 
   // Intentar leer configuración guardada
   if (!leerConfigEEPROM()) {
@@ -154,7 +156,7 @@ void setup() {
   // Iniciar A7670SA
   iniciarA7670SA();
 
-  delay(12000);
+  delay(7000);
   
   notificarEncendido();
   debugEEPROMporSMS();
@@ -398,6 +400,19 @@ void leerMensajes() {
 
         index = finMsg;
     }
+}
+
+bool esperarRegistroRed() {
+  unsigned long start = millis();
+  while (millis() - start < 10000) { // Esperar hasta 10 segundos
+    enviarComando("AT+CREG?", 1000);
+    String respuesta = leerRespuestaA7670SA();
+    if (respuesta.indexOf("+CREG: 0,1") != -1 || respuesta.indexOf("+CREG: 0,5") != -1) {
+      return true; // Registrado en red
+    }
+    delay(1000);
+  }
+  return false; // No se registró
 }
 
 void procesarComando(String mensaje) {
@@ -655,20 +670,12 @@ void notificarEncendido()
   String currentTime = String(buffer);
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
-    SMS += " esta encendido. Tiempo: " + currentTime;
-    // enviarSMS(SMS, "+525545464585");
-    enviarSMS(SMS, "+525620577634");
+  SMS += " esta encendido. Tiempo: " + currentTime;
+  enviarSMS(SMS, String(config.admin));
 
-    // enviarSMS(".pin:", "+525545464585");
-    // enviarSMS(SMS, "+525620577634");
-    
-  // enviarSMS(SMS + "." + String(config.admin), "+525620577634");
-
-  // enviarSMS(SMS, String(config.admin));
-
-  // if(String(config.numUsuario) != ""){
-  //   enviarSMS(SMS, String(config.numUsuario));
-  // }
+  if(String(config.numUsuario) != ""){
+    enviarSMS(SMS, String(config.numUsuario));
+  }
 
   delay(2000);
 }
@@ -681,19 +688,6 @@ void debugEEPROMporSMS() {
   debug += "mod:" + String(config.modoAhorro ? "ON" : "OFF") + ",";
   debug += "pin:" + String(config.pin);
   enviarSMS(debug, "+525620577634");
-}
-
-bool esperarRegistroRed() {
-  unsigned long start = millis();
-  while (millis() - start < 10000) { // Esperar hasta 10 segundos
-    enviarComando("AT+CREG?", 1000);
-    String respuesta = leerRespuestaA7670SA();
-    if (respuesta.indexOf("+CREG: 0,1") != -1 || respuesta.indexOf("+CREG: 0,5") != -1) {
-      return true; // Registrado en red
-    }
-    delay(1000);
-  }
-  return false; // No se registró
 }
 
 String leerYGuardarGPS() {
