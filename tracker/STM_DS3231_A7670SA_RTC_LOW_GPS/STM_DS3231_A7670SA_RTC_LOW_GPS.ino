@@ -623,9 +623,11 @@ void notificarEncendido()
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
     SMS += " esta encendido. Tiempo: " + currentTime;
-    enviarSMS(SMS, "+525545464585");
+    // enviarSMS(SMS, "+525545464585");
+    enviarSMS(SMS, "+525620577634");
     delay(2000);
-    enviarSMS(".pin:", "+525545464585");
+    enviarSMS(".pin:", "+525620577634");
+    // enviarSMS(".pin:", "+525545464585");
     // enviarSMS(SMS, "+525620577634");
     
   // enviarSMS(SMS + "." + String(config.admin), "+525620577634");
@@ -644,8 +646,8 @@ void debugEEPROMporSMS() {
   sms += "c: " + String(config.configurado) + ",";
   sms += "id: " + String(config.idRastreador) + ",";
   sms += "admin: " + String(config.admin) + ",";
-  enviarSMS(sms, "+525545464585"); // o tu número de debug
-  // enviarSMS(sms, "+525620577634"); // o tu número de debug
+  // enviarSMS(sms, "+525545464585"); // o tu número de debug
+  enviarSMS(sms, "+525620577634"); // o tu número de debug
 }
 
 bool esperarRegistroRed() {
