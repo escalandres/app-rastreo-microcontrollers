@@ -371,8 +371,8 @@ void procesarComando(String mensaje) {
 
     // --- Verificar formato PIN=xxxxxx; ---
     if (!mensaje.startsWith("PIN=")) {
-        if(config.numUsuario != ""){
-          enviarSMS("Falta el prefijo PIN en el comando.", config.numUsuario);
+        if(String(config.numUsuario) != ""){
+          enviarSMS("Falta el prefijo PIN en el comando.", String(config.numUsuario));
         }
         return;
     }
@@ -380,8 +380,8 @@ void procesarComando(String mensaje) {
     int igual = mensaje.indexOf('=');
     int separador = mensaje.indexOf(';');
     if (separador == -1) {
-        if(config.numUsuario != ""){
-          enviarSMS("Formato inválido. Use: PIN=xxxxxx;COMANDO", config.numUsuario);
+        if(String(config.numUsuario) != ""){
+          enviarSMS("Formato inválido. Use: PIN=xxxxxx;COMANDO", String(config.numUsuario));
         }
         return;
     }
@@ -391,8 +391,8 @@ void procesarComando(String mensaje) {
 
     // Validar PIN
     if (pinIngresado != config.pin) {
-        if(config.numUsuario != ""){
-          enviarSMS("🔒 PIN incorrecto.", config.numUsuario);
+        if(String(config.numUsuario) != ""){
+          enviarSMS("🔒 PIN incorrecto.", String(config.numUsuario));
         }
         return;
     }
@@ -406,15 +406,15 @@ void procesarComando(String mensaje) {
     if (comando.indexOf("MODOAHORRO=")  != -1) {
         if (comando.endsWith("ON")) {
             config.modoAhorro = true;
-            if(config.numUsuario != ""){
-              enviarSMS("Modo ahorro activado.", config.numUsuario);
+            if(String(config.numUsuario) != ""){
+              enviarSMS("Modo ahorro activado.", String(config.numUsuario));
             }
-            enviarSMS("Modo ahorro activado.", config.admin);
+            enviarSMS("Modo ahorro activado.", String(config.admin));
         } else {
             config.modoAhorro = false;
-            enviarSMS("Modo ahorro desactivado.", config.admin);
-            if(config.numUsuario != ""){
-              enviarSMS("Modo ahorro desactivado.", config.numUsuario);
+            enviarSMS("Modo ahorro desactivado.", String(config.admin));
+            if(String(config.numUsuario) != ""){
+              enviarSMS("Modo ahorro desactivado.", String(config.numUsuario));
             }
         }
         guardarConfigEEPROM();
@@ -454,9 +454,9 @@ void procesarComando(String mensaje) {
               else if (sufijo == 'H') config.intervaloHoras += cantidad;
               else if (sufijo == 'D') config.intervaloDias += cantidad;
               else {
-                  enviarSMS("Unidad inválida: use S, M, H o D.", config.admin);
+                  enviarSMS("Unidad inválida: use S, M, H o D.", String(config.admin));
                   if (config.numUsuario != "") {
-                      enviarSMS("Unidad inválida: use S, M, H o D.", config.numUsuario);
+                      enviarSMS("Unidad inválida: use S, M, H o D.", String(config.numUsuario));
                   }
                   return;
               }
@@ -471,10 +471,10 @@ void procesarComando(String mensaje) {
       if (config.intervaloMinutos > 0) resumen += String(config.intervaloMinutos) + "M";
       if (config.intervaloSegundos > 0) resumen += String(config.intervaloSegundos) + "S";
 
-      if(config.numUsuario != ""){
-        enviarSMS(resumen, config.numUsuario);
+      if(String(config.numUsuario) != ""){
+        enviarSMS(resumen, String(config.numUsuario));
       }
-      enviarSMS(resumen, config.admin);
+      enviarSMS(resumen, String(config.admin));
   }
 
     // --- Cambiar número de usuario ---
@@ -484,7 +484,7 @@ void procesarComando(String mensaje) {
 
       // --- Validar formato internacional ---
       if (!nuevoNumero.startsWith("+")) {
-          enviarSMS("Número inválido. Debe iniciar con '+'.", config.admin);
+          enviarSMS("Número inválido. Debe iniciar con '+'.", String(config.admin));
           return;
       }
 
@@ -500,31 +500,31 @@ void procesarComando(String mensaje) {
       // --- Verificar longitud válida ---
       int digitos = nuevoNumero.length() - 1; // sin contar el '+'
       if (!formatoValido || digitos < 10 || digitos > 15) {
-          enviarSMS("Número inválido. Debe incluir código de país y tener 10-15 dígitos.", config.admin);
+          enviarSMS("Número inválido. Debe incluir código de país y tener 10-15 dígitos.", String(config.admin));
           return;
       }
 
       // --- Guardar si es válido ---
-      config.numUsuario = nuevoNumero;
+      strcpy(config.numUsuario, nuevoNumero.c_str());
       config.configurado = true;  // 🔹 Marcar como configurado
       guardarConfigEEPROM();
 
-      enviarSMS("✅ Número de destino actualizado: " + nuevoNumero, config.admin);
-      enviarSMS("Número configurado correctamente.", config.numUsuario);
+      enviarSMS("✅ Número de destino actualizado: " + nuevoNumero, String(config.admin));
+      enviarSMS("Número configurado correctamente.", String(config.numUsuario));
   }
 
     // --- Iniciar rastreo ---
     else if (comando.indexOf("RASTREAR ON") != -1) {
         config.rastreoActivo = true;
         guardarConfigEEPROM();
-        enviarSMS("Rastreo activado.", config.admin);
+        enviarSMS("Rastreo activado.", String(config.admin));
     }
 
     // --- Detener rastreo ---
     else if (comando.indexOf("RASTREAR OFF") != -1) {
         config.rastreoActivo = false;
         guardarConfigEEPROM();
-        enviarSMS("Rastreo detenido.", config.admin);
+        enviarSMS("Rastreo detenido.", String(config.admin));
     }
 
     else if (comando.indexOf("STATUS") != -1) {
@@ -532,7 +532,7 @@ void procesarComando(String mensaje) {
                     "Ahorro: " + String(config.modoAhorro ? "ON" : "OFF") + "\n" +
                     "Int: " + String(config.intervaloMinutos) + " min\n" +
                     "Ras: " + String(config.rastreoActivo ? "ON" : "OFF");
-      enviarSMS(info, config.admin);
+      enviarSMS(info, String(config.admin));
     }
 
     else if (comando.indexOf("UBICACION") != -1) {
@@ -540,17 +540,17 @@ void procesarComando(String mensaje) {
       String cellTowerInfo = obtenerTorreCelular();
       datosGPS += "," + cellTowerInfo;
       String smsUbicacion = "Ubicación actual:\n" + datosGPS;
-      enviarSMS(smsUbicacion, config.admin);
-      if(config.numUsuario != ""){
-        enviarSMS(smsUbicacion, config.numUsuario);
+      enviarSMS(smsUbicacion, String(config.admin));
+      if(String(config.numUsuario) != ""){
+        enviarSMS(smsUbicacion, String(config.numUsuario));
       }
     }
 
     // --- Comando desconocido ---
     else {
-      enviarSMS("Comando no reconocido: " + comando, config.admin);
-      if(config.numUsuario != ""){
-        enviarSMS("Comando no reconocido: " + comando, config.numUsuario);
+      enviarSMS("Comando no reconocido: " + comando, String(config.admin));
+      if(String(config.numUsuario) != ""){
+        enviarSMS("Comando no reconocido: " + comando, String(config.numUsuario));
       }
     }
 }
@@ -626,7 +626,7 @@ void notificarEncendido()
 
   enviarSMS(SMS, String(config.admin));
 
-  if(config.numUsuario != ""){
+  if(String(config.numUsuario) != ""){
     enviarSMS(SMS, String(config.numUsuario));
   }
 
