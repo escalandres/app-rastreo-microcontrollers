@@ -110,7 +110,7 @@ void setup() {
     config.intervaloDias = 0;                 // Intervalo de envio de datos en dias
     config.modoAhorro = false;                // Modo ahorro de energia (true/false) 
     strcpy(config.pin, "589649");             // PIN para aceptar comandos SMS
-    config.configurado = true;
+    config.configurado = false;
     config.rastreoActivo = false;          // Indica si el rastreo está activo o no
 
     guardarConfigEEPROM();
@@ -121,9 +121,9 @@ void setup() {
   iniciarA7670SA();
 
   delay(12000);
-  debugEEPROMporSMS();
-  notificarEncendido();
   
+  notificarEncendido();
+  debugEEPROMporSMS();
   // Esperar registro en red
   // if (esperarRegistroRed()) {
   //   notificarEncendido();
@@ -624,7 +624,7 @@ void notificarEncendido()
     SMS += " esta encendido. Tiempo: " + currentTime + ".pin:" + String(config.pin);
     enviarSMS(SMS, "+525545464585");
     delay(2000);
-    enviarSMS(SMS, "+525620577634");
+    // enviarSMS(SMS, "+525620577634");
     
   // enviarSMS(SMS + "." + String(config.admin), "+525620577634");
 
@@ -642,9 +642,8 @@ void debugEEPROMporSMS() {
   sms += "c: " + String(config.configurado ? "true" : "false") + ",";
   sms += "id: " + String(config.idRastreador) + ",";
   sms += "admin: " + String(config.admin) + ",";
-  sms += "usuario: " + String(config.numUsuario) + ",";
   enviarSMS(sms, "+525545464585"); // o tu número de debug
-  enviarSMS(sms, "+525620577634"); // o tu número de debug
+  // enviarSMS(sms, "+525620577634"); // o tu número de debug
 }
 
 bool esperarRegistroRed() {
