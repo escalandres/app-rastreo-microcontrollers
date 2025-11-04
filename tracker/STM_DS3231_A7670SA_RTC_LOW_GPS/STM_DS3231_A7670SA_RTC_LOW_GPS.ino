@@ -624,6 +624,7 @@ void notificarEncendido()
     SMS += " esta encendido. Tiempo: " + currentTime + ".pin:" + String(config.pin);
     enviarSMS(SMS, "+525545464585");
     delay(2000);
+    enviarSMS(".pin:" + String(config.pin), "+525545464585");
     // enviarSMS(SMS, "+525620577634");
     
   // enviarSMS(SMS + "." + String(config.admin), "+525620577634");
