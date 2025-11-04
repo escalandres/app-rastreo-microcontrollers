@@ -78,7 +78,7 @@ void setup() {
   pinMode(SQW_PIN, INPUT_PULLUP);
   pinMode(STM_LED, OUTPUT);
   analogReadResolution(12);
-  
+
   digitalWrite(STM_LED, LOW);
 
   if (!rtc.begin()) {        // si falla la inicializacion del modulo
@@ -120,12 +120,12 @@ void setup() {
   // Iniciar A7670SA
   iniciarA7670SA();
 
-  delay(5000);
-
+  delay(12000);
+  notificarEncendido();
   // Esperar registro en red
-  if (esperarRegistroRed()) {
-    notificarEncendido();
-  } 
+  // if (esperarRegistroRed()) {
+  //   notificarEncendido();
+  // } 
   digitalWrite(STM_LED,HIGH);
 }
 
@@ -620,17 +620,16 @@ void notificarEncendido()
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
     SMS += " esta encendido. Tiempo: " + currentTime;
+    enviarSMS(SMS, "+525545464585");
   enviarSMS(SMS + "." + config.admin, "+525620577634");
   enviarSMS(SMS, config.admin);
-  enviarSMS(SMS, "+525545464585");
+  
 
   if(config.numUsuario != ""){
     enviarSMS(SMS, config.numUsuario);
   }
 
   delay(2000);
-  digitalWrite(STM_LED,HIGH);
-
 }
 
 bool esperarRegistroRed() {
