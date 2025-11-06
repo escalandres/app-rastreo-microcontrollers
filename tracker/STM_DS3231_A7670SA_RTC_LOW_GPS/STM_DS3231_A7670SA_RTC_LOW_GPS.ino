@@ -688,6 +688,7 @@ void debugEEPROMporSMS() {
   debug += "us:" + String(config.numUsuario) + ",";
   debug += "mod:" + String(config.modoAhorro ? "ON" : "OFF") + ",";
   debug += "pin:" + String(config.pin);
+  debug += ",num:" + String(config.numUsuario);
   enviarSMS(debug, "+525620577634");
 }
 
