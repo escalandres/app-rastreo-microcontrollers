@@ -402,7 +402,7 @@ void leerMensajes() {
     }
 }
 
-bool esperarRegistroRed() {1
+bool esperarRegistroRed() {
   unsigned long start = millis();
   while (millis() - start < 10000) { // Esperar hasta 10 segundos
     enviarComando("AT+CREG?", 1000);
