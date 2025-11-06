@@ -402,7 +402,7 @@ void leerMensajes() {
     }
 }
 
-bool esperarRegistroRed() {
+bool esperarRegistroRed() {1
   unsigned long start = millis();
   while (millis() - start < 10000) { // Esperar hasta 10 segundos
     enviarComando("AT+CREG?", 1000);
@@ -578,10 +578,11 @@ void procesarComando(String mensaje) {
     }
 
     else if (comando.indexOf("STATUS") != -1) {
-      String info = "ID:" + String(config.idRastreador) + "\n" +
-                    "Ahorro: " + String(config.modoAhorro ? "ON" : "OFF") + "\n" +
-                    "Int: " + String(config.intervaloMinutos) + " min\n" +
-                    "Ras: " + String(config.rastreoActivo ? "ON" : "OFF");
+      String info = "ID:" + String(config.idRastreador) + "," +
+                    "Ahorro: " + String(config.modoAhorro ? "ON" : "OFF") + "," +
+                    "Int: " + String(config.intervaloMinutos) + " min," +
+                    "Ras: " + String(config.rastreoActivo ? "ON" : "OFF") + "," +
+                    "Num: " + String(config.numUsuario);
       enviarSMS(info, String(config.admin));
     }
 
