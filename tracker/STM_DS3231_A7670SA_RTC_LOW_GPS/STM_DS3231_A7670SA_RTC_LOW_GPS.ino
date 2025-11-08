@@ -233,6 +233,9 @@ void loop() {
     }
   }
   else{
+    digitalWrite(STM_LED,LOW);
+    delay(2000);
+    digitalWrite(STM_LED,HIGH);
     // Si el rastreo está desactivado
     // Revisar si hay mensajes SMS pendientes
     if (hayMensajesPendientes()) {
