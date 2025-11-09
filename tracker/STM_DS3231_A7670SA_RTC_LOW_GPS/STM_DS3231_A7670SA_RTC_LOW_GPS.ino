@@ -346,15 +346,17 @@ void enviarSMS(String SMS, String number = "+525620577634")
 }
 
 bool hayMensajesPendientes() {
+    enviarComando("AT+CMGF=1\r"); // Modo texto
+    delay(100);
     enviarComando("AT+CPMS=\"SM\"\r"); // Selecciona la memoria SIM
     delay(200);
 
     String respuesta = leerRespuestaA7670SA(1000); // Lee respuesta con timeout de 1s
-
+    enviarSMS("hayMensajesPendientes", String(config.admin));
     // Ejemplo de respuesta:
     // +CPMS: 1,30,1,30,1,30
     // Donde el primer número es la cantidad de SMS usados en la memoria
-
+    enviarSMS(respuesta, String(config.admin));
     // Busca el número de mensajes almacenados
     int index = respuesta.indexOf("+CPMS:");
     if (index != -1) {
