@@ -234,14 +234,20 @@ void loop() {
   }
   else{
     digitalWrite(STM_LED,LOW);
-    delay(2000);
+    delay(500);
     digitalWrite(STM_LED,HIGH);
+    delay(500);
+    digitalWrite(STM_LED,LOW);
+    delay(500);
+    digitalWrite(STM_LED,HIGH);
+    delay(500);
+    digitalWrite(STM_LED,LOW);
     // Si el rastreo está desactivado
     // Revisar si hay mensajes SMS pendientes
     if (hayMensajesPendientes()) {
       leerMensajes();
     }
-
+    digitalWrite(STM_LED,HIGH);
     // dormir por un tiempo y volver a checar
     delay(20000);
   }
