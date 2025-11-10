@@ -158,23 +158,19 @@ String leerMensajeCompleto(int index) {
     return mensaje;
 }
 
-String leerMensajeCompleto(int index) {
-    A7670SA.println("AT+CMGR=" + String(index));
-    delay(500);
-
-    String mensaje = "";
+String leerRespuestaCompleta(unsigned long timeout = 3000) {
+    String respuesta = "";
     unsigned long start = millis();
-    while (millis() - start < 3000) { // Espera hasta 3 segundos
-        if (A7670SA.available()) {
-        String linea = A7670SA.readString();
-        linea.trim();
-        if (linea.length() > 0) {
-            mensaje += linea + "\n";
-            if (linea.startsWith("OK") || linea.startsWith("ERROR")) break; // Fin de respuesta
-        }
+
+    while (millis() - start < timeout) {
+        while (A7670SA.available()) {
+        char c = A7670SA.read();
+        respuesta += c;
+        start = millis(); // reinicia timeout si hay actividad
         }
     }
-    return mensaje;
+
+    return respuesta;
 }
 
 String extraerCuerpoDesdeRespuesta(String respuesta) {
