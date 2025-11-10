@@ -22,7 +22,7 @@ const int BATERIA = PA0;
 struct Config {
   uint32_t firma;           // ← debe ser 0xCAFEBABE
   int idRastreador;         // ID unico del rastreador
-  char admin[16];           // Numero de telefono del administrador
+  char receptor[16];           // Numero de telefono del receptoristrador
   char numUsuario[16];      // Numero de usuario que recibe los SMS;
   int intervaloSegundos;    // Intervalo de envio de datos en segundos
   int intervaloMinutos;     // Intervalo de envio de datos en minutos
@@ -91,7 +91,7 @@ bool leerConfigEEPROM() {
 void cargarConfiguracionPorDefecto() {
   config.firma = 0xCAFEBABE;
   config.idRastreador = 48273619;
-  strcpy(config.admin, "+525620577634");
+  strcpy(config.receptor, "+525620577634");
   strcpy(config.numUsuario, "");
   config.intervaloSegundos = 0;
   config.intervaloMinutos = 5;
@@ -249,7 +249,7 @@ void loop() {
     }
     digitalWrite(STM_LED,HIGH);
     // dormir por un tiempo y volver a checar
-    delay(20000);
+    delay(3000);
   }
 }
 
@@ -294,14 +294,25 @@ void dormirA7670SA(bool dormir) {
 String leerRespuestaA7670SA(unsigned long timeout = 2000) {
   String response = "";
   unsigned long startTime = millis();
-
+  unsigned long ultimoCaracter = millis();
+  const unsigned long TIEMPO_SIN_DATOS = 200; // Si no llegan datos por 100ms, asumir que terminó
+  
   while (millis() - startTime < timeout) {
     while (A7670SA.available()) {
       char c = A7670SA.read();
       response += c;
+      ultimoCaracter = millis(); // Actualizar tiempo del último carácter recibido
     }
+    
+    // Si han pasado 100ms sin recibir nada y ya hay respuesta, salir
+    if (response.length() > 0 && (millis() - ultimoCaracter) > TIEMPO_SIN_DATOS) {
+      break;
+    }
+    
+    // Pequeña pausa para no saturar el CPU
+    delay(10);
   }
-
+  
   return response;
 }
 
@@ -346,84 +357,165 @@ void enviarSMS(String SMS, String number = "+525620577634")
 }
 
 bool hayMensajesPendientes() {
-    enviarComando("AT+CMGF=1\r"); // Modo texto
-    delay(100);
-    enviarComando("AT+CPMS=\"SM\"\r"); // Selecciona la memoria SIM
-    delay(200);
-
-    String respuesta = leerRespuestaA7670SA(1000); // Lee respuesta con timeout de 1s
-    enviarSMS("hayMensajesPendientes", String(config.admin));
-    // Ejemplo de respuesta:
-    // +CPMS: 1,30,1,30,1,30
-    // Donde el primer número es la cantidad de SMS usados en la memoria
-    enviarSMS(respuesta, String(config.admin));
-    // Busca el número de mensajes almacenados
-    int index = respuesta.indexOf("+CPMS:");
-    if (index != -1) {
-        int coma = respuesta.indexOf(',', index);
-        if (coma != -1) {
-            int usados = respuesta.substring(index + 7, coma).toInt();
-            if (usados > 0) {
-                // Ahora verificamos si alguno está sin leer
-                enviarComando("AT+CMGL=\"REC UNREAD\"\r");
-                delay(500);
-                String lista = leerRespuestaA7670SA(2000);
-
-                if (lista.indexOf("+CMGL:") != -1) {
-                    return true; // Hay mensajes sin leer
-                }
-            }
-        }
-    }
-
+  // Evitar chequeos muy frecuentes
+  unsigned long ahora = millis();
+  if (ahora - ultimoChequeoSMS < INTERVALO_MIN_CHEQUEO) {
     return false;
+  }
+  ultimoChequeoSMS = ahora;
+  
+  limpiarBufferA7670SA();
+  
+  // Configurar modo texto
+  enviarComando("AT+CMGF=1\r");
+  delay(300);
+  limpiarBufferA7670SA();
+  
+  // ✅ IR DIRECTO A LISTAR MENSAJES SIN LEER
+  // No necesitamos AT+CPMS primero
+  enviarComando("AT+CMGL=\"REC UNREAD\"\r");
+  delay(800);
+  
+  String lista = leerRespuestaA7670SA(3000);
+  
+  // Si encuentra +CMGL: hay mensajes sin leer
+  return (lista.indexOf("+CMGL:") != -1);
 }
 
 void leerMensajes() {
-    enviarComando("AT+CMGF=1\r"); // Modo texto
-    delay(100);
-    enviarComando("AT+CMGL=\"REC UNREAD\"\r"); // Lista mensajes no leídos
-    delay(500);
-
-    String respuesta = leerRespuestaA7670SA(4000);
-
-    // Ejemplo de respuesta:
-    // +CMGL: 1,"REC UNREAD","+521234567890",,"24/10/09,14:32:00+08"
-    // MODOAHORRO=ON
-
-    int index = 0;
-    while ((index = respuesta.indexOf("+CMGL:", index)) != -1) {
-        int id = respuesta.substring(index + 7, respuesta.indexOf(',', index)).toInt();
-
-        // Busca el texto del mensaje
-        int saltoLinea = respuesta.indexOf("\n", index);
-        int finMsg = respuesta.indexOf("+CMGL:", saltoLinea);
-        if (finMsg == -1) finMsg = respuesta.length();
-        String mensaje = respuesta.substring(saltoLinea + 1, finMsg);
-        mensaje.trim();
-
-        procesarComando(mensaje); // Aquí llamas tu lógica según el contenido
-
-        // Borra el mensaje después de procesarlo
-        String cmd = "AT+CMGD=" + String(id) + "\r";
-        enviarComando(cmd.c_str());
-        delay(200);
-
-        index = finMsg;
+  limpiarBufferA7670SA();
+  
+  // Configurar modo texto
+  enviarComando("AT+CMGF=1\r");
+  delay(300);
+  limpiarBufferA7670SA();
+  
+  // Listar mensajes no leídos
+  enviarComando("AT+CMGL=\"REC UNREAD\"\r");
+  delay(1000);
+  
+  String respuesta = leerRespuestaA7670SA(5000);
+  
+  if (respuesta.indexOf("+CMGL:") == -1) {
+    return; // No hay mensajes
+  }
+  
+  // 🔍 DEBUG: Enviar respuesta completa al receptor (TEMPORAL)
+  // Comenta esta línea después de debuggear
+  // enviarSMS("DEBUG Raw: " + respuesta.substring(0, 160), config.receptor);
+  
+  // ✅ PARSING MEJORADO con extracción de número de teléfono
+  int index = 0;
+  int mensajesProcesados = 0;
+  
+  while ((index = respuesta.indexOf("+CMGL:", index)) != -1 && mensajesProcesados < 10) {
+    mensajesProcesados++;
+    
+    // Extraer ID del mensaje
+    // Formato: +CMGL: 1,"REC UNREAD","+521234567890",,"24/10/09,14:32:00"
+    int coma1 = respuesta.indexOf(',', index);
+    if (coma1 == -1) break;
+    
+    int id = respuesta.substring(index + 7, coma1).toInt();
+    
+    // ✅ Extraer número de teléfono del remitente
+    int inicioNumero = respuesta.indexOf("\",\"", coma1);
+    if (inicioNumero == -1) {
+      index += 10;
+      continue;
     }
+    inicioNumero += 3; // Saltar ","
+    
+    int finNumero = respuesta.indexOf("\"", inicioNumero);
+    if (finNumero == -1) {
+      index += 10;
+      continue;
+    }
+    
+    String numeroRemitente = respuesta.substring(inicioNumero, finNumero);
+    numeroRemitente.trim();
+    
+    // 🔍 DEBUG: Ver qué número se extrajo (TEMPORAL)
+    // enviarSMS("DEBUG Num: " + numeroRemitente, config.receptor);
+    
+    // Extraer el mensaje (siguiente línea después del header)
+    int saltoLinea = respuesta.indexOf('\n', finNumero);
+    if (saltoLinea == -1) break;
+    
+    // Buscar fin del mensaje
+    int finMsg = respuesta.indexOf("\n+CMGL:", saltoLinea);
+    if (finMsg == -1) {
+      finMsg = respuesta.indexOf("\n\nOK", saltoLinea);
+      if (finMsg == -1) finMsg = respuesta.length();
+    }
+    
+    String mensaje = respuesta.substring(saltoLinea + 1, finMsg);
+    mensaje.trim();
+    
+    // 🔍 DEBUG: Ver mensaje extraído (TEMPORAL)
+    // enviarSMS("DEBUG Msg: " + mensaje, config.receptor);
+    
+    // ✅ Procesar comando CON número de remitente
+    if (mensaje.length() > 0) {
+      procesarComando(mensaje, numeroRemitente);
+    }
+    
+    // ✅ Borrar mensaje con verificación de éxito
+    delay(200);
+    limpiarBufferA7670SA();
+    
+    A7670SA.print("AT+CMGD=");
+    A7670SA.print(id);
+    A7670SA.println("\r");
+    
+    delay(500);
+    String respBorrado = leerRespuestaA7670SA(1000);
+    
+    // Si no se borró correctamente, intentar una vez más
+    if (respBorrado.indexOf("OK") == -1) {
+      delay(500);
+      A7670SA.print("AT+CMGD=");
+      A7670SA.print(id);
+      A7670SA.println("\r");
+      delay(500);
+      limpiarBufferA7670SA();
+    }
+    
+    index = finMsg;
+  }
 }
 
-bool esperarRegistroRed() {
+bool esperarRegistroRed(unsigned long timeout = 30000) {
   unsigned long start = millis();
-  while (millis() - start < 10000) { // Esperar hasta 10 segundos
-    enviarComando("AT+CREG?", 1000);
-    String respuesta = leerRespuestaA7670SA();
-    if (respuesta.indexOf("+CREG: 0,1") != -1 || respuesta.indexOf("+CREG: 0,5") != -1) {
-      return true; // Registrado en red
+  int intentos = 0;
+  
+  while (millis() - start < timeout) {
+    limpiarBufferA7670SA();
+    
+    enviarComando("AT+CREG?\r");
+    delay(500);
+    
+    String respuesta = leerRespuestaA7670SA(2000);
+    
+    // +CREG: 0,1 = registrado en red local
+    // +CREG: 0,5 = registrado en roaming
+    if (respuesta.indexOf("+CREG: 0,1") != -1 || 
+        respuesta.indexOf("+CREG: 0,5") != -1) {
+      return true;
     }
-    delay(1000);
+    
+    // Indicador visual cada 5 intentos
+    intentos++;
+    if (intentos % 5 == 0) {
+      digitalWrite(STM_LED, LOW);
+      delay(100);
+      digitalWrite(STM_LED, HIGH);
+    }
+    
+    delay(2000);
   }
-  return false; // No se registró
+  
+  return false;
 }
 
 void procesarComando(String mensaje) {
@@ -463,158 +555,208 @@ void procesarComando(String mensaje) {
     comando.trim();
     comando.toUpperCase();
 
-    // --- Activar o desactivar modo ahorro ---
-    if (comando.indexOf("MODOAHORRO=")  != -1) {
-        if (comando.endsWith("ON")) {
-            config.modoAhorro = true;
-            if(String(config.numUsuario) != ""){
-              enviarSMS("Modo ahorro activado.", String(config.numUsuario));
-            }
-            enviarSMS("Modo ahorro activado.", String(config.admin));
-        } else {
-            config.modoAhorro = false;
-            enviarSMS("Modo ahorro desactivado.", String(config.admin));
-            if(String(config.numUsuario) != ""){
-              enviarSMS("Modo ahorro desactivado.", String(config.numUsuario));
-            }
-        }
-        guardarConfigEEPROM();
-    }
+    String numeroRemitente = String(config.numUsuario);
 
-    // --- Cambiar intervalo ---
-    else if (comando.indexOf("INTERVALO=") != -1) {
-      String valor = comando.substring(10);
-      valor.trim();
-
-      // Reiniciar todos los valores
-      config.intervaloSegundos = 0;
-      config.intervaloMinutos = 0;
-      config.intervaloHoras = 0;
-      config.intervaloDias = 0;
-
-      int i = 0;
-      while (i < valor.length()) {
-          String numero = "";
-          // Extraer número
-          while (i < valor.length() && isDigit(valor[i])) {
-              numero += valor[i];
-              i++;
-          }
-
-          // Si no hay número, sal del bucle
-          if (numero == "") break;
-
-          int cantidad = numero.toInt();
-
-          // Extraer sufijo
-          if (i < valor.length()) {
-              char sufijo = valor[i];
-              i++;
-              if (sufijo == 'S') config.intervaloSegundos += cantidad;
-              else if (sufijo == 'M') config.intervaloMinutos += cantidad;
-              else if (sufijo == 'H') config.intervaloHoras += cantidad;
-              else if (sufijo == 'D') config.intervaloDias += cantidad;
-              else {
-                  enviarSMS("Unidad inválida: use S, M, H o D.", String(config.admin));
-                  if (config.numUsuario != "") {
-                      enviarSMS("Unidad inválida: use S, M, H o D.", String(config.numUsuario));
-                  }
-                  return;
-              }
-          }
-      }
-
+    // ========== COMANDOS ==========
+  
+  // --- RASTREAR ON/OFF ---
+  if (comando.indexOf("RASTREAR") != -1) {
+    if (comando.indexOf("ON") != -1) {
+      config.rastreoActivo = true;
+      config.firma = 0xCAFEBABE; // Asegurar firma válida
       guardarConfigEEPROM();
-
-      String resumen = "Intervalo actualizado: ";
-      if (config.intervaloDias > 0) resumen += String(config.intervaloDias) + "D";
-      if (config.intervaloHoras > 0) resumen += String(config.intervaloHoras) + "H";
-      if (config.intervaloMinutos > 0) resumen += String(config.intervaloMinutos) + "M";
-      if (config.intervaloSegundos > 0) resumen += String(config.intervaloSegundos) + "S";
-
-      if(String(config.numUsuario) != ""){
-        enviarSMS(resumen, String(config.numUsuario));
-      }
-      enviarSMS(resumen, String(config.admin));
-  }
-
-    // --- Cambiar número de usuario ---
-    else if (comando.indexOf("SETNUM=") != -1) {
-      String nuevoNumero = comando.substring(7);
-      nuevoNumero.trim();
-
-      // --- Validar formato internacional ---
-      if (!nuevoNumero.startsWith("+")) {
-          enviarSMS("Número inválido. Debe iniciar con '+'.", String(config.admin));
-          return;
-      }
-
-      // --- Verificar que solo tenga dígitos después del '+' ---
-      bool formatoValido = true;
-      for (int i = 1; i < nuevoNumero.length(); i++) {
-          if (!isDigit(nuevoNumero[i])) {
-              formatoValido = false;
-              break;
-          }
-      }
-
-      // --- Verificar longitud válida ---
-      int digitos = nuevoNumero.length() - 1; // sin contar el '+'
-      if (!formatoValido || digitos < 10 || digitos > 15) {
-          enviarSMS("Número inválido. Debe incluir código de país y tener 10-15 dígitos.", String(config.admin));
-          return;
-      }
-
-      // --- Guardar si es válido ---
-      strcpy(config.numUsuario, nuevoNumero.c_str());
-      config.configurado = true;  // 🔹 Marcar como configurado
+      enviarSMS("✅ Rastreo ACTIVADO", numeroRemitente);
+      
+      // Confirmar con parpadeo largo
+      digitalWrite(STM_LED, LOW);
+      delay(500);
+      digitalWrite(STM_LED, HIGH);
+      
+    } else if (comando.indexOf("OFF") != -1) {
+      config.rastreoActivo = false;
+      config.firma = 0xCAFEBABE;
       guardarConfigEEPROM();
-
-      enviarSMS("✅ Número de destino actualizado: " + nuevoNumero, String(config.admin));
-      enviarSMS("Número configurado correctamente.", String(config.numUsuario));
+      enviarSMS("✅ Rastreo DESACTIVADO", numeroRemitente);
+    }
   }
-
-    // --- Iniciar rastreo ---
-    else if (comando.indexOf("RASTREAR ON") != -1) {
-        config.rastreoActivo = true;
-        guardarConfigEEPROM();
-        enviarSMS("Rastreo activado.", String(config.admin));
+  
+  // --- MODO AHORRO ---
+  else if (comando.indexOf("MODOAHORRO=") != -1) {
+    if (comando.indexOf("ON") != -1) {
+      config.modoAhorro = true;
+    } else if (comando.indexOf("OFF") != -1) {
+      config.modoAhorro = false;
+    } else {
+      enviarSMS("❌ Use: MODOAHORRO=ON o OFF", numeroRemitente);
+      return;
     }
-
-    // --- Detener rastreo ---
-    else if (comando.indexOf("RASTREAR OFF") != -1) {
-        config.rastreoActivo = false;
-        guardarConfigEEPROM();
-        enviarSMS("Rastreo detenido.", String(config.admin));
+    
+    config.firma = 0xCAFEBABE;
+    guardarConfigEEPROM();
+    
+    String msg = "✅ Modo ahorro: ";
+    msg += config.modoAhorro ? "ON" : "OFF";
+    enviarSMS(msg, numeroRemitente);
+  }
+  
+  // --- INTERVALO ---
+  else if (comando.indexOf("INTERVALO=") != -1) {
+    String valor = comando.substring(10);
+    valor.trim();
+    
+    if (valor.length() == 0) {
+      enviarSMS("❌ Formato: INTERVALO=5M o 1H30M", numeroRemitente);
+      return;
     }
-
-    else if (comando.indexOf("STATUS") != -1) {
-      String info = "ID:" + String(config.idRastreador) + "," +
-                    "Ahorro: " + String(config.modoAhorro ? "ON" : "OFF") + "," +
-                    "Int: " + String(config.intervaloMinutos) + " min," +
-                    "Ras: " + String(config.rastreoActivo ? "ON" : "OFF") + "," +
-                    "Num: " + String(config.numUsuario);
-      enviarSMS(info, String(config.admin));
-    }
-
-    else if (comando.indexOf("UBICACION") != -1) {
-      String datosGPS = leerYGuardarGPS();
-      String cellTowerInfo = obtenerTorreCelular();
-      datosGPS += "," + cellTowerInfo;
-      String smsUbicacion = "Ubicación actual:\n" + datosGPS;
-      enviarSMS(smsUbicacion, String(config.admin));
-      if(String(config.numUsuario) != ""){
-        enviarSMS(smsUbicacion, String(config.numUsuario));
+    
+    // Resetear intervalos
+    config.intervaloSegundos = 0;
+    config.intervaloMinutos = 0;
+    config.intervaloHoras = 0;
+    config.intervaloDias = 0;
+    
+    // Parsear formato: 1D2H30M15S
+    int i = 0;
+    bool formatoValido = true;
+    
+    while (i < valor.length() && formatoValido) {
+      String numero = "";
+      
+      // Extraer número
+      while (i < valor.length() && isDigit(valor[i])) {
+        numero += valor[i];
+        i++;
+      }
+      
+      if (numero.length() == 0) {
+        formatoValido = false;
+        break;
+      }
+      
+      int cantidad = numero.toInt();
+      
+      // Extraer sufijo
+      if (i >= valor.length()) {
+        formatoValido = false;
+        break;
+      }
+      
+      char sufijo = valor[i];
+      i++;
+      
+      switch(sufijo) {
+        case 'S': config.intervaloSegundos += cantidad; break;
+        case 'M': config.intervaloMinutos += cantidad; break;
+        case 'H': config.intervaloHoras += cantidad; break;
+        case 'D': config.intervaloDias += cantidad; break;
+        default:
+          formatoValido = false;
       }
     }
-
-    // --- Comando desconocido ---
-    else {
-      enviarSMS("Comando no reconocido: " + comando, String(config.admin));
-      if(String(config.numUsuario) != ""){
-        enviarSMS("Comando no reconocido: " + comando, String(config.numUsuario));
+    
+    if (!formatoValido) {
+      enviarSMS("❌ Formato inválido. Use: 5M, 1H30M, 1D2H", numeroRemitente);
+      return;
+    }
+    
+    // Validar que no sea todo cero
+    if (config.intervaloSegundos == 0 && config.intervaloMinutos == 0 &&
+        config.intervaloHoras == 0 && config.intervaloDias == 0) {
+      enviarSMS("❌ Intervalo no puede ser 0", numeroRemitente);
+      return;
+    }
+    
+    config.firma = 0xCAFEBABE;
+    guardarConfigEEPROM();
+    
+    String resumen = "✅ Intervalo: ";
+    if (config.intervaloDias > 0) resumen += String(config.intervaloDias) + "D ";
+    if (config.intervaloHoras > 0) resumen += String(config.intervaloHoras) + "H ";
+    if (config.intervaloMinutos > 0) resumen += String(config.intervaloMinutos) + "M ";
+    if (config.intervaloSegundos > 0) resumen += String(config.intervaloSegundos) + "S";
+    
+    enviarSMS(resumen, numeroRemitente);
+  }
+  
+  // --- SETNUM (solo receptor) ---
+  else if (comando.indexOf("SETNUM=") != -1) {
+    if (!esreceptor) {
+      enviarSMS("❌ Solo receptor puede cambiar número", numeroRemitente);
+      return;
+    }
+    
+    String nuevoNumero = comando.substring(7);
+    nuevoNumero.trim();
+    
+    // Validar formato
+    if (!nuevoNumero.startsWith("+") || nuevoNumero.length() < 11) {
+      enviarSMS("❌ Formato: +52XXXXXXXXXX", numeroRemitente);
+      return;
+    }
+    
+    // Validar solo dígitos después del +
+    bool valido = true;
+    for (int i = 1; i < nuevoNumero.length(); i++) {
+      if (!isDigit(nuevoNumero[i])) {
+        valido = false;
+        break;
       }
     }
+    
+    int digitos = nuevoNumero.length() - 1;
+    if (!valido || digitos < 10 || digitos > 15) {
+      enviarSMS("❌ Número inválido (10-15 dígitos)", numeroRemitente);
+      return;
+    }
+    
+    strcpy(config.numUsuario, nuevoNumero.c_str());
+    config.configurado = true;
+    config.firma = 0xCAFEBABE;
+    guardarConfigEEPROM();
+    
+    enviarSMS("✅ Número: " + nuevoNumero, numeroRemitente);
+    delay(1000);
+    enviarSMS("✅ Número configurado", nuevoNumero);
+  }
+  
+  // --- STATUS ---
+  else if (comando.indexOf("STATUS") != -1) {
+    String info = "📊 ESTADO\n";
+    info += "ID: " + String(config.idRastreador) + "\n";
+    info += "Rastreo: " + String(config.rastreoActivo ? "ON" : "OFF") + "\n";
+    info += "Ahorro: " + String(config.modoAhorro ? "ON" : "OFF") + "\n";
+    info += "Intervalo: ";
+    
+    if (config.intervaloDias > 0) info += String(config.intervaloDias) + "D ";
+    if (config.intervaloHoras > 0) info += String(config.intervaloHoras) + "H ";
+    if (config.intervaloMinutos > 0) info += String(config.intervaloMinutos) + "M ";
+    if (config.intervaloSegundos > 0) info += String(config.intervaloSegundos) + "S";
+    
+    info += "\nUsuario: " + String(strlen(config.numUsuario) > 0 ? config.numUsuario : "No configurado");
+    
+    enviarSMS(info, String(config.receptor));
+    enviarSMS(info, numeroRemitente);
+  }
+  
+  // --- UBICACION ---
+  else if (comando.indexOf("UBICACION") != -1 || comando.indexOf("UBICACIÓN") != -1) {
+    enviarSMS("📍 Obteniendo ubicación...", numeroRemitente);
+    
+    String datosGPS = leerYGuardarGPS();
+    String cellInfo = obtenerTorreCelular();
+    
+    String ubicacion = "📍 Ubicación:\n" + datosGPS;
+    if (cellInfo.length() > 0) {
+      ubicacion += "\n🗼 " + cellInfo;
+    }
+    
+    enviarSMS(ubicacion, numeroRemitente);
+  }
+  
+  // --- COMANDO NO RECONOCIDO ---
+  else {
+    enviarSMS("❌ Comando desconocido: " + comando, numeroRemitente);
+  }
 }
 
 // ---------- Funciones del rastreador ----------
@@ -683,7 +825,7 @@ void notificarEncendido()
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
   SMS += " esta encendido. Tiempo: " + currentTime;
-  enviarSMS(SMS, String(config.admin));
+  enviarSMS(SMS, String(config.receptor));
 
   if(String(config.numUsuario) != ""){
     enviarSMS(SMS, String(config.numUsuario));
@@ -695,7 +837,7 @@ void notificarEncendido()
 void debugEEPROMporSMS() {
   String debug = "EEPROM:\n";
   debug += "id:" + String(config.idRastreador) + ",";
-  debug += "ad:" + String(config.admin) + ",";
+  debug += "ad:" + String(config.receptor) + ",";
   debug += "us:" + String(config.numUsuario) + ",";
   debug += "mod:" + String(config.modoAhorro ? "ON" : "OFF") + ",";
   debug += "pin:" + String(config.pin);
