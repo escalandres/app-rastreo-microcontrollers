@@ -468,7 +468,7 @@ void leerMensajes() {
     
     // ✅ Procesar comando CON número de remitente
     if (mensaje.length() > 0) {
-      procesarComando(mensaje, numeroRemitente);
+      procesarComando(mensaje);
     }
     
     // ✅ Borrar mensaje con verificación de éxito
