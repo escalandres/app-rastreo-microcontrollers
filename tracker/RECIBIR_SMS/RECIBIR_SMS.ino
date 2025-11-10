@@ -121,14 +121,27 @@ int extraerIndiceCMTI(String linea) {
 
 
 void leerMensaje(int index) {
-    A7670SA.println("AT+CMGR=" + String(index));
+    A7670SA.println("AT+CMGF=1");
     delay(500);
-    String message = A7670SA.readString();
-    enviarSMS("Mensaje recibido: " + message);
+    String mensaje = "";
+    unsigned long start = millis();
+    while (millis() - start < 2000) { // Espera hasta 2 segundos
+        if (A7670SA.available()) {
+        String linea = A7670SA.readStringUntil('\n');
+        linea.trim();
+        if (linea.length() > 0) {
+            mensaje += linea + "\n";
+        }
+        }
+    }
+    mensaje.trim();
+    enviarSMS("Mensaje recibido: " + mensaje);
 }
 
 void loop() {
     if (A7670SA.available()) {
+        A7670SA.println("AT+CMGF=1");
+        delay(500);
         String respuesta = A7670SA.readStringUntil('\n');
         respuesta.trim();
         if (respuesta.length() > 0) {
