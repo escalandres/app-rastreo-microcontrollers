@@ -21,6 +21,51 @@ void iniciarA7670SA(){
     enviarComando("AT+CREG?", 1000);
 }
 
+String _readSerial() {
+    _timeout = 0;
+    while  (!A7670SA.available() && _timeout < 12000  )
+    {
+        delay(13);
+        _timeout++;
+    }
+    if (A7670SA.available()) {
+        return A7670SA.readString();
+    }
+}
+
+void flushA7670SA() {
+    unsigned long startTime = millis();
+    while (A7670SA.available()) {
+        A7670SA.read();
+        if (millis() - startTime > 500) { // Máximo 500 ms de espera
+            break;
+        }
+    }
+}
+
+void enviarComando(const char* comando, int espera = 1000) {
+    A7670SA.println(comando);
+    delay(espera);
+}
+
+void enviarSMS(String SMS, String number = "+525620577634")
+{
+    iniciarA7670SA();
+    enviarComando("AT+CREG?",1000);
+    enviarComando("AT+CMGF=1",1000);
+
+    //Serial.println ("Set SMS Number");
+    enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 3000); //Mobile phone number to send message
+
+    A7670SA.println(SMS);
+    delay(500);
+    A7670SA.println((char)26);// ASCII code of CTRL+Z
+    delay(500);
+    _buffer = _readSerial();
+
+    delay(2000);
+}
+
 void setup() {
     // Inicializar puertos seriales
     Wire.begin();
@@ -61,33 +106,6 @@ void notificarEncendido()
     delay(2000);
 }
 
-String _readSerial() {
-    _timeout = 0;
-    while  (!A7670SA.available() && _timeout < 12000  )
-    {
-        delay(13);
-        _timeout++;
-    }
-    if (A7670SA.available()) {
-        return A7670SA.readString();
-    }
-}
-
-void flushA7670SA() {
-    unsigned long startTime = millis();
-    while (A7670SA.available()) {
-        A7670SA.read();
-        if (millis() - startTime > 500) { // Máximo 500 ms de espera
-            break;
-        }
-    }
-}
-
-void enviarComando(const char* comando, int espera = 1000) {
-    A7670SA.println(comando);
-    delay(espera);
-}
-
 void loop() {
     if (A7670SA.available()) {
         String respuesta = A7670SA.readStringUntil('\n');
@@ -96,22 +114,4 @@ void loop() {
             enviarSMS("Mensaje recibido: " + respuesta);
         }
     }
-}
-
-void enviarSMS(String SMS, String number = "+525620577634")
-{
-    iniciarA7670SA();
-    enviarComando("AT+CREG?",1000);
-    enviarComando("AT+CMGF=1",1000);
-
-    //Serial.println ("Set SMS Number");
-    enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 3000); //Mobile phone number to send message
-
-    A7670SA.println(SMS);
-    delay(500);
-    A7670SA.println((char)26);// ASCII code of CTRL+Z
-    delay(500);
-    _buffer = _readSerial();
-
-    delay(2000);
 }
