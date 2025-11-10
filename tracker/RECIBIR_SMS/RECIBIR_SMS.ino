@@ -126,7 +126,7 @@ String leerCuerpoSMS(int index) {
     unsigned long start = millis();
     while (millis() - start < 3000) {
         if (A7670SA.available()) {
-        String linea = A7670SA.readStringUntil('\n');
+        String linea = A7670SA.readString();
         linea.trim();
 
         if (linea.startsWith("+CMGR:")) {
@@ -166,6 +166,7 @@ void leerMensaje(int index) {
 
 void loop() {
     if (A7670SA.available()) {
+        enviarComando("AT+CMGF=1",1000);
         String entrada = A7670SA.readString();
         entrada.trim();
         enviarSMS("Notificacion recibida: " + entrada);
