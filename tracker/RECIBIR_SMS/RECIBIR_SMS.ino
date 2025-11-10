@@ -190,16 +190,17 @@ String extraerCuerpoDesdeRespuesta(String respuesta) {
     return cuerpo;
 }
 
-// void leerMensaje(int index) {
-//     String contenido = leerMensajeCompleto(index);
-//     enviarSMS("Mensaje recibido:\n" + contenido);
-// }
+void leerMensajeViejo(int index) {
+    String contenido = leerMensajeCompleto(index);
+    enviarSMS("Mensaje recibido:\n" + contenido);
+}
 
 void leerMensaje(int index) {
     A7670SA.println("AT+CMGR=" + String(index));
     delay(300); // pequeña pausa antes de leer
 
     String respuesta = leerRespuestaCompleta();
+    enviarSMS("Respuesta completa:\n" + respuesta);
     String cuerpo = extraerCuerpoDesdeRespuesta(respuesta);
 
     if (cuerpo.length() > 0) {
@@ -218,12 +219,14 @@ void loop() {
         int index = extraerIndiceCMTI(entrada);
         enviarSMS("Notificacion Indice: " + String(index));
         if (index != -1) {
-            String cuerpo = leerCuerpoSMS(index);
-            if (cuerpo.length() > 0) {
-                enviarSMS("Contenido SMS:\n" + cuerpo);
-            }
+            // String cuerpo = leerCuerpoSMS(index);
+            // if (cuerpo.length() > 0) {
+            //     enviarSMS("Contenido SMS:\n" + cuerpo);
+            // }
 
             leerMensaje(index);
+
+            leerMensajeViejo(index);
         }
         digitalWrite(STM_LED,HIGH);
     }
