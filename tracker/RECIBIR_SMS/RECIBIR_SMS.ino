@@ -123,6 +123,9 @@ int extraerIndiceCMTI(String linea) {
 void leerMensaje(int index) {
     A7670SA.println("AT+CMGF=1");
     delay(500);
+    A7670SA.println("AT+CMGR=" + String(index));
+    delay(500);
+
     String mensaje = "";
     unsigned long start = millis();
     while (millis() - start < 2000) { // Espera hasta 2 segundos
