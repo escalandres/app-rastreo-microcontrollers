@@ -168,17 +168,14 @@ void loop() {
     if (A7670SA.available()) {
         String entrada = A7670SA.readStringUntil('\n');
         entrada.trim();
-        Serial.println("A7670SA → " + entrada);
-
+        enviarSMS("Notificacion recibida: " + entrada);
         int index = extraerIndiceCMTI(entrada);
+        enviarSMS("Notificacion Indice: " + String(index));
         if (index != -1) {
-        String cuerpo = leerCuerpoSMS(index);
-        if (cuerpo.length() > 0) {
-            enviarSMS("Contenido SMS:\n" + cuerpo);
-        } else {
-            Serial.println("SMS vacío o no leído correctamente.");
-        }
+            String cuerpo = leerCuerpoSMS(index);
+            if (cuerpo.length() > 0) {
+                enviarSMS("Contenido SMS:\n" + cuerpo, NUM_ADMIN);
+            }
         }
     }
-
 }
