@@ -185,7 +185,9 @@ String extraerCuerpoDesdeRespuesta(String respuesta) {
 
     // Opcional: cortar en siguiente "OK" si viene pegado
     int fin = cuerpo.indexOf("OK");
-    if (fin != -1) cuerpo = cuerpo.substring(0, fin).trim();
+    if (fin != -1) cuerpo = cuerpo.substring(0, fin);
+
+    cuerpo.trim();
 
     return cuerpo;
 }
