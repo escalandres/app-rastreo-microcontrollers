@@ -691,10 +691,10 @@ void procesarComando(String mensaje) {
   
   // --- SETNUM (solo receptor) ---
   else if (comando.indexOf("SETNUM=") != -1) {
-    if (!esreceptor) {
-      enviarSMS("❌ Solo receptor puede cambiar número", numeroRemitente);
-      return;
-    }
+    // if (!esreceptor) {
+    //   enviarSMS("❌ Solo receptor puede cambiar número", numeroRemitente);
+    //   return;
+    // }
     
     String nuevoNumero = comando.substring(7);
     nuevoNumero.trim();
