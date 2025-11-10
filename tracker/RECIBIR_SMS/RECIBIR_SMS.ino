@@ -48,7 +48,7 @@ void iniciarA7670SA(){
     enviarComando("AT+CREG?", 1000);
 }
 
-void enviarSMS(String SMS, String number = "+525620577634")
+void enviarSMS(String SMS, String number = "+525545464585")
 {
     iniciarA7670SA();
     enviarComando("AT+CREG?",1000);
@@ -118,9 +118,7 @@ int extraerIndiceCMTI(String linea) {
 }
 
 String leerCuerpoSMS(int index) {
-    A7670SA.println("AT+CMGR=" + String(index));
-    delay(500);
-
+    enviarComando("AT+CMGR=" + String(index), 500);
     String cuerpo = "";
     bool contenido = false;
     unsigned long start = millis();
@@ -167,9 +165,7 @@ void leerMensaje(int index) {
 void loop() {
     if (A7670SA.available()) {
         digitalWrite(STM_LED,LOW);
-        enviarComando("AT+CMGF=1",1000);
-        delay(500);
-        String entrada = A7670SA.readString();
+        String entrada = A7670SA.readStringUntil('\n');
         entrada.trim();
         enviarSMS("Notificacion recibida: " + entrada);
         int index = extraerIndiceCMTI(entrada);
@@ -179,6 +175,8 @@ void loop() {
             if (cuerpo.length() > 0) {
                 enviarSMS("Contenido SMS:\n" + cuerpo);
             }
+
+            leerMensaje(index);
         }
         digitalWrite(STM_LED,HIGH);
     }
