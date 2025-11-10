@@ -166,7 +166,9 @@ void leerMensaje(int index) {
 
 void loop() {
     if (A7670SA.available()) {
+        digitalWrite(STM_LED,LOW);
         enviarComando("AT+CMGF=1",1000);
+        delay(500);
         String entrada = A7670SA.readString();
         entrada.trim();
         enviarSMS("Notificacion recibida: " + entrada);
@@ -178,5 +180,6 @@ void loop() {
                 enviarSMS("Contenido SMS:\n" + cuerpo);
             }
         }
+        digitalWrite(STM_LED,HIGH);
     }
 }
