@@ -8,6 +8,19 @@ String _buffer;
 
 HardwareSerial A7670SA(PA3, PA2);
 
+void iniciarA7670SA(){
+    //digitalWrite(LEFT_LED, HIGH);
+    // 1. Probar comunicación AT
+    enviarComando("AT", 1000);
+
+    // 5. Establecer modo LTE (opcional)
+    enviarComando("AT+CNMP=2", 2000);
+
+    // Confirmar nivel de señal y registro otra vez
+    enviarComando("AT+CSQ", 1000);
+    enviarComando("AT+CREG?", 1000);
+}
+
 void setup() {
     // Inicializar puertos seriales
     Wire.begin();
