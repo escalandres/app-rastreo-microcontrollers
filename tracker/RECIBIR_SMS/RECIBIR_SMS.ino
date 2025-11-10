@@ -147,7 +147,7 @@ String leerMensajeCompleto(int index) {
     unsigned long start = millis();
     while (millis() - start < 3000) { // Espera hasta 3 segundos
         if (A7670SA.available()) {
-        String linea = A7670SA.readStringUntil('\n');
+        String linea = A7670SA.readString();
         linea.trim();
         if (linea.length() > 0) {
             mensaje += linea + "\n";
