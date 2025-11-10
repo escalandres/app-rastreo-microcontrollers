@@ -38,6 +38,9 @@ Config config;
 // Dirección en EEPROM para guardar la configuración
 const uint16_t CONFIG_ADDRESS = 0;
 
+unsigned long ultimoChequeoSMS = 0;
+const unsigned long INTERVALO_MIN_CHEQUEO = 3000; // 3 segundos entre chequeos de SMS
+
 String latitude, longitude;
 
 int _timeout;
