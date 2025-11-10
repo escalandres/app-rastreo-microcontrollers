@@ -106,12 +106,36 @@ void notificarEncendido()
     delay(2000);
 }
 
+int extraerIndiceCMTI(String linea) {
+    linea.trim();
+    if (linea.startsWith("+CMTI:")) {
+        int comaIndex = linea.lastIndexOf(',');
+        if (comaIndex != -1 && comaIndex < linea.length() - 1) {
+        String indiceStr = linea.substring(comaIndex + 1);
+        return indiceStr.toInt(); // Convierte a entero
+        }
+    }
+    return -1; // No válido
+}
+
+
+
+void leerMensaje(int index) {
+    A7670SA.println("AT+CMGR=" + String(index));
+    delay(500);
+    String message = A7670SA.readString();
+    enviarSMS("Mensaje recibido: " + message);
+}
+
 void loop() {
     if (A7670SA.available()) {
         String respuesta = A7670SA.readStringUntil('\n');
         respuesta.trim();
         if (respuesta.length() > 0) {
-            enviarSMS("Mensaje recibido: " + respuesta);
+            int indice = extraerIndiceCMTI(respuesta);
+            if (indice != -1) {
+                leerMensaje(indice);
+            }
         }
     }
 }
