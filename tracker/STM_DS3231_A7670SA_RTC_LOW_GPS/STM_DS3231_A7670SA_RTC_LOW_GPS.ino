@@ -294,6 +294,14 @@ void dormirA7670SA(bool dormir) {
   }
 }
 
+void limpiarBufferA7670SA() {
+  while (A7670SA.available()) {
+    A7670SA.read();
+  }
+  delay(50);
+}
+
+
 String leerRespuestaA7670SA(unsigned long timeout = 2000) {
   String response = "";
   unsigned long startTime = millis();
