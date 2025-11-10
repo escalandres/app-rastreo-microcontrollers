@@ -8,7 +8,7 @@ String _buffer;
 
 HardwareSerial A7670SA(PA3, PA2);
 
-void enviarComando(const char* comando, int espera = 1000) {
+void enviarComando(String comando, int espera = 1000) {
     A7670SA.println(comando);
     delay(espera);
 }
@@ -64,6 +64,11 @@ void enviarSMS(String SMS, String number = "+525545464585")
     _buffer = _readSerial();
 
     delay(2000);
+}
+
+void borrarSMS(int index)
+{
+    enviarComando("AT+CMGD=" + String(index), 1000);
 }
 
 void setup() {
@@ -229,6 +234,8 @@ void loop() {
             leerMensaje(index);
 
             leerMensajeViejo(index);
+            delay(1000);
+            borrarSMS(index);
         }
         digitalWrite(STM_LED,HIGH);
     }
