@@ -158,9 +158,59 @@ String leerMensajeCompleto(int index) {
     return mensaje;
 }
 
+String leerMensajeCompleto(int index) {
+    A7670SA.println("AT+CMGR=" + String(index));
+    delay(500);
+
+    String mensaje = "";
+    unsigned long start = millis();
+    while (millis() - start < 3000) { // Espera hasta 3 segundos
+        if (A7670SA.available()) {
+        String linea = A7670SA.readString();
+        linea.trim();
+        if (linea.length() > 0) {
+            mensaje += linea + "\n";
+            if (linea.startsWith("OK") || linea.startsWith("ERROR")) break; // Fin de respuesta
+        }
+        }
+    }
+    return mensaje;
+}
+
+String extraerCuerpoDesdeRespuesta(String respuesta) {
+    int pos = respuesta.indexOf("+CMGR:");
+    if (pos == -1) return "";
+
+    int salto = respuesta.indexOf('\n', pos);
+    if (salto == -1 || salto >= respuesta.length() - 1) return "";
+
+    String cuerpo = respuesta.substring(salto + 1);
+    cuerpo.trim();
+
+    // Opcional: cortar en siguiente "OK" si viene pegado
+    int fin = cuerpo.indexOf("OK");
+    if (fin != -1) cuerpo = cuerpo.substring(0, fin).trim();
+
+    return cuerpo;
+}
+
+// void leerMensaje(int index) {
+//     String contenido = leerMensajeCompleto(index);
+//     enviarSMS("Mensaje recibido:\n" + contenido);
+// }
+
 void leerMensaje(int index) {
-    String contenido = leerMensajeCompleto(index);
-    enviarSMS("Mensaje recibido:\n" + contenido);
+    A7670SA.println("AT+CMGR=" + String(index));
+    delay(300); // pequeña pausa antes de leer
+
+    String respuesta = leerRespuestaCompleta();
+    String cuerpo = extraerCuerpoDesdeRespuesta(respuesta);
+
+    if (cuerpo.length() > 0) {
+        enviarSMS("SMS:\n" + cuerpo, "+525545464585");
+    } else {
+        enviarSMS("Error: cuerpo vacío en índice " + String(index), "+525545464585");
+    }
 }
 
 void loop() {
