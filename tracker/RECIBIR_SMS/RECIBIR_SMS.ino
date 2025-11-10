@@ -174,7 +174,7 @@ void loop() {
         if (index != -1) {
             String cuerpo = leerCuerpoSMS(index);
             if (cuerpo.length() > 0) {
-                enviarSMS("Contenido SMS:\n" + cuerpo, NUM_ADMIN);
+                enviarSMS("Contenido SMS:\n" + cuerpo);
             }
         }
     }
