@@ -76,7 +76,7 @@ void setup() {
     pinMode(STM_LED, OUTPUT);
 
     digitalWrite(STM_LED, LOW);
-
+    enviarComando("AT+CMGF=1",1000);
     // Iniciar A7670SA
     iniciarA7670SA();
 
