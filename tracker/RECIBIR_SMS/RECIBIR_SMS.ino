@@ -118,7 +118,8 @@ int extraerIndiceCMTI(String linea) {
 }
 
 String leerCuerpoSMS(int index) {
-    enviarComando("AT+CMGR=" + String(index), 500);
+    A7670SA.println("AT+CMGR=" + String(index));
+    delay(500);
     String cuerpo = "";
     bool contenido = false;
     unsigned long start = millis();
