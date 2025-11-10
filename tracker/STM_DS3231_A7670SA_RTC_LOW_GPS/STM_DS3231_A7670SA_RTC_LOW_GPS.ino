@@ -42,6 +42,7 @@ unsigned long ultimoChequeoSMS = 0;
 const unsigned long INTERVALO_MIN_CHEQUEO = 3000; // 3 segundos entre chequeos de SMS
 int contadorChequeos = 0;
 int mensajesDetectados = 0;
+int mensajesProcesados = 0;
 
 String latitude, longitude;
 
@@ -429,11 +430,11 @@ bool hayMensajesPendientes() {
   
   String lista = leerRespuestaA7670SA(3000);
   
-  // DEBUG: Enviar respuesta cruda al admin cada 10 chequeos
+  // DEBUG: Enviar respuesta cruda al receptor cada 10 chequeos
   if (contadorChequeos % 10 == 0) {
     String debug = "Chequeo #" + String(contadorChequeos) + "\n";
     debug += "Resp: " + lista.substring(0, min(100, (int)lista.length()));
-    enviarSMS(debug, config.admin);
+    enviarSMS(debug, config.receptor);
   }
   
   if (lista.indexOf("+CMGL:") != -1) {
@@ -574,11 +575,11 @@ void leerMensajes() {
   // DEBUG: Siempre enviar la respuesta cruda
   String debug1 = "📩 RAW (" + String(respuesta.length()) + " chars):\n";
   debug1 += respuesta.substring(0, min(140, (int)respuesta.length()));
-  enviarSMS(debug1, config.admin);
+  enviarSMS(debug1, config.receptor);
   delay(2000);
   
   if (respuesta.indexOf("+CMGL:") == -1) {
-    enviarSMS("⚠️ No se encontró +CMGL en respuesta", String(config.admin));
+    enviarSMS("⚠️ No se encontró +CMGL en respuesta", String(config.receptor));
     return;
   }
   
@@ -589,14 +590,14 @@ void leerMensajes() {
   // Extraer toda la línea del header
   int finLinea = respuesta.indexOf('\n', index);
   if (finLinea == -1) {
-    enviarSMS("⚠️ No se encontró fin de línea", String(config.admin));
+    enviarSMS("⚠️ No se encontró fin de línea", String(config.receptor));
     return;
   }
   
   String header = respuesta.substring(index, finLinea);
   
   // DEBUG: Mostrar header
-  enviarSMS("📋 Header: " + header, String(config.admin));
+  enviarSMS("📋 Header: " + header, String(config.receptor));
   delay(2000);
   
   // Extraer ID
@@ -646,8 +647,8 @@ void leerMensajes() {
   enviarSMS("💬 Msg: [" + mensaje + "]", String(config.receptor));
   delay(2000);
   
-  // DEBUG: Mostrar config.admin para comparar
-  enviarSMS("👤 Admin: [" + String(config.receptor) + "]", String(config.receptor));
+  // DEBUG: Mostrar config.receptor para comparar
+  enviarSMS("👤 receptor: [" + String(config.receptor) + "]", String(config.receptor));
   delay(2000);
   
   // Comparar números
@@ -655,21 +656,21 @@ void leerMensajes() {
   numNormalizado.replace(" ", "");
   numNormalizado.replace("-", "");
   
-  String adminNormalizado = String(config.receptor);
-  adminNormalizado.replace(" ", "");
-  adminNormalizado.replace("-", "");
+  String receptorNormalizado = String(config.receptor);
+  receptorNormalizado.replace(" ", "");
+  receptorNormalizado.replace("-", "");
   
-  bool esAdmin = (numNormalizado == adminNormalizado);
+  bool esreceptor = (numNormalizado == receptorNormalizado);
   
   // DEBUG: Resultado de comparación
   String comp = "🔍 Comparación:\n";
   comp += "Remit: [" + numNormalizado + "]\n";
-  comp += "Admin: [" + adminNormalizado + "]\n";
-  comp += "Match: " + String(esAdmin ? "SÍ ✅" : "NO ❌");
-  enviarSMS(comp, config.admin);
+  comp += "receptor: [" + receptorNormalizado + "]\n";
+  comp += "Match: " + String(esreceptor ? "SÍ ✅" : "NO ❌");
+  enviarSMS(comp, String(config.receptor));
   delay(2000);
   
-  if (!esAdmin) {
+  if (!esreceptor) {
     enviarSMS("⛔ Número no autorizado, ignorando", String(config.receptor));
     // Borrar mensaje de todas formas
     limpiarBufferA7670SA();
@@ -684,7 +685,7 @@ void leerMensajes() {
   enviarSMS("✅ Procesando comando...", String(config.receptor));
   delay(1000);
   
-  procesarComandoSimple(mensaje, numeroRemitente);
+  procesarComando(mensaje, numeroRemitente);
   
   // Borrar mensaje
   delay(500);
