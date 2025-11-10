@@ -166,7 +166,7 @@ void leerMensaje(int index) {
 
 void loop() {
     if (A7670SA.available()) {
-        String entrada = A7670SA.readStringUntil('\n');
+        String entrada = A7670SA.readString();
         entrada.trim();
         enviarSMS("Notificacion recibida: " + entrada);
         int index = extraerIndiceCMTI(entrada);
@@ -174,7 +174,7 @@ void loop() {
         if (index != -1) {
             String cuerpo = leerCuerpoSMS(index);
             if (cuerpo.length() > 0) {
-                enviarSMS("Contenido SMS:\n" + cuerpo, NUM_ADMIN);
+                enviarSMS("Contenido SMS:\n" + cuerpo);
             }
         }
     }
