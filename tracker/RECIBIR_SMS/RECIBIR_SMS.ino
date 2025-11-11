@@ -193,21 +193,41 @@ void setup() {
 void loop() {
     if (A7670SA.available()) {
         digitalWrite(STM_LED, LOW);
-        delay(200);
-        // Leer línea completa
+        delay(50); // breve retardo para permitir llenar el buffer
+
         String entrada = "";
-        while (A7670SA.available()) {
-            entrada += (char)A7670SA.read();
+        unsigned long tInicio = millis();
+
+        // Leer con timeout en caso de que el mensaje llegue fragmentado
+        while (millis() - tInicio < 1000) { // 1 segundo de ventana
+            while (A7670SA.available()) {
+                char c = A7670SA.read();
+                entrada += c;
+                tInicio = millis(); // reinicia el tiempo si sigue llegando algo
+            }
+            delay(10);
         }
+
         entrada.trim();
-        enviarSMS("Notificación recibida: " + entrada);
-        // Extraer índice del SMS
+
+        if (entrada.length() == 0) {
+            enviarSMS("⚠️ Entrada vacía, nada recibido.");
+            digitalWrite(STM_LED, HIGH);
+            return;
+        }
+
+        enviarSMS("📩 Notificación recibida:\n" + entrada);
+
+        // Buscar índice solo si la notificación fue +CMTI
         int index = extraerIndiceCMTI(entrada);
         if (index != -1) {
+            delay(500);
             leerMensajeViejo(index);
             delay(1000);
             borrarSMS(index);
         }
+
         digitalWrite(STM_LED, HIGH);
     }
 }
+
