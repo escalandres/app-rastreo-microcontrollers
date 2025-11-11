@@ -152,7 +152,7 @@ String leerMensajeCompleto(int index) {
     unsigned long start = millis();
     while (millis() - start < 3000) { // Espera hasta 3 segundos
         if (A7670SA.available()) {
-        String linea = A7670SA.readString();
+        String linea = A7670SA.readStringUntil("OK");
         linea.trim();
         if (linea.length() > 0) {
             mensaje += linea + "\n";
@@ -199,7 +199,7 @@ String extraerCuerpoDesdeRespuesta(String respuesta) {
 
 void leerMensajeViejo(int index) {
     String contenido = leerMensajeCompleto(index);
-    enviarSMS("Mensaje recibido:\n" + contenido);
+    enviarSMS("Mensaje recibido Viejo:\n" + contenido);
 }
 
 void leerMensaje(int index) {
