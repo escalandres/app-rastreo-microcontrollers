@@ -201,16 +201,16 @@ void loop() {
         entrada.trim();
 
         if (entrada.length() == 0) {
-            enviarSMS("⚠️ Entrada vacía, nada recibido.");
+            enviarSMS("Entrada vacía, nada recibido.");
             digitalWrite(STM_LED, HIGH);
             return;
         }
 
-        enviarSMS("📩 Notificación recibida:\n" + entrada);
+        enviarSMS("Notificación recibida:\n" + entrada);
 
         // Buscar índice solo si la notificación fue +CMTI
         int index = extraerIndiceCMTI(entrada);
-        enviarSMS("📖 Notificación Indice:\n" + index);
+        enviarSMS("Notificación Indice:\n" + index);
 
         if (index != -1) {
             delay(500);
