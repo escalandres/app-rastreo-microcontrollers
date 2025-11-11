@@ -145,28 +145,66 @@ String leerCuerpoSMS(int index) {
 }
 
 String leerMensajeCompleto(int index) {
-  A7670SA.println("AT+CMGR=" + String(index));
-  delay(300);  // Pequeña pausa para que el módem responda
-
-  String mensaje = "";
+  String respuesta = "";
   unsigned long start = millis();
+  bool terminado = false;
 
-  while (millis() - start < 3000) {
+  while (millis() - start < timeout) {
     while (A7670SA.available()) {
       char c = A7670SA.read();
-      mensaje += c;
-      start = millis();  // Reinicia timeout con cada carácter recibido
-
-      // Verifica si termina en "OK\r\n" o "ERROR\r\n"
-      if (mensaje.endsWith("OK\r\n") || mensaje.endsWith("ERROR\r\n")) {
-        return mensaje;
-      }
+      respuesta += c;
+      start = millis(); // reinicia timeout cuando hay actividad
     }
+
+    // Si ya vemos OK (con CRLF) salimos — esto evita cortar antes del cuerpo
+    if (respuesta.indexOf("\r\nOK\r\n") != -1 || respuesta.indexOf("\nOK\r\n") != -1 ||
+        respuesta.indexOf("\r\nERROR\r\n") != -1 || respuesta.indexOf("\nERROR\r\n") != -1) {
+      terminado = true;
+      break;
+    }
+
+    // pequeña espera para no spinlockear la CPU y dar tiempo al módulo a enviar bytes
+    delay(10);
   }
 
-  return mensaje;  // Devuelve lo que haya aunque no haya terminado en OK
+  if (!terminado) {
+    // Marcador para saber que venció el timeout
+    respuesta += "\r\n<TIMEOUT>";
+  }
+
+  return respuesta;
 }
 
+String leerRespuestaCompleta(unsigned long timeout = 10000) {
+  String respuesta = "";
+  unsigned long start = millis();
+  bool terminado = false;
+
+  while (millis() - start < timeout) {
+    while (A7670SA.available()) {
+      char c = A7670SA.read();
+      respuesta += c;
+      start = millis(); // reinicia timeout cuando hay actividad
+    }
+
+    // Si ya vemos OK (con CRLF) salimos — esto evita cortar antes del cuerpo
+    if (respuesta.indexOf("\r\nOK\r\n") != -1 || respuesta.indexOf("\nOK\r\n") != -1 ||
+        respuesta.indexOf("\r\nERROR\r\n") != -1 || respuesta.indexOf("\nERROR\r\n") != -1) {
+      terminado = true;
+      break;
+    }
+
+    // pequeña espera para no spinlockear la CPU y dar tiempo al módulo a enviar bytes
+    delay(10);
+  }
+
+  if (!terminado) {
+    // Marcador para saber que venció el timeout
+    respuesta += "\r\n<TIMEOUT>";
+  }
+
+  return respuesta;
+}
 
 String leerRespuestaCompleta(unsigned long timeout = 5000) {
     String respuesta = "";
