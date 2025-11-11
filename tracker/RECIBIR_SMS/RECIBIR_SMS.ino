@@ -183,8 +183,8 @@ void setup() {
 
     A7670SA.println("AT+CMGF=1");
     delay(500);
-    A7670SA.println("AT+CNMI=1,2,0,0,0"); // notificaciones automáticas
-    delay(500);
+    // A7670SA.println("AT+CNMI=1,2,0,0,0"); // notificaciones automáticas
+    // delay(500);
 
     notificarEncendido();
     digitalWrite(STM_LED,HIGH);
