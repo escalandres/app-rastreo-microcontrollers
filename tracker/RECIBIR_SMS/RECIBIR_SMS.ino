@@ -226,6 +226,8 @@ String extraerCuerpoDesdeRespuesta(String respuesta) {
 }
 
 void leerMensajeViejo(int index) {
+    A7670SA.println("AT+CMGF=1");
+    delay(500);
     A7670SA.println("AT+CMGR=" + String(index));
     delay(1000); // pequeña pausa antes de leer
     String contenido = leerMensajeCompleto(index);
