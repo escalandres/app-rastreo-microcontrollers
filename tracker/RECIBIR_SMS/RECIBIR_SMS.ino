@@ -200,11 +200,11 @@ void loop() {
         String entrada = A7670SA.readString(); 
         entrada.trim();
 
-        if (entrada.length() == 0) {
-            enviarSMS("Entrada vacía, nada recibido.");
-            digitalWrite(STM_LED, HIGH);
-            return;
-        }
+        // if (entrada.length() == 0) {
+        //     enviarSMS("Entrada vacía, nada recibido.");
+        //     digitalWrite(STM_LED, HIGH);
+        //     return;
+        // }
 
         enviarSMS("Notificación recibida:\n" + entrada);
 
