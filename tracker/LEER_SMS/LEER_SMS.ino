@@ -8,6 +8,14 @@ String _buffer;
 
 HardwareSerial A7670SA(PA3, PA2);
 
+struct SMS {
+    bool exito;
+    String remitente;
+    String fecha;
+    String cuerpo;
+    String estado; // "REC READ", "REC UNREAD", etc.
+};
+
 /* ============================================
    FUNCIÓN DE LECTURA CORREGIDA
    ============================================ */
@@ -110,14 +118,6 @@ String leerRespuestaA7670SA(unsigned long timeout = 3000) {
 /* ============================================
    FUNCIÓN MEJORADA para leer SMS por índice
    ============================================ */
-
-struct SMS {
-    bool exito;
-    String remitente;
-    String fecha;
-    String cuerpo;
-    String estado; // "REC READ", "REC UNREAD", etc.
-};
 
 SMS leerSMSPorIndice(int index) {
     SMS resultado;
