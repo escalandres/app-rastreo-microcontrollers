@@ -238,7 +238,7 @@ void loop() {
             //     enviarSMS("Contenido SMS:\n" + cuerpo);
             // }
 
-            leerMensaje(index);
+            // leerMensaje(index);
 
             leerMensajeViejo(index);
             delay(1000);
