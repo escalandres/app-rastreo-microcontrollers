@@ -163,15 +163,19 @@ String leerMensajeCompleto(int index) {
     return mensaje;
 }
 
-String leerRespuestaCompleta(unsigned long timeout = 3000) {
+String leerRespuestaCompleta(unsigned long timeout = 5000) {
     String respuesta = "";
     unsigned long start = millis();
 
     while (millis() - start < timeout) {
         while (A7670SA.available()) {
-        char c = A7670SA.read();
-        respuesta += c;
-        start = millis(); // reinicia timeout si hay actividad
+            char c = A7670SA.read();
+            respuesta += c;
+            // start = millis(); // reinicia timeout si hay actividad
+        }
+        // si ya detectamos el fin de la respuesta
+        if (respuesta.indexOf("OK") != -1 || respuesta.indexOf("ERROR") != -1) {
+            break;
         }
     }
 
