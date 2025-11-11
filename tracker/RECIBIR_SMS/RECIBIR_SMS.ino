@@ -71,31 +71,6 @@ void borrarSMS(int index)
     enviarComando("AT+CMGD=" + String(index), 1000);
 }
 
-void setup() {
-    // Inicializar puertos seriales
-    Wire.begin();
-    _buffer.reserve(50);
-    A7670SA.begin(115200);
-
-    /* Configuracion de puertos */
-    pinMode(STM_LED, OUTPUT);
-
-    digitalWrite(STM_LED, LOW);
-    
-    // Iniciar A7670SA
-    iniciarA7670SA();
-
-    delay(5000);
-
-    A7670SA.println("AT+CMGF=1");
-    delay(500);
-    A7670SA.println("AT+CNMI=1,2,0,0,0"); // notificaciones automáticas
-    delay(500);
-
-    notificarEncendido();
-    digitalWrite(STM_LED,HIGH);
-}
-
 void notificarEncendido()
 {
     digitalWrite(STM_LED, HIGH);
@@ -188,6 +163,31 @@ void leerMensajeViejo(int index) {
     } else {
         enviarSMS("Mensaje recibido idx " + String(index) + ":\n" + cuerpo);
     }
+}
+
+void setup() {
+    // Inicializar puertos seriales
+    Wire.begin();
+    _buffer.reserve(50);
+    A7670SA.begin(115200);
+
+    /* Configuracion de puertos */
+    pinMode(STM_LED, OUTPUT);
+
+    digitalWrite(STM_LED, LOW);
+    
+    // Iniciar A7670SA
+    iniciarA7670SA();
+
+    delay(5000);
+
+    A7670SA.println("AT+CMGF=1");
+    delay(500);
+    A7670SA.println("AT+CNMI=1,2,0,0,0"); // notificaciones automáticas
+    delay(500);
+
+    notificarEncendido();
+    digitalWrite(STM_LED,HIGH);
 }
 
 void loop() {
