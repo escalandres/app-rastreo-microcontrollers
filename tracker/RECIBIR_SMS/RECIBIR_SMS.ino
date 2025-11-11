@@ -176,12 +176,10 @@ String leerRespuestaCompleta(unsigned long timeout = 5000) {
         while (A7670SA.available()) {
             char c = A7670SA.read();
             respuesta += c;
-            // start = millis(); // reinicia timeout si hay actividad
+            start = millis(); // reinicia timeout si hay actividad
         }
-        // si ya detectamos el fin de la respuesta
-        if (respuesta.indexOf("OK") != -1 || respuesta.indexOf("ERROR") != -1) {
-            break;
-        }
+        // si ya terminó con OK\r\n salimos
+        if (respuesta.endsWith("OK\r\n")) break;
     }
 
     return respuesta;
