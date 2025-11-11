@@ -175,7 +175,7 @@ String leerMensajeCompleto(int index, unsigned long timeout = 10000) {
   return respuesta;
 }
 
-String leerRespuestaCompleta(unsigned long timeout = 10000) {
+String leerRespuestaCompleta(unsigned long timeout = 3000) {
   String respuesta = "";
   unsigned long start = millis();
   bool terminado = false;
@@ -233,6 +233,8 @@ void leerMensajeViejo(int index) {
 }
 
 void leerMensaje(int index) {
+    A7670SA.println("AT+CMGF=1");
+    delay(500);
     A7670SA.println("AT+CMGR=" + String(index));
     delay(300); // pequeña pausa antes de leer
 
@@ -250,6 +252,8 @@ void leerMensaje(int index) {
 void loop() {
     if (A7670SA.available()) {
         digitalWrite(STM_LED,LOW);
+        A7670SA.println("AT+CMGF=1");
+        delay(500);
         String entrada = A7670SA.readString();
         entrada.trim();
         enviarSMS("Notificacion recibida: " + entrada);
