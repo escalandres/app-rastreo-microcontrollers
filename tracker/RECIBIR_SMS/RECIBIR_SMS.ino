@@ -119,58 +119,88 @@ int extraerIndiceCMTI(String linea) {
     if (linea.startsWith("+CMTI:")) {
         int comaIndex = linea.lastIndexOf(',');
         if (comaIndex != -1 && comaIndex < linea.length() - 1) {
-        return linea.substring(comaIndex + 1).toInt();
+            return linea.substring(comaIndex + 1).toInt();
         }
     }
     return -1;
 }
 
-String leerMensajeCompleto(int index, unsigned long timeout = 10000) {
+// Lee toda la respuesta del módulo (incluye el cuerpo del mensaje)
+String leerRespuestaCompleta(unsigned long timeout = 8000) {
     String respuesta = "";
     unsigned long inicio = millis();
-    bool mensajeCompleto = false;
+    bool fin = false;
 
     while (millis() - inicio < timeout) {
         while (A7670SA.available()) {
             char c = A7670SA.read();
             respuesta += c;
 
-            // Si llega "OK" o "ERROR" probablemente ya terminó
-            if (respuesta.indexOf("\r\nOK\r\n") != -1 || respuesta.indexOf("\r\nERROR\r\n") != -1) {
-                mensajeCompleto = true;
+            // Si ya llegó el final típico de una respuesta AT
+            if (respuesta.indexOf("\r\nOK\r\n") != -1 ||
+                respuesta.indexOf("\r\nERROR\r\n") != -1) {
+                fin = true;
                 break;
             }
         }
 
-        if (mensajeCompleto) break;
-        delay(10); // da tiempo al buffer UART
+        if (fin) break;
+        delay(10);
     }
 
     return respuesta;
 }
 
+// Extrae solo el texto del SMS de la respuesta de AT+CMGR
+String extraerCuerpoSMS(String respuesta) {
+    int idx = respuesta.indexOf("+CMGR:");
+    if (idx == -1) return "";
+
+    // Buscar salto de línea después del encabezado
+    int inicioCuerpo = respuesta.indexOf("\r\n", idx);
+    if (inicioCuerpo == -1) return "";
+
+    // Buscar fin antes del OK
+    int finCuerpo = respuesta.indexOf("\r\nOK", inicioCuerpo + 2);
+    if (finCuerpo == -1) finCuerpo = respuesta.length();
+
+    String cuerpo = respuesta.substring(inicioCuerpo + 2, finCuerpo);
+    cuerpo.trim();
+    return cuerpo;
+}
+
 void leerMensajeViejo(int index) {
-    A7670SA.println("AT+CMGR=" + String(index));
-    delay(1000); // pequeña pausa antes de leer
-    String contenido = leerMensajeCompleto(index);
-    enviarSMS("Mensaje recibido Viejo:\n" + contenido);
+    // Formato de texto
+    A7670SA.println("AT+CMGF=1");
+    delay(500);
+    // Leer mensaje por índice
+    A7670SA.print("AT+CMGR=");
+    A7670SA.println(index);
+    delay(500);
+
+    String respuesta = leerRespuestaCompleta();
+    String cuerpo = extraerCuerpoSMS(respuesta);
+
+    if (cuerpo.length() == 0) {
+        enviarSMS("No se pudo leer cuerpo SMS idx " + String(index) + "\nResp:\n" + respuesta);
+    } else {
+        enviarSMS("Mensaje recibido idx " + String(index) + ":\n" + cuerpo);
+    }
 }
 
 void loop() {
     if (A7670SA.available()) {
-        digitalWrite(STM_LED,LOW);
-        A7670SA.println("AT+CMGF=1");
-        delay(500);
-        String entrada = A7670SA.readString();
-        entrada.trim();
-        enviarSMS("Notificacion recibida: " + entrada);
+        // Leer línea completa
+        String entrada = "";
+        while (A7670SA.available()) {
+            entrada += (char)A7670SA.read();
+        }
+
         int index = extraerIndiceCMTI(entrada);
-        enviarSMS("Notificacion Indice: " + String(index));
         if (index != -1) {
             leerMensajeViejo(index);
             delay(1000);
             borrarSMS(index);
         }
-        digitalWrite(STM_LED,HIGH);
     }
 }
