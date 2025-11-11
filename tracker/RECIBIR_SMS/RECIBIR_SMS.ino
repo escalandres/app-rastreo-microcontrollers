@@ -144,7 +144,7 @@ String leerCuerpoSMS(int index) {
     return cuerpo;
 }
 
-String leerMensajeCompleto(int index) {
+String leerMensajeCompleto(int index, unsigned long timeout = 10000) {
   String respuesta = "";
   unsigned long start = millis();
   bool terminado = false;
@@ -206,23 +206,6 @@ String leerRespuestaCompleta(unsigned long timeout = 10000) {
   return respuesta;
 }
 
-String leerRespuestaCompleta(unsigned long timeout = 5000) {
-    String respuesta = "";
-    unsigned long start = millis();
-
-    while (millis() - start < timeout) {
-        while (A7670SA.available()) {
-            char c = A7670SA.read();
-            respuesta += c;
-            start = millis(); // reinicia timeout si hay actividad
-        }
-        // si ya terminó con OK\r\n salimos
-        if (respuesta.endsWith("OK\r\n")) break;
-    }
-
-    return respuesta;
-}
-
 String extraerCuerpoDesdeRespuesta(String respuesta) {
     int pos = respuesta.indexOf("+CMGR:");
     if (pos == -1) return "";
@@ -243,6 +226,8 @@ String extraerCuerpoDesdeRespuesta(String respuesta) {
 }
 
 void leerMensajeViejo(int index) {
+    A7670SA.println("AT+CMGR=" + String(index));
+    delay(1000); // pequeña pausa antes de leer
     String contenido = leerMensajeCompleto(index);
     enviarSMS("Mensaje recibido Viejo:\n" + contenido);
 }
