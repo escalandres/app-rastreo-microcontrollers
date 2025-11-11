@@ -192,6 +192,8 @@ void leerMensajeViejo(int index) {
 
 void loop() {
     if (A7670SA.available()) {
+        digitalWrite(STM_LED, LOW);
+        delay(200);
         // Leer línea completa
         String entrada = "";
         while (A7670SA.available()) {
@@ -206,5 +208,6 @@ void loop() {
             delay(1000);
             borrarSMS(index);
         }
+        digitalWrite(STM_LED, HIGH);
     }
 }
