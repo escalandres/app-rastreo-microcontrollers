@@ -87,7 +87,9 @@ void setup() {
 
     delay(5000);
 
-    enviarComando("AT+CMGF=1",1000);
+    A7670SA.println("AT+CMGF=1");
+    delay(500);
+    A7670SA.println("AT+CNMI=1,2,0,0,0"); // notificaciones automáticas
     delay(500);
 
     notificarEncendido();
@@ -126,7 +128,7 @@ int extraerIndiceCMTI(String linea) {
 }
 
 // Lee toda la respuesta del módulo (incluye el cuerpo del mensaje)
-String leerRespuestaCompleta(unsigned long timeout = 8000) {
+String leerRespuestaCompleta(unsigned long timeout = 12000) {
     String respuesta = "";
     unsigned long inicio = millis();
     bool fin = false;
@@ -195,7 +197,9 @@ void loop() {
         while (A7670SA.available()) {
             entrada += (char)A7670SA.read();
         }
-
+        entrada.trim();
+        enviarSMS("Notificación recibida: " + entrada);
+        // Extraer índice del SMS
         int index = extraerIndiceCMTI(entrada);
         if (index != -1) {
             leerMensajeViejo(index);
