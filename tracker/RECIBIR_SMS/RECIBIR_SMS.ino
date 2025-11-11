@@ -220,6 +220,8 @@ void loop() {
 
         // Buscar índice solo si la notificación fue +CMTI
         int index = extraerIndiceCMTI(entrada);
+        enviarSMS("📖 Notificación Indice:\n" + index);
+
         if (index != -1) {
             delay(500);
             leerMensajeViejo(index);
