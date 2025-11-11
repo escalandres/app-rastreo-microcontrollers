@@ -146,7 +146,7 @@ String extraerCuerpoSMS(String respuesta) {
     return cuerpo;
 }
 
-void leerMensajeViejo(int index) {
+void leerMensaje(int index) {
     // Formato de texto
     A7670SA.println("AT+CMGF=1");
     delay(500);
@@ -190,24 +190,14 @@ void setup() {
     digitalWrite(STM_LED,HIGH);
 }
 
-void loop() {
-    if (A7670SA.available()) {
-        digitalWrite(STM_LED, LOW);
-        delay(50); // breve retardo para permitir llenar el buffer
+void loop() { 
+    if (A7670SA.available()) { 
+        digitalWrite(STM_LED,LOW); 
 
-        String entrada = "";
-        unsigned long tInicio = millis();
+        A7670SA.println("AT+CMGF=1"); 
+        delay(500); 
 
-        // Leer con timeout en caso de que el mensaje llegue fragmentado
-        while (millis() - tInicio < 1000) { // 1 segundo de ventana
-            while (A7670SA.available()) {
-                char c = A7670SA.read();
-                entrada += c;
-                tInicio = millis(); // reinicia el tiempo si sigue llegando algo
-            }
-            delay(10);
-        }
-
+        String entrada = A7670SA.readString(); 
         entrada.trim();
 
         if (entrada.length() == 0) {
@@ -224,12 +214,54 @@ void loop() {
 
         if (index != -1) {
             delay(500);
-            leerMensajeViejo(index);
+            leerMensaje(index);
             delay(1000);
             borrarSMS(index);
         }
-
-        digitalWrite(STM_LED, HIGH);
-    }
+        digitalWrite(STM_LED,HIGH); 
+    } 
 }
+
+// void loop() {
+//     if (A7670SA.available()) {
+//         digitalWrite(STM_LED, LOW);
+//         delay(50); // breve retardo para permitir llenar el buffer
+
+//         String entrada = "";
+//         unsigned long tInicio = millis();
+
+//         // Leer con timeout en caso de que el mensaje llegue fragmentado
+//         while (millis() - tInicio < 1000) { // 1 segundo de ventana
+//             while (A7670SA.available()) {
+//                 char c = A7670SA.read();
+//                 entrada += c;
+//                 tInicio = millis(); // reinicia el tiempo si sigue llegando algo
+//             }
+//             delay(10);
+//         }
+
+//         entrada.trim();
+
+//         if (entrada.length() == 0) {
+//             enviarSMS("⚠️ Entrada vacía, nada recibido.");
+//             digitalWrite(STM_LED, HIGH);
+//             return;
+//         }
+
+//         enviarSMS("📩 Notificación recibida:\n" + entrada);
+
+//         // Buscar índice solo si la notificación fue +CMTI
+//         int index = extraerIndiceCMTI(entrada);
+//         enviarSMS("📖 Notificación Indice:\n" + index);
+
+//         if (index != -1) {
+//             delay(500);
+//             leerMensajeViejo(index);
+//             delay(1000);
+//             borrarSMS(index);
+//         }
+
+//         digitalWrite(STM_LED, HIGH);
+//     }
+// }
 
