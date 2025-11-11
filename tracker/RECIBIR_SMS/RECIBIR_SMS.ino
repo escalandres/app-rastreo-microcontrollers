@@ -145,23 +145,28 @@ String leerCuerpoSMS(int index) {
 }
 
 String leerMensajeCompleto(int index) {
-    A7670SA.println("AT+CMGR=" + String(index));
-    delay(500);
+  A7670SA.println("AT+CMGR=" + String(index));
+  delay(300);  // Pequeña pausa para que el módem responda
 
-    String mensaje = "";
-    unsigned long start = millis();
-    while (millis() - start < 3000) { // Espera hasta 3 segundos
-        if (A7670SA.available()) {
-        String linea = A7670SA.readStringUntil("OK");
-        linea.trim();
-        if (linea.length() > 0) {
-            mensaje += linea + "\n";
-            if (linea.startsWith("OK") || linea.startsWith("ERROR")) break; // Fin de respuesta
-        }
-        }
+  String mensaje = "";
+  unsigned long start = millis();
+
+  while (millis() - start < 3000) {
+    while (A7670SA.available()) {
+      char c = A7670SA.read();
+      mensaje += c;
+      start = millis();  // Reinicia timeout con cada carácter recibido
+
+      // Verifica si termina en "OK\r\n" o "ERROR\r\n"
+      if (mensaje.endsWith("OK\r\n") || mensaje.endsWith("ERROR\r\n")) {
+        return mensaje;
+      }
     }
-    return mensaje;
+  }
+
+  return mensaje;  // Devuelve lo que haya aunque no haya terminado en OK
 }
+
 
 String leerRespuestaCompleta(unsigned long timeout = 5000) {
     String respuesta = "";
