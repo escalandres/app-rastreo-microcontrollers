@@ -36,7 +36,7 @@ void flushA7670SA() {
     limpiarBufferA7670SA();
 }
 
-void enviarComando(String comando, int espera = 1000) {
+void enviarComando(const char* comando, int espera = 1000) {
     A7670SA.println(comando);
     delay(espera);
 }
