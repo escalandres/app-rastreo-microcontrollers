@@ -250,7 +250,7 @@ void loop() {
 
         if (index != -1) {
             delay(500);
-            leerMensajeViejo(index);
+            leerMensaje(index);
             delay(1000);
             borrarSMS(index);
         }
@@ -258,4 +258,3 @@ void loop() {
         digitalWrite(STM_LED, HIGH);
     }
 }
-
