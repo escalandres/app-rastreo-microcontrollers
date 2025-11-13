@@ -51,7 +51,6 @@ void iniciarA7670SA(){
 void enviarSMS(String SMS, String number = "+525545464585")
 {
     iniciarA7670SA();
-    enviarComando("AT+CREG?",1000);
     enviarComando("AT+CMGF=1",1000);
 
     //Serial.println ("Set SMS Number");
@@ -148,10 +147,10 @@ String extraerCuerpoSMS(String respuesta) {
 
 void leerMensaje(int index) {
     // Formato de texto
-    A7670SA.println("AT+CMGF=1");
+    enviarComando("AT+CMGF=1", 1000);
     delay(500);
     // Leer mensaje por índice
-    A7670SA.print("AT+CMGR="+ String(index));
+    enviarComando(("AT+CMGR="+ String(index)).c_str(),1000);
     delay(500);
 
     String respuesta = leerRespuestaCompleta();
