@@ -5,6 +5,10 @@
 const int STM_LED = PC13;
 int _timeout;
 String _buffer;
+String debugQueue[10];
+int debugWrite = 0;
+int debugRead = 0;
+
 
 HardwareSerial A7670SA(PA3, PA2);
 
@@ -50,7 +54,6 @@ void iniciarA7670SA(){
 
 void enviarSMS(String SMS, String number = "+525545464585")
 {
-    iniciarA7670SA();
     enviarComando("AT+CMGF=1",1000);
 
     //Serial.println ("Set SMS Number");
@@ -181,7 +184,7 @@ void setup() {
 
     enviarComando("AT+CMGF=1",1000); // modo texto
 
-    enviarComando("AT+CNMI=1,2,0,0,0", 1000); // notificaciones automáticas
+    enviarComando("AT+CNMI=1,1,0,0,0", 1000); // notificaciones automáticas
 
     notificarEncendido();
     digitalWrite(STM_LED,HIGH);
@@ -212,48 +215,56 @@ void setup() {
 //     } 
 // }
 
-void loop() {
-    if (A7670SA.available()) {
-        digitalWrite(STM_LED, LOW);
-        delay(50); // breve retardo para permitir llenar el buffer
+bool enviarSMS_Seguro(String texto, String number = "+525545464585") {
 
-        enviarComando("AT+CMGF=1", 1000); // Asegura modo texto
+    // Asegura modo texto (rápido, NO reinicia modem)
+    A7670SA.println("AT+CMGF=1");
+    delay(200);
 
-        // Leer datos disponibles del módem con timeout
-        String entrada = "";
-        unsigned long tInicio = millis();
+    A7670SA.print("AT+CMGS=\"");
+    A7670SA.print(number);
+    A7670SA.println("\"");
+    delay(200);
 
-        // Leer con timeout en caso de que el mensaje llegue fragmentado
-        while (millis() - tInicio < 1000) { // 1 segundo de ventana
-            while (A7670SA.available()) {
-                char c = A7670SA.read();
-                entrada += c;
-                tInicio = millis(); // reinicia el tiempo si sigue llegando algo
-            }
-            delay(10);
-        }
+    A7670SA.print(texto);
+    delay(100);
 
-        entrada.trim();
+    A7670SA.write(26); // CTRL+Z
+    delay(3000);       // La red sí necesita esto
 
-        if (entrada.length() == 0) {
-            enviarSMS("⚠️ Entrada vacía, nada recibido.");
-            digitalWrite(STM_LED, HIGH);
-            return;
-        }
+    return true;
+}
 
-        enviarSMS("📩 Notificación recibida:\n" + entrada);
+void agregarDebug(String txt) {
+    debugQueue[debugWrite] = txt;
+    debugWrite = (debugWrite + 1) % 10;
+}
 
-        // Buscar índice solo si la notificación fue +CMTI
-        int index = extraerIndiceCMTI(entrada);
-        enviarSMS("📖 Notificación Indice:\n" + index);
-
-        if (index != -1) {
-            delay(500);
-            leerMensaje(index);
-            delay(1000);
-            borrarSMS(index);
-        }
-
-        digitalWrite(STM_LED, HIGH);
+void procesarDebug() {
+    if (debugRead != debugWrite) {
+        enviarSMS_Seguro(debugQueue[debugRead]);
+        debugRead = (debugRead + 1) % 10;
     }
 }
+
+void loop() {
+    // 1. Ver si llegó algo
+    if (A7670SA.available()) {
+
+        String entrada = A7670SA.readString();
+        entrada.trim();
+
+        agregarDebug("📩 Llegó entrada:\n" + entrada);
+
+        int index = extraerIndiceCMTI(entrada);
+        agregarDebug("➡ Indice: " + String(index));
+        if (index != -1) {
+            leerMensaje(index);
+            borrarSMS(index);
+        }
+    }
+
+    // 2. Enviar mensajes de debug sin bloquear y sin romper nada
+    procesarDebug();
+}
+
