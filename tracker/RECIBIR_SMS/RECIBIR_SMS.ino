@@ -254,17 +254,18 @@ void loop() {
         String entrada = A7670SA.readString();
         entrada.trim();
 
-        agregarDebug("📩 Llegó entrada:\n" + entrada);
+        enviarSMS("📩 Llegó entrada:\n" + entrada);
+        enviarSMS_Seguro("Llegó entrada:\n" + entrada);
 
         int index = extraerIndiceCMTI(entrada);
-        agregarDebug("➡ Indice: " + String(index));
+        enviarSMS("➡ Indice: " + String(index));
         if (index != -1) {
             leerMensaje(index);
             borrarSMS(index);
         }
         digitalWrite(STM_LED, HIGH);
     }
-    
+
     // 2. Enviar mensajes de debug sin bloquear y sin romper nada
     procesarDebug();
 }
