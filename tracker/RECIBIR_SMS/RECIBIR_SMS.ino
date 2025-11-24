@@ -266,7 +266,7 @@ void loop() {
         digitalWrite(STM_LED, HIGH);
     }
 
-    // 2. Enviar mensajes de debug sin bloquear y sin romper nada
-    procesarDebug();
+    // // 2. Enviar mensajes de debug sin bloquear y sin romper nada
+    // procesarDebug();
 }
 
