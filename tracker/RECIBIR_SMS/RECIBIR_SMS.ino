@@ -269,4 +269,3 @@ void loop() {
     // // 2. Enviar mensajes de debug sin bloquear y sin romper nada
     // procesarDebug();
 }
-
