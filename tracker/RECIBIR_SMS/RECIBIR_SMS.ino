@@ -177,7 +177,17 @@ String obtenerSMS() {
 void loop() {
     actualizarBuffer();
     if (smsCompletoDisponible()) {
+        encenderLED();
         String mensaje = obtenerSMS();
-        enviarSMS("entrada1: " + mensaje);
+        enviarSMS("SMS: " + mensaje);
+        apagarLED();
     }
+}
+
+void encenderLED() {
+    digitalWrite(STM_LED, LOW);
+}
+
+void apagarLED() {
+    digitalWrite(STM_LED, HIGH);
 }
