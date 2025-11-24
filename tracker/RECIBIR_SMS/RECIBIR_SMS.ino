@@ -184,7 +184,7 @@ void setup() {
 
     enviarComando("AT+CMGF=1",1000); // modo texto
 
-    enviarComando("AT+CNMI=1,2,0,0,0", 1000); // notificaciones automáticas
+    // enviarComando("AT+CNMI=1,2,0,0,0", 1000); // notificaciones automáticas
 
     notificarEncendido();
     digitalWrite(STM_LED,HIGH);
@@ -235,26 +235,28 @@ bool enviarSMS_Seguro(String texto, String number = "+525545464585") {
     return true;
 }
 
-void agregarDebug(String txt) {
-    debugQueue[debugWrite] = txt;
-    debugWrite = (debugWrite + 1) % 10;
-}
+// void agregarDebug(String txt) {
+//     debugQueue[debugWrite] = txt;
+//     debugWrite = (debugWrite + 1) % 10;
+// }
 
-void procesarDebug() {
-    if (debugRead != debugWrite) {
-        enviarSMS_Seguro(debugQueue[debugRead]);
-        debugRead = (debugRead + 1) % 10;
-    }
-}
+// void procesarDebug() {
+//     if (debugRead != debugWrite) {
+//         enviarSMS_Seguro(debugQueue[debugRead]);
+//         debugRead = (debugRead + 1) % 10;
+//     }
+// }
 
 void loop() {
     // 1. Ver si llegó algo
     if (A7670SA.available()) {
         digitalWrite(STM_LED, LOW);
+        enviarComando("AT+CMGF=1",1000); // modo texto
+
         String entrada = A7670SA.readString();
         entrada.trim();
 
-        enviarSMS("📩 Llegó entrada:\n" + entrada);
+        enviarSMS("Notificacion entrada:\n" + entrada);
         enviarSMS_Seguro("Llegó entrada:\n" + entrada);
 
         int index = extraerIndiceCMTI(entrada);
