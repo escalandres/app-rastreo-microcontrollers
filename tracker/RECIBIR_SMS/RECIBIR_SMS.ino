@@ -184,7 +184,7 @@ void setup() {
 
     enviarComando("AT+CMGF=1",1000); // modo texto
 
-    enviarComando("AT+CNMI=1,1,0,0,0", 1000); // notificaciones automáticas
+    enviarComando("AT+CNMI=1,2,0,0,0", 1000); // notificaciones automáticas
 
     notificarEncendido();
     digitalWrite(STM_LED,HIGH);
@@ -250,7 +250,7 @@ void procesarDebug() {
 void loop() {
     // 1. Ver si llegó algo
     if (A7670SA.available()) {
-
+        digitalWrite(STM_LED, LOW);
         String entrada = A7670SA.readString();
         entrada.trim();
 
@@ -262,8 +262,9 @@ void loop() {
             leerMensaje(index);
             borrarSMS(index);
         }
+        digitalWrite(STM_LED, HIGH);
     }
-
+    
     // 2. Enviar mensajes de debug sin bloquear y sin romper nada
     procesarDebug();
 }
