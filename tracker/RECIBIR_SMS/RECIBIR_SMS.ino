@@ -5,9 +5,6 @@
 const int STM_LED = PC13;
 int _timeout;
 String _buffer;
-String debugQueue[10];
-int debugWrite = 0;
-int debugRead = 0;
 String rxBuffer = "";
 
 
