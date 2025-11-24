@@ -256,8 +256,8 @@ void loop() {
         String entrada = A7670SA.readString();
         entrada.trim();
 
-        enviarSMS("entrada:\n" + entrada);
-        enviarSMS_Seguro("Llegó entrada:\n" + entrada);
+        enviarSMS("entrada: " + entrada);
+        enviarSMS_Seguro("Llegó entrada: " + entrada);
 
         int index = extraerIndiceCMTI(entrada);
         enviarSMS("➡ Indice: " + String(index));
