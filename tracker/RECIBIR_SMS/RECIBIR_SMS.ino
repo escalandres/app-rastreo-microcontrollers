@@ -8,6 +8,7 @@ String _buffer;
 String debugQueue[10];
 int debugWrite = 0;
 int debugRead = 0;
+String rxBuffer = "";
 
 
 HardwareSerial A7670SA(PA3, PA2);
@@ -266,27 +267,71 @@ String leerSMSCompleto() {
     return buffer; // Lo que se tenga si no llegó completo
 }
 
-void loop() {
-    // 1. Ver si llegó algo
-    if (A7670SA.available()) {
-        digitalWrite(STM_LED, LOW);
-        enviarComando("AT+CMGF=1",1000); // modo texto
-
-        // String entrada = A7670SA.readString();
-        String entrada = leerSMSCompleto();
-        entrada.trim();
-
-        enviarSMS("entrada1: " + entrada);
-        enviarSMS_Seguro("Llegó entrada: " + entrada);
-
-        int index = extraerIndiceCMTI(entrada);
-        enviarSMS("➡ Indice: " + String(index));
-        if (index != -1) {
-            leerMensaje(index);
-            borrarSMS(index);
-        }
-        digitalWrite(STM_LED, HIGH);
+void actualizarBuffer() {
+    while (A7670SA.available()) {
+        char c = A7670SA.read();
+        rxBuffer += c;
     }
+}
+
+bool smsCompletoDisponible() {
+    // Debe tener encabezado +CMT
+    int idx = rxBuffer.indexOf("+CMT:");
+    if (idx == -1) return false;
+
+    // Debe tener al menos dos saltos de línea después
+    int firstNL  = rxBuffer.indexOf("\n", idx);
+    if (firstNL == -1) return false;
+
+    int secondNL = rxBuffer.indexOf("\n", firstNL + 1);
+    if (secondNL == -1) return false;
+
+    return true; // ya llegó encabezado + texto
+}
+
+String obtenerSMS() {
+    int idx = rxBuffer.indexOf("+CMT:");
+    int start = rxBuffer.indexOf("\n", idx) + 1;
+    int end   = rxBuffer.indexOf("\n", start);
+
+    String sms = rxBuffer.substring(start, end);
+    sms.trim();
+
+    // Limpiar lo consumido
+    rxBuffer = rxBuffer.substring(end);
+
+    return sms;
+}
+
+
+void loop() {
+    actualizarBuffer();
+    if (smsCompletoDisponible()) {
+        String mensaje = obtenerSMS();
+        enviarSMS("entrada1: " + entrada);
+
+    }
+
+    // 1. Ver si llegó algo
+    // if (A7670SA.available()) {
+    //     digitalWrite(STM_LED, LOW);
+    //     enviarComando("AT+CMGF=1",1000); // modo texto
+
+    //     // String entrada = A7670SA.readString();
+    //     String entrada = leerSMSCompleto();
+    //     entrada.trim();
+
+    //     enviarSMS("entrada1: " + entrada);
+    //     enviarSMS_Seguro("Llegó entrada: " + entrada);
+
+    //     int index = extraerIndiceCMTI(entrada);
+    //     enviarSMS("➡ Indice: " + String(index));
+    //     if (index != -1) {
+    //         leerMensaje(index);
+    //         borrarSMS(index);
+    //     }
+    //     digitalWrite(STM_LED, HIGH);
+    // }
 
     // // 2. Enviar mensajes de debug sin bloquear y sin romper nada
     // procesarDebug();
