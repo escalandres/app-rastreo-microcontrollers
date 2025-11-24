@@ -48,6 +48,7 @@ String latitude, longitude;
 
 int _timeout;
 String _buffer;
+String rxBuffer = "";
 
 // Definir el puerto serial A7670SA
 HardwareSerial A7670SA(PA3, PA2);
@@ -120,58 +121,7 @@ void resetearEEPROM() {
   // Reiniciar el dispositivo después
 }
 
-void setup() {
-  // Inicializar puertos seriales
-  Wire.begin();
-  _buffer.reserve(50);
-  A7670SA.begin(115200);
-  NEO8M.begin(9600);
 
-  /* Configuracion de puertos */
-  pinMode(SLEEP_PIN, OUTPUT);
-  pinMode(SQW_PIN, INPUT_PULLUP);
-  pinMode(STM_LED, OUTPUT);
-  analogReadResolution(12);
-
-  digitalWrite(STM_LED, LOW);
-
-  if (!rtc.begin()) {        // si falla la inicializacion del modulo
-    //Serial.println("Modulo RTC no encontrado !");  // muestra mensaje de error
-    while (1);         // bucle infinito que detiene ejecucion del programa
-  }
-
-  if(rtc.lostPower()) {
-      DateTime localTime(__DATE__, __TIME__);
-      DateTime utcTime = localTime + TimeSpan(6 * 3600); // Convertir a UTC sumando 6 horas
-      // Ajustar el RTC a la fecha y hora de compilación en UTC
-      rtc.adjust(utcTime);
-  }
-
-  rtc.disable32K();
-  rtc.writeSqwPinMode(DS3231_OFF);
-
-  // Configuración de EEPROM para STM32
-  EEPROM.begin();
-
-  // Intentar leer configuración guardada
-  if (!leerConfigEEPROM()) {
-    // Si no hay configuración válida, cargar defaults
-    cargarConfiguracionPorDefecto();
-  }
-
-  // Iniciar A7670SA
-  iniciarA7670SA();
-
-  delay(7000);
-  
-  notificarEncendido();
-  debugEEPROMporSMS();
-  // Esperar registro en red
-  // if (esperarRegistroRed()) {
-  //   notificarEncendido();
-  // } 
-  digitalWrite(STM_LED,HIGH);
-}
 
 void configurarModoAhorroEnergia(bool modoAhorro) {
   if (modoAhorro) {
@@ -207,49 +157,7 @@ void configurarModoAhorroEnergia(bool modoAhorro) {
   }
 }
 
-void loop() {
-  if(config.rastreoActivo == true){
-    // Si el rastreo está desactivado, dormir por un tiempo y volver a checar
-    if(alarmFired){
-      pinMode(STM_LED, OUTPUT);
-      // Enciende led del STM32
-      digitalWrite(STM_LED,LOW);
-      // Encender modulo A7670SA
-      dormirA7670SA(false);
-      iniciarA7670SA();
-      delay(2000);
-      // Revisar si hay mensajes SMS pendientes
-      if (hayMensajesPendientes()) {
-        leerMensajes();
-      }
-      // Leer GPS
-      String datosGPS = leerYGuardarGPS();
 
-      // Enviar datos de rastreo
-      enviarDatosRastreador(datosGPS);
-      delay(3000);
-      // Apagar led del STM32
-      digitalWrite(STM_LED,HIGH);
-      
-      // Limpiar bandera de alarma
-      alarmFired = false;
-
-      // Configurar modo ahorro de energia si está activado
-      configurarModoAhorroEnergia(config.modoAhorro);
-    }
-  }
-  else{
-    digitalWrite(STM_LED,LOW);
-    // Si el rastreo está desactivado
-    // Revisar si hay mensajes SMS pendientes
-    if (hayMensajesPendientes()) {
-      leerMensajes();
-    }
-    digitalWrite(STM_LED,HIGH);
-    // dormir por un tiempo y volver a checar
-    delay(3000);
-  }
-}
 
 // ---------- Funciones del A7670SA ----------
 
@@ -360,341 +268,6 @@ void enviarSMS(String SMS, String number = "+525620577634")
   _buffer = _readSerial();
 
   delay(2000);
-}
-
-// bool hayMensajesPendientes() {
-//   delay(500);
-//   digitalWrite(STM_LED,HIGH);
-//   delay(500);
-//   digitalWrite(STM_LED,LOW);
-//   delay(500);
-//   digitalWrite(STM_LED,HIGH);
-//   delay(500);
-//   digitalWrite(STM_LED,LOW);
-//   // Evitar chequeos muy frecuentes
-//   unsigned long ahora = millis();
-//   if (ahora - ultimoChequeoSMS < INTERVALO_MIN_CHEQUEO) {
-//     return false;
-//   }
-//   ultimoChequeoSMS = ahora;
-  
-//   limpiarBufferA7670SA();
-  
-//   // Configurar modo texto
-//   enviarComando("AT+CMGF=1\r");
-//   delay(300);
-  
-//   // ✅ IR DIRECTO A LISTAR MENSAJES SIN LEER
-//   // No necesitamos AT+CPMS primero
-//   enviarComando("AT+CMGL=\"REC UNREAD\"\r");
-//   delay(800);
-  
-//   String lista = leerRespuestaA7670SA(3000);
-//     limpiarBufferA7670SA();
-//   // Si encuentra +CMGL: hay mensajes sin leer
-//   return (lista.indexOf("+CMGL:") != -1);
-// }
-
-bool hayMensajesPendientes() {
-  contadorChequeos++;
-  
-  // Parpadeo para indicar que está chequeando
-  digitalWrite(STM_LED, LOW);
-  delay(50);
-  digitalWrite(STM_LED, HIGH);
-  
-  limpiarBufferA7670SA();
-  
-  // Configurar modo texto
-  A7670SA.println("AT+CMGF=1");
-  delay(300);
-  String respCMGF = leerRespuestaA7670SA(1000);
-  
-  // DEBUG: Verificar si AT+CMGF funcionó
-  if (respCMGF.indexOf("OK") == -1) {
-    // Parpadeo de error
-    for(int i = 0; i < 3; i++) {
-      digitalWrite(STM_LED, LOW);
-      delay(100);
-      digitalWrite(STM_LED, HIGH);
-      delay(100);
-    }
-    return false;
-  }
-  
-  limpiarBufferA7670SA();
-  
-  // Listar mensajes no leídos
-  A7670SA.println("AT+CMGL=\"REC UNREAD\"");
-  delay(1000);
-  
-  String lista = leerRespuestaA7670SA(3000);
-  
-  // DEBUG: Enviar respuesta cruda al receptor cada 10 chequeos
-  if (contadorChequeos % 10 == 0) {
-    String debug = "Chequeo #" + String(contadorChequeos) + "\n";
-    debug += "Resp: " + lista.substring(0, min(100, (int)lista.length()));
-    enviarSMS(debug, config.receptor);
-  }
-  
-  if (lista.indexOf("+CMGL:") != -1) {
-    mensajesDetectados++;
-    // Triple parpadeo - hay mensaje!
-    for(int i = 0; i < 3; i++) {
-      digitalWrite(STM_LED, LOW);
-      delay(200);
-      digitalWrite(STM_LED, HIGH);
-      delay(200);
-    }
-    return true;
-  }
-  
-  return false;
-}
-
-// void leerMensajes() {
-//   limpiarBufferA7670SA();
-  
-//   // Configurar modo texto
-//   enviarComando("AT+CMGF=1\r");
-//   delay(300);
-//   limpiarBufferA7670SA();
-  
-//   // Listar mensajes no leídos
-//   enviarComando("AT+CMGL=\"REC UNREAD\"\r");
-//   delay(1000);
-  
-//   String respuesta = leerRespuestaA7670SA(5000);
-  
-//   if (respuesta.indexOf("+CMGL:") == -1) {
-//     return; // No hay mensajes
-//   }
-  
-//   // 🔍 DEBUG: Enviar respuesta completa al receptor (TEMPORAL)
-//   // Comenta esta línea después de debuggear
-//   // enviarSMS("DEBUG Raw: " + respuesta.substring(0, 160), config.receptor);
-  
-//   // ✅ PARSING MEJORADO con extracción de número de teléfono
-//   int index = 0;
-//   int mensajesProcesados = 0;
-  
-//   while ((index = respuesta.indexOf("+CMGL:", index)) != -1 && mensajesProcesados < 10) {
-//     mensajesProcesados++;
-    
-//     // Extraer ID del mensaje
-//     // Formato: +CMGL: 1,"REC UNREAD","+521234567890",,"24/10/09,14:32:00"
-//     int coma1 = respuesta.indexOf(',', index);
-//     if (coma1 == -1) break;
-    
-//     int id = respuesta.substring(index + 7, coma1).toInt();
-    
-//     // ✅ Extraer número de teléfono del remitente
-//     int inicioNumero = respuesta.indexOf("\",\"", coma1);
-//     if (inicioNumero == -1) {
-//       index += 10;
-//       continue;
-//     }
-//     inicioNumero += 3; // Saltar ","
-    
-//     int finNumero = respuesta.indexOf("\"", inicioNumero);
-//     if (finNumero == -1) {
-//       index += 10;
-//       continue;
-//     }
-    
-//     String numeroRemitente = respuesta.substring(inicioNumero, finNumero);
-//     numeroRemitente.trim();
-    
-//     // 🔍 DEBUG: Ver qué número se extrajo (TEMPORAL)
-//     // enviarSMS("DEBUG Num: " + numeroRemitente, config.receptor);
-    
-//     // Extraer el mensaje (siguiente línea después del header)
-//     int saltoLinea = respuesta.indexOf('\n', finNumero);
-//     if (saltoLinea == -1) break;
-    
-//     // Buscar fin del mensaje
-//     int finMsg = respuesta.indexOf("\n+CMGL:", saltoLinea);
-//     if (finMsg == -1) {
-//       finMsg = respuesta.indexOf("\n\nOK", saltoLinea);
-//       if (finMsg == -1) finMsg = respuesta.length();
-//     }
-    
-//     String mensaje = respuesta.substring(saltoLinea + 1, finMsg);
-//     mensaje.trim();
-    
-//     // 🔍 DEBUG: Ver mensaje extraído (TEMPORAL)
-//     // enviarSMS("DEBUG Msg: " + mensaje, config.receptor);
-    
-//     // ✅ Procesar comando CON número de remitente
-//     if (mensaje.length() > 0) {
-//       procesarComando(mensaje);
-//     }
-    
-//     // ✅ Borrar mensaje con verificación de éxito
-//     delay(200);
-//     limpiarBufferA7670SA();
-    
-//     A7670SA.print("AT+CMGD=");
-//     A7670SA.print(id);
-//     A7670SA.println("\r");
-    
-//     delay(500);
-//     String respBorrado = leerRespuestaA7670SA(1000);
-    
-//     // Si no se borró correctamente, intentar una vez más
-//     if (respBorrado.indexOf("OK") == -1) {
-//       delay(500);
-//       A7670SA.print("AT+CMGD=");
-//       A7670SA.print(id);
-//       A7670SA.println("\r");
-//       delay(500);
-//       limpiarBufferA7670SA();
-//     }
-    
-//     index = finMsg;
-//   }
-// }
-
-void leerMensajes() {
-  // Parpadeo largo - procesando mensajes
-  digitalWrite(STM_LED, LOW);
-  delay(500);
-  digitalWrite(STM_LED, HIGH);
-  
-  limpiarBufferA7670SA();
-  
-  A7670SA.println("AT+CMGF=1");
-  delay(300);
-  limpiarBufferA7670SA();
-  
-  A7670SA.println("AT+CMGL=\"REC UNREAD\"");
-  delay(1000);
-  
-  String respuesta = leerRespuestaA7670SA(5000);
-  
-  // DEBUG: Siempre enviar la respuesta cruda
-  String debug1 = "📩 RAW (" + String(respuesta.length()) + " chars):\n";
-  debug1 += respuesta.substring(0, min(140, (int)respuesta.length()));
-  enviarSMS(debug1, config.receptor);
-  delay(2000);
-  
-  if (respuesta.indexOf("+CMGL:") == -1) {
-    enviarSMS("⚠️ No se encontró +CMGL en respuesta", String(config.receptor));
-    return;
-  }
-  
-  // Parsing del mensaje
-  int index = respuesta.indexOf("+CMGL:");
-  if (index == -1) return;
-  
-  // Extraer toda la línea del header
-  int finLinea = respuesta.indexOf('\n', index);
-  if (finLinea == -1) {
-    enviarSMS("⚠️ No se encontró fin de línea", String(config.receptor));
-    return;
-  }
-  
-  String header = respuesta.substring(index, finLinea);
-  
-  // DEBUG: Mostrar header
-  enviarSMS("📋 Header: " + header, String(config.receptor));
-  delay(2000);
-  
-  // Extraer ID
-  int coma1 = header.indexOf(',');
-  if (coma1 == -1) return;
-  int id = header.substring(7, coma1).toInt();
-  
-  // DEBUG: Mostrar ID
-  enviarSMS("🆔 ID: " + String(id), String(config.receptor));
-  delay(1000);
-  
-  // Extraer número - formato: +CMGL: 1,"REC UNREAD","+5256..."
-  int primerComilla = header.indexOf("\",\"");
-  if (primerComilla == -1) {
-    enviarSMS("⚠️ No se encontró delimitador de número", String(config.receptor));
-    return;
-  }
-  
-  int inicioNum = primerComilla + 3;
-  int finNum = header.indexOf("\"", inicioNum);
-  if (finNum == -1) {
-    enviarSMS("⚠️ No se encontró fin de número", String(config.receptor));
-    return;
-  }
-  
-  String numeroRemitente = header.substring(inicioNum, finNum);
-  numeroRemitente.trim();
-  
-  // DEBUG: Mostrar número extraído
-  enviarSMS("📱 Num: [" + numeroRemitente + "]", config.receptor);
-  delay(2000);
-
-  numeroRemitente = String(config.receptor);
-  
-  // Extraer mensaje (línea siguiente)
-  int inicioMsg = finLinea + 1;
-  int finMsg = respuesta.indexOf("\n\n", inicioMsg);
-  if (finMsg == -1) {
-    finMsg = respuesta.indexOf("\nOK", inicioMsg);
-    if (finMsg == -1) finMsg = respuesta.length();
-  }
-  
-  String mensaje = respuesta.substring(inicioMsg, finMsg);
-  mensaje.trim();
-  
-  // DEBUG: Mostrar mensaje
-  enviarSMS("💬 Msg: [" + mensaje + "]", String(config.receptor));
-  delay(2000);
-  
-  // DEBUG: Mostrar config.receptor para comparar
-  enviarSMS("👤 receptor: [" + String(config.receptor) + "]", String(config.receptor));
-  delay(2000);
-  
-  // Comparar números
-  String numNormalizado = numeroRemitente;
-  numNormalizado.replace(" ", "");
-  numNormalizado.replace("-", "");
-  
-  String receptorNormalizado = String(config.receptor);
-  receptorNormalizado.replace(" ", "");
-  receptorNormalizado.replace("-", "");
-  
-  bool esreceptor = (numNormalizado == receptorNormalizado);
-  
-  // DEBUG: Resultado de comparación
-  String comp = "🔍 Comparación:\n";
-  comp += "Remit: [" + numNormalizado + "]\n";
-  comp += "receptor: [" + receptorNormalizado + "]\n";
-  comp += "Match: " + String(esreceptor ? "SÍ ✅" : "NO ❌");
-  enviarSMS(comp, String(config.receptor));
-  delay(2000);
-  
-  if (!esreceptor) {
-    enviarSMS("⛔ Número no autorizado, ignorando", String(config.receptor));
-    // Borrar mensaje de todas formas
-    limpiarBufferA7670SA();
-    A7670SA.print("AT+CMGD=");
-    A7670SA.println(id);
-    delay(500);
-    return;
-  }
-  
-  // Procesar comando
-  mensajesProcesados++;
-  enviarSMS("✅ Procesando comando...", String(config.receptor));
-  delay(1000);
-  
-  procesarComando(mensaje, numeroRemitente);
-  
-  // Borrar mensaje
-  delay(500);
-  limpiarBufferA7670SA();
-  A7670SA.print("AT+CMGD=");
-  A7670SA.println(id);
-  delay(500);
-  
-  enviarSMS("🗑️ Mensaje borrado", String(config.receptor));
 }
 
 bool esperarRegistroRed(unsigned long timeout = 30000) {
@@ -967,6 +540,214 @@ void procesarComando(String mensaje, String numeroRemitente) {
   else {
     enviarSMS("❌ Comando desconocido: " + comando, numeroRemitente);
   }
+}
+
+void actualizarBuffer() {
+    while (A7670SA.available()) {
+        char c = A7670SA.read();
+        rxBuffer += c;
+    }
+}
+
+bool smsCompletoDisponible() {
+    // Debe tener encabezado +CMT
+    int idx = rxBuffer.indexOf("+CMT:");
+    if (idx == -1) return false;
+
+    // Debe tener al menos dos saltos de línea después
+    int firstNL  = rxBuffer.indexOf("\n", idx);
+    if (firstNL == -1) return false;
+
+    int secondNL = rxBuffer.indexOf("\n", firstNL + 1);
+    if (secondNL == -1) return false;
+
+    return true; // ya llegó encabezado + texto
+}
+
+String obtenerSMS() {
+    int idx = rxBuffer.indexOf("+CMT:");
+    int start = rxBuffer.indexOf("\n", idx) + 1;
+    int end   = rxBuffer.indexOf("\n", start);
+
+    String sms = rxBuffer.substring(start, end);
+    sms.trim();
+
+    // Limpiar lo consumido
+    rxBuffer = rxBuffer.substring(end);
+
+    return sms;
+}
+
+// void leerMensajes() {
+//   // Parpadeo largo - procesando mensajes
+//   digitalWrite(STM_LED, LOW);
+//   delay(500);
+//   digitalWrite(STM_LED, HIGH);
+  
+//   limpiarBufferA7670SA();
+  
+//   A7670SA.println("AT+CMGF=1");
+//   delay(300);
+//   limpiarBufferA7670SA();
+  
+//   A7670SA.println("AT+CMGL=\"REC UNREAD\"");
+//   delay(1000);
+  
+//   String respuesta = leerRespuestaA7670SA(5000);
+  
+//   // DEBUG: Siempre enviar la respuesta cruda
+//   String debug1 = "📩 RAW (" + String(respuesta.length()) + " chars):\n";
+//   debug1 += respuesta.substring(0, min(140, (int)respuesta.length()));
+//   enviarSMS(debug1, config.receptor);
+//   delay(2000);
+  
+//   if (respuesta.indexOf("+CMGL:") == -1) {
+//     enviarSMS("⚠️ No se encontró +CMGL en respuesta", String(config.receptor));
+//     return;
+//   }
+  
+//   // Parsing del mensaje
+//   int index = respuesta.indexOf("+CMGL:");
+//   if (index == -1) return;
+  
+//   // Extraer toda la línea del header
+//   int finLinea = respuesta.indexOf('\n', index);
+//   if (finLinea == -1) {
+//     enviarSMS("⚠️ No se encontró fin de línea", String(config.receptor));
+//     return;
+//   }
+  
+//   String header = respuesta.substring(index, finLinea);
+  
+//   // DEBUG: Mostrar header
+//   enviarSMS("📋 Header: " + header, String(config.receptor));
+//   delay(2000);
+  
+//   // Extraer ID
+//   int coma1 = header.indexOf(',');
+//   if (coma1 == -1) return;
+//   int id = header.substring(7, coma1).toInt();
+  
+//   // DEBUG: Mostrar ID
+//   enviarSMS("🆔 ID: " + String(id), String(config.receptor));
+//   delay(1000);
+  
+//   // Extraer número - formato: +CMGL: 1,"REC UNREAD","+5256..."
+//   int primerComilla = header.indexOf("\",\"");
+//   if (primerComilla == -1) {
+//     enviarSMS("⚠️ No se encontró delimitador de número", String(config.receptor));
+//     return;
+//   }
+  
+//   int inicioNum = primerComilla + 3;
+//   int finNum = header.indexOf("\"", inicioNum);
+//   if (finNum == -1) {
+//     enviarSMS("⚠️ No se encontró fin de número", String(config.receptor));
+//     return;
+//   }
+  
+//   String numeroRemitente = header.substring(inicioNum, finNum);
+//   numeroRemitente.trim();
+  
+//   // DEBUG: Mostrar número extraído
+//   enviarSMS("📱 Num: [" + numeroRemitente + "]", config.receptor);
+//   delay(2000);
+
+//   numeroRemitente = String(config.receptor);
+  
+//   // Extraer mensaje (línea siguiente)
+//   int inicioMsg = finLinea + 1;
+//   int finMsg = respuesta.indexOf("\n\n", inicioMsg);
+//   if (finMsg == -1) {
+//     finMsg = respuesta.indexOf("\nOK", inicioMsg);
+//     if (finMsg == -1) finMsg = respuesta.length();
+//   }
+  
+//   String mensaje = respuesta.substring(inicioMsg, finMsg);
+//   mensaje.trim();
+  
+//   // DEBUG: Mostrar mensaje
+//   enviarSMS("💬 Msg: [" + mensaje + "]", String(config.receptor));
+//   delay(2000);
+  
+//   // DEBUG: Mostrar config.receptor para comparar
+//   enviarSMS("👤 receptor: [" + String(config.receptor) + "]", String(config.receptor));
+//   delay(2000);
+  
+//   // Comparar números
+//   String numNormalizado = numeroRemitente;
+//   numNormalizado.replace(" ", "");
+//   numNormalizado.replace("-", "");
+  
+//   String receptorNormalizado = String(config.receptor);
+//   receptorNormalizado.replace(" ", "");
+//   receptorNormalizado.replace("-", "");
+  
+//   bool esreceptor = (numNormalizado == receptorNormalizado);
+  
+//   // DEBUG: Resultado de comparación
+//   String comp = "🔍 Comparación:\n";
+//   comp += "Remit: [" + numNormalizado + "]\n";
+//   comp += "receptor: [" + receptorNormalizado + "]\n";
+//   comp += "Match: " + String(esreceptor ? "SÍ ✅" : "NO ❌");
+//   enviarSMS(comp, String(config.receptor));
+//   delay(2000);
+  
+//   if (!esreceptor) {
+//     enviarSMS("⛔ Número no autorizado, ignorando", String(config.receptor));
+//     // Borrar mensaje de todas formas
+//     limpiarBufferA7670SA();
+//     A7670SA.print("AT+CMGD=");
+//     A7670SA.println(id);
+//     delay(500);
+//     return;
+//   }
+  
+//   // Procesar comando
+//   mensajesProcesados++;
+//   enviarSMS("✅ Procesando comando...", String(config.receptor));
+//   delay(1000);
+  
+//   procesarComando(mensaje, numeroRemitente);
+  
+//   // Borrar mensaje
+//   delay(500);
+//   limpiarBufferA7670SA();
+//   A7670SA.print("AT+CMGD=");
+//   A7670SA.println(id);
+//   delay(500);
+  
+//   enviarSMS("🗑️ Mensaje borrado", String(config.receptor));
+// }
+
+void leerMensajes(string comandos) {
+    // Parpadeo largo - procesando mensajes
+    // digitalWrite(STM_LED, LOW);
+    // delay(500);
+    // digitalWrite(STM_LED, HIGH);
+
+    // limpiarBufferA7670SA();
+    // A7670SA.println("AT+CMGF=1");
+    // delay(300);
+    // limpiarBufferA7670SA();
+    // A7670SA.println("AT+CMGL=\"REC UNREAD\"");
+    // delay(1000);
+
+    // actualizarBuffer();
+
+    // while (smsCompletoDisponible()) {
+    //     String sms = obtenerSMS();
+
+    //     // Procesar comando
+    //     mensajesProcesados++;
+    //     enviarSMS("✅ Procesando comando...", String(config.receptor));
+    //     delay(1000);
+
+    //     // Asumir que el remitente es el número del receptor para simplificar
+    //     procesarComando(sms, String(config.receptor));
+    // }
+
+  procesarComando(sms, String(config.receptor));
 }
 
 // ---------- Funciones del rastreador ----------
@@ -1245,6 +1026,113 @@ int calcularNivelBateria(float v) {
   else if (v >= 3.50) return 20;
   else if (v >= 3.40) return 10;
   else return 0;
+}
+
+/* Configuración de puertos */
+
+void setup() {
+  // Inicializar puertos seriales
+  Wire.begin();
+  _buffer.reserve(50);
+  A7670SA.begin(115200);
+  NEO8M.begin(9600);
+
+  /* Configuracion de puertos */
+  pinMode(SLEEP_PIN, OUTPUT);
+  pinMode(SQW_PIN, INPUT_PULLUP);
+  pinMode(STM_LED, OUTPUT);
+  analogReadResolution(12);
+
+  digitalWrite(STM_LED, LOW);
+
+  if (!rtc.begin()) {        // si falla la inicializacion del modulo
+    //Serial.println("Modulo RTC no encontrado !");  // muestra mensaje de error
+    while (1);         // bucle infinito que detiene ejecucion del programa
+  }
+
+  if(rtc.lostPower()) {
+      DateTime localTime(__DATE__, __TIME__);
+      DateTime utcTime = localTime + TimeSpan(6 * 3600); // Convertir a UTC sumando 6 horas
+      // Ajustar el RTC a la fecha y hora de compilación en UTC
+      rtc.adjust(utcTime);
+  }
+
+  rtc.disable32K();
+  rtc.writeSqwPinMode(DS3231_OFF);
+
+  // Configuración de EEPROM para STM32
+  EEPROM.begin();
+
+  // Intentar leer configuración guardada
+  if (!leerConfigEEPROM()) {
+    // Si no hay configuración válida, cargar defaults
+    cargarConfiguracionPorDefecto();
+  }
+
+  // Iniciar A7670SA
+  iniciarA7670SA();
+
+  delay(5000);
+
+  enviarComando("AT+CMGF=1",1000); // modo texto
+
+  notificarEncendido();
+  debugEEPROMporSMS();
+  // Esperar registro en red
+  // if (esperarRegistroRed()) {
+  //   notificarEncendido();
+  // } 
+  digitalWrite(STM_LED,HIGH);
+}
+
+void loop() {
+  if(config.rastreoActivo == true){
+    // Si el rastreo está desactivado, dormir por un tiempo y volver a checar
+    if(alarmFired){
+      pinMode(STM_LED, OUTPUT);
+      // Enciende led del STM32
+      digitalWrite(STM_LED,LOW);
+      // Encender modulo A7670SA
+      dormirA7670SA(false);
+      iniciarA7670SA();
+      delay(2000);
+      // Revisar si hay mensajes SMS pendientes
+      actualizarBuffer();
+      if (smsCompletoDisponible()) {
+          encenderLED();
+          String mensaje = obtenerSMS();
+          enviarSMS("SMS: " + mensaje);
+          apagarLED();
+      }
+      // Leer GPS
+      String datosGPS = leerYGuardarGPS();
+
+      // Enviar datos de rastreo
+      enviarDatosRastreador(datosGPS);
+      delay(3000);
+      // Apagar led del STM32
+      digitalWrite(STM_LED,HIGH);
+      
+      // Limpiar bandera de alarma
+      alarmFired = false;
+
+      // Configurar modo ahorro de energia si está activado
+      configurarModoAhorroEnergia(config.modoAhorro);
+    }
+  }
+  else{
+    // Si el rastreo está desactivado
+    // Revisar si hay mensajes SMS pendientes
+    actualizarBuffer();
+    if (smsCompletoDisponible()) {
+        encenderLED();
+        String mensaje = obtenerSMS();
+        enviarSMS("SMS: " + mensaje);
+        apagarLED();
+    }
+    // dormir por un tiempo y volver a checar
+    delay(3000);
+  }
 }
 
 // void setUpdateRate(Stream &gps) {
