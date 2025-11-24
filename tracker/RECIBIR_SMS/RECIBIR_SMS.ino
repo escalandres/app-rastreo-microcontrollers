@@ -94,79 +94,6 @@ void notificarEncendido()
     delay(2000);
 }
 
-int extraerIndiceCMTI(String linea) {
-    linea.trim();
-    if (linea.startsWith("+CMTI:")) {
-        int comaIndex = linea.lastIndexOf(',');
-        if (comaIndex != -1 && comaIndex < linea.length() - 1) {
-            return linea.substring(comaIndex + 1).toInt();
-        }
-    }
-    return -1;
-}
-
-// Lee toda la respuesta del módulo (incluye el cuerpo del mensaje)
-String leerRespuestaCompleta(unsigned long timeout = 12000) {
-    String respuesta = "";
-    unsigned long inicio = millis();
-    bool fin = false;
-
-    while (millis() - inicio < timeout) {
-        while (A7670SA.available()) {
-            char c = A7670SA.read();
-            respuesta += c;
-
-            // Si ya llegó el final típico de una respuesta AT
-            if (respuesta.indexOf("\r\nOK\r\n") != -1 ||
-                respuesta.indexOf("\r\nERROR\r\n") != -1) {
-                fin = true;
-                break;
-            }
-        }
-
-        if (fin) break;
-        delay(10);
-    }
-
-    return respuesta;
-}
-
-// Extrae solo el texto del SMS de la respuesta de AT+CMGR
-String extraerCuerpoSMS(String respuesta) {
-    int idx = respuesta.indexOf("+CMGR:");
-    if (idx == -1) return "";
-
-    // Buscar salto de línea después del encabezado
-    int inicioCuerpo = respuesta.indexOf("\r\n", idx);
-    if (inicioCuerpo == -1) return "";
-
-    // Buscar fin antes del OK
-    int finCuerpo = respuesta.indexOf("\r\nOK", inicioCuerpo + 2);
-    if (finCuerpo == -1) finCuerpo = respuesta.length();
-
-    String cuerpo = respuesta.substring(inicioCuerpo + 2, finCuerpo);
-    cuerpo.trim();
-    return cuerpo;
-}
-
-void leerMensaje(int index) {
-    // Formato de texto
-    enviarComando("AT+CMGF=1", 1000);
-    delay(500);
-    // Leer mensaje por índice
-    enviarComando(("AT+CMGR="+ String(index)).c_str(),1000);
-    delay(500);
-
-    String respuesta = leerRespuestaCompleta();
-    String cuerpo = extraerCuerpoSMS(respuesta);
-
-    if (cuerpo.length() == 0) {
-        enviarSMS("No se pudo leer cuerpo SMS idx " + String(index) + "\nResp:\n" + respuesta);
-    } else {
-        enviarSMS("Mensaje recibido idx " + String(index) + ":\n" + cuerpo);
-    }
-}
-
 void setup() {
     // Inicializar puertos seriales
     Wire.begin();
@@ -190,63 +117,6 @@ void setup() {
     notificarEncendido();
     digitalWrite(STM_LED,HIGH);
 }
-
-// void loop() { 
-//     if (A7670SA.available()) { 
-//         digitalWrite(STM_LED,LOW); 
-
-//         enviarComando("AT+CMGF=1",1000); // modo texto
-
-//         String entrada = A7670SA.readString(); 
-//         entrada.trim();
-
-//         enviarSMS("Notificación recibida:\n" + entrada);
-
-//         // Buscar índice solo si la notificación fue +CMTI
-//         int index = extraerIndiceCMTI(entrada);
-//         enviarSMS("Notificación Indice:\n" + index);
-
-//         if (index != -1) {
-//             delay(500);
-//             leerMensaje(index);
-//             delay(1000);
-//             borrarSMS(index);
-//         }
-//         digitalWrite(STM_LED,HIGH); 
-//     } 
-// }
-
-bool enviarSMS_Seguro(String texto, String number = "+525545464585") {
-
-    // Asegura modo texto (rápido, NO reinicia modem)
-    A7670SA.println("AT+CMGF=1");
-    delay(200);
-
-    A7670SA.print("AT+CMGS=\"");
-    A7670SA.print(number);
-    A7670SA.println("\"");
-    delay(200);
-
-    A7670SA.print(texto);
-    delay(100);
-
-    A7670SA.write(26); // CTRL+Z
-    delay(3000);       // La red sí necesita esto
-
-    return true;
-}
-
-// void agregarDebug(String txt) {
-//     debugQueue[debugWrite] = txt;
-//     debugWrite = (debugWrite + 1) % 10;
-// }
-
-// void procesarDebug() {
-//     if (debugRead != debugWrite) {
-//         enviarSMS_Seguro(debugQueue[debugRead]);
-//         debugRead = (debugRead + 1) % 10;
-//     }
-// }
 
 String leerSMSCompleto() {
     String buffer = "";
@@ -308,31 +178,6 @@ void loop() {
     actualizarBuffer();
     if (smsCompletoDisponible()) {
         String mensaje = obtenerSMS();
-        enviarSMS("entrada1: " + entrada);
-
+        enviarSMS("entrada1: " + mensaje);
     }
-
-    // 1. Ver si llegó algo
-    // if (A7670SA.available()) {
-    //     digitalWrite(STM_LED, LOW);
-    //     enviarComando("AT+CMGF=1",1000); // modo texto
-
-    //     // String entrada = A7670SA.readString();
-    //     String entrada = leerSMSCompleto();
-    //     entrada.trim();
-
-    //     enviarSMS("entrada1: " + entrada);
-    //     enviarSMS_Seguro("Llegó entrada: " + entrada);
-
-    //     int index = extraerIndiceCMTI(entrada);
-    //     enviarSMS("➡ Indice: " + String(index));
-    //     if (index != -1) {
-    //         leerMensaje(index);
-    //         borrarSMS(index);
-    //     }
-    //     digitalWrite(STM_LED, HIGH);
-    // }
-
-    // // 2. Enviar mensajes de debug sin bloquear y sin romper nada
-    // procesarDebug();
 }
