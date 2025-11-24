@@ -308,7 +308,7 @@ void loop() {
     actualizarBuffer();
     if (smsCompletoDisponible()) {
         String mensaje = obtenerSMS();
-        enviarSMS("entrada1: " + entrada);
+        enviarSMS("entrada1: " + mensaje);
 
     }
 
