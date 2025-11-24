@@ -247,16 +247,36 @@ bool enviarSMS_Seguro(String texto, String number = "+525545464585") {
 //     }
 // }
 
+String leerSMSCompleto() {
+    String buffer = "";
+    unsigned long t0 = millis();
+
+    while (millis() - t0 < 3000) { // espera hasta 3 segundos
+        while (A7670SA.available()) {
+            char c = A7670SA.read();
+            buffer += c;
+
+            // Fin del SMS detectado
+            if (buffer.endsWith("\r\n\r\n")) {
+                return buffer;
+            }
+        }
+    }
+
+    return buffer; // Lo que se tenga si no llegó completo
+}
+
 void loop() {
     // 1. Ver si llegó algo
     if (A7670SA.available()) {
         digitalWrite(STM_LED, LOW);
         enviarComando("AT+CMGF=1",1000); // modo texto
 
-        String entrada = A7670SA.readString();
+        // String entrada = A7670SA.readString();
+        String entrada = leerSMSCompleto();
         entrada.trim();
 
-        enviarSMS("entrada: " + entrada);
+        enviarSMS("entrada1: " + entrada);
         enviarSMS_Seguro("Llegó entrada: " + entrada);
 
         int index = extraerIndiceCMTI(entrada);
