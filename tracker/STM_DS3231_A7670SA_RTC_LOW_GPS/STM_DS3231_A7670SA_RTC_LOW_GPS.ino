@@ -1086,54 +1086,71 @@ void setup() {
 }
 
 void loop() {
-  if(config.rastreoActivo == true){
-    // Si el rastreo está desactivado, dormir por un tiempo y volver a checar
-    if(alarmFired){
+  // Siempre escuchar fragmentos entrantes
+  actualizarBuffer();
+
+  if (config.rastreoActivo == true) {
+
+    if (alarmFired) {
+
       pinMode(STM_LED, OUTPUT);
-      // Enciende led del STM32
-      digitalWrite(STM_LED,LOW);
-      // Encender modulo A7670SA
+      encenderLED();
+
+      // Encender A7670SA
       dormirA7670SA(false);
       iniciarA7670SA();
-      delay(2000);
+
+      // Esperar inicialización SIN perder SMS
+      unsigned long t0 = millis();
+      while (millis() - t0 < 1500) {
+        actualizarBuffer();
+      }
+
       // Revisar si hay mensajes SMS pendientes
-      actualizarBuffer();
       if (smsCompletoDisponible()) {
-          encenderLED();
           String mensaje = obtenerSMS();
           enviarSMS("SMS: " + mensaje);
-          apagarLED();
+          leerMensajes(mensaje);
       }
+
       // Leer GPS
       String datosGPS = leerYGuardarGPS();
 
       // Enviar datos de rastreo
       enviarDatosRastreador(datosGPS);
-      delay(3000);
-      // Apagar led del STM32
-      digitalWrite(STM_LED,HIGH);
-      
-      // Limpiar bandera de alarma
+
+      // Espera sin perder data
+      t0 = millis();
+      while (millis() - t0 < 3000) {
+        actualizarBuffer();
+      }
+
+      apagarLED();
+
       alarmFired = false;
 
-      // Configurar modo ahorro de energia si está activado
       configurarModoAhorroEnergia(config.modoAhorro);
     }
-  }
-  else{
-    // Si el rastreo está desactivado
-    // Revisar si hay mensajes SMS pendientes
-    actualizarBuffer();
+
+  } else {
+
+    // Rastreo apagado, pero revisar SMS
     if (smsCompletoDisponible()) {
         encenderLED();
         String mensaje = obtenerSMS();
         enviarSMS("SMS: " + mensaje);
+        leerMensajes(mensaje);
         apagarLED();
     }
-    // dormir por un tiempo y volver a checar
-    delay(3000);
+
+    // Espera sin perder paquetes
+    unsigned long t0 = millis();
+    while (millis() - t0 < 3000) {
+      actualizarBuffer();
+    }
   }
 }
+
 
 // void setUpdateRate(Stream &gps) {
 //   // UBX-config-RATE: set update rate to 10000 ms (0.1 Hz)
