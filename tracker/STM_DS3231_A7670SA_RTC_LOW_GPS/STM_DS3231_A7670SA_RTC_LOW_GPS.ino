@@ -54,6 +54,14 @@ String rxBuffer = "";
 HardwareSerial A7670SA(PA3, PA2);
 HardwareSerial NEO8M(PA10, PA9);
 
+void encenderLED() {
+    digitalWrite(STM_LED, LOW);
+}
+
+void apagarLED() {
+    digitalWrite(STM_LED, HIGH);
+}
+
 // -------- Funciones de alarma RTC --------
 
 void setAlarmFired() {
@@ -720,36 +728,6 @@ String obtenerSMS() {
 //   enviarSMS("🗑️ Mensaje borrado", String(config.receptor));
 // }
 
-void leerMensajes(string comandos) {
-    // Parpadeo largo - procesando mensajes
-    // digitalWrite(STM_LED, LOW);
-    // delay(500);
-    // digitalWrite(STM_LED, HIGH);
-
-    // limpiarBufferA7670SA();
-    // A7670SA.println("AT+CMGF=1");
-    // delay(300);
-    // limpiarBufferA7670SA();
-    // A7670SA.println("AT+CMGL=\"REC UNREAD\"");
-    // delay(1000);
-
-    // actualizarBuffer();
-
-    // while (smsCompletoDisponible()) {
-    //     String sms = obtenerSMS();
-
-    //     // Procesar comando
-    //     mensajesProcesados++;
-    //     enviarSMS("✅ Procesando comando...", String(config.receptor));
-    //     delay(1000);
-
-    //     // Asumir que el remitente es el número del receptor para simplificar
-    //     procesarComando(sms, String(config.receptor));
-    // }
-
-  procesarComando(sms, String(config.receptor));
-}
-
 // ---------- Funciones del rastreador ----------
 
 void enviarDatosRastreador(String datosGPS)
@@ -1110,7 +1088,7 @@ void loop() {
       if (smsCompletoDisponible()) {
           String mensaje = obtenerSMS();
           enviarSMS("SMS: " + mensaje);
-          leerMensajes(mensaje);
+          procesarComando(mensaje, String(config.receptor));
       }
 
       // Leer GPS
@@ -1139,7 +1117,7 @@ void loop() {
         encenderLED();
         String mensaje = obtenerSMS();
         enviarSMS("SMS: " + mensaje);
-        leerMensajes(mensaje);
+        procesarComando(mensaje, String(config.receptor));
         apagarLED();
     }
 
