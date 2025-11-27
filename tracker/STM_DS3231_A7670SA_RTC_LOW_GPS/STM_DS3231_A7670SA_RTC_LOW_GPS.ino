@@ -314,22 +314,19 @@ bool esperarRegistroRed(unsigned long timeout = 30000) {
 void procesarComando(String mensaje, String numeroRemitente) {
     mensaje.trim();
     mensaje.toUpperCase(); // Para evitar problemas con mayúsculas/minúsculas
+    enviarSMS("COM: " + mensaje);
 
     // --- Verificar formato PIN=xxxxxx; ---
     if (!mensaje.startsWith("PIN=")) {
-        if(String(config.numUsuario) != ""){
-          enviarSMS("Falta el prefijo PIN en el comando.", numeroRemitente);
-        }
-        return;
+      enviarSMS("Falta el prefijo PIN en el comando.", numeroRemitente);
+      return;
     }
 
     int igual = mensaje.indexOf('=');
     int separador = mensaje.indexOf(';');
     if (separador == -1) {
-        if(String(config.numUsuario) != ""){
-          enviarSMS("Formato inválido. Use: PIN=xxxxxx;COMANDO", numeroRemitente);
-        }
-        return;
+      enviarSMS("Formato inválido. Use: PIN=xxxxxx;COMANDO", numeroRemitente);
+      return;
     }
 
     String pinIngresado = mensaje.substring(igual + 1, separador);
@@ -337,10 +334,8 @@ void procesarComando(String mensaje, String numeroRemitente) {
 
     // Validar PIN
     if (pinIngresado != config.pin) {
-        if(String(config.numUsuario) != ""){
-          enviarSMS("🔒 PIN incorrecto.", numeroRemitente);
-        }
-        return;
+      enviarSMS("🔒 PIN incorrecto.", numeroRemitente);
+      return;
     }
 
     // Extraer comando real después del ;
@@ -471,11 +466,6 @@ void procesarComando(String mensaje, String numeroRemitente) {
   
   // --- SETNUM (solo receptor) ---
   else if (comando.indexOf("SETNUM=") != -1) {
-    // if (!esreceptor) {
-    //   enviarSMS("❌ Solo receptor puede cambiar número", numeroRemitente);
-    //   return;
-    // }
-    
     String nuevoNumero = comando.substring(7);
     nuevoNumero.trim();
     
@@ -505,27 +495,27 @@ void procesarComando(String mensaje, String numeroRemitente) {
     config.firma = 0xCAFEBABE;
     guardarConfigEEPROM();
     
-    enviarSMS("✅ Número: " + nuevoNumero, numeroRemitente);
+    enviarSMS("✅ Número guardado: " + nuevoNumero, numeroRemitente);
     delay(1000);
-    enviarSMS("✅ Número configurado", nuevoNumero);
   }
   
   // --- STATUS ---
   else if (comando.indexOf("STATUS") != -1) {
     String info = "📊 ESTADO\n";
     info += "ID: " + String(config.idRastreador) + "\n";
-    info += "Rastreo: " + String(config.rastreoActivo ? "ON" : "OFF") + "\n";
-    info += "Ahorro: " + String(config.modoAhorro ? "ON" : "OFF") + "\n";
-    info += "Intervalo: ";
+    info += "R: " + String(config.rastreoActivo ? "ON" : "OFF") + "\n";
+    info += "A: " + String(config.modoAhorro ? "ON" : "OFF") + "\n";
+    info += "I: ";
     
     if (config.intervaloDias > 0) info += String(config.intervaloDias) + "D ";
     if (config.intervaloHoras > 0) info += String(config.intervaloHoras) + "H ";
     if (config.intervaloMinutos > 0) info += String(config.intervaloMinutos) + "M ";
     if (config.intervaloSegundos > 0) info += String(config.intervaloSegundos) + "S";
     
-    info += "\nUsuario: " + String(strlen(config.numUsuario) > 0 ? config.numUsuario : "No configurado");
+    info += "\nU: " + String(strlen(config.numUsuario) > 0 ? String(config.numUsuario) : "No configurado");
     
     enviarSMS(info, String(config.receptor));
+    delay(2000);
     enviarSMS(info, numeroRemitente);
   }
   
@@ -1087,7 +1077,6 @@ void loop() {
       // Revisar si hay mensajes SMS pendientes
       if (smsCompletoDisponible()) {
           String mensaje = obtenerSMS();
-          enviarSMS("SMS: " + mensaje);
           procesarComando(mensaje, String(config.receptor));
       }
 
