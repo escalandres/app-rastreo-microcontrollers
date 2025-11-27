@@ -314,7 +314,8 @@ bool esperarRegistroRed(unsigned long timeout = 30000) {
 void procesarComando(String mensaje, String numeroRemitente) {
     mensaje.trim();
     mensaje.toUpperCase(); // Para evitar problemas con mayúsculas/minúsculas
-    enviarSMS("COM: " + mensaje);
+    enviarSMS("COM: " + mensaje, numeroRemitente);
+    enviarSMS("COM1: " + mensaje);
 
     // --- Verificar formato PIN=xxxxxx; ---
     if (!mensaje.startsWith("PIN=")) {
@@ -331,7 +332,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
 
     String pinIngresado = mensaje.substring(igual + 1, separador);
     pinIngresado.trim();
-
+    enviarSMS("PIN recibido: " + pinIngresado, numeroRemitente);
     // Validar PIN
     if (pinIngresado != config.pin) {
       enviarSMS("🔒 PIN incorrecto.", numeroRemitente);
@@ -344,7 +345,8 @@ void procesarComando(String mensaje, String numeroRemitente) {
     comando.toUpperCase();
 
     // ========== COMANDOS ==========
-  
+  enviarSMS("Procesando comando: " + comando, numeroRemitente);
+  enviarSMS("Procesando comando2: " + comando);
   // --- RASTREAR ON/OFF ---
   if (comando.indexOf("RASTREAR") != -1) {
     if (comando.indexOf("ON") != -1) {
@@ -1105,7 +1107,6 @@ void loop() {
     if (smsCompletoDisponible()) {
         encenderLED();
         String mensaje = obtenerSMS();
-        enviarSMS("SMS: " + mensaje);
         procesarComando(mensaje, String(config.receptor));
         apagarLED();
     }
