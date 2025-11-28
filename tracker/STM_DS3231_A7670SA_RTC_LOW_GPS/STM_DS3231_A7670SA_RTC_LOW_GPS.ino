@@ -793,14 +793,6 @@ String hexToDec(String hexStr) {
   return String(decVal);
 }
 
-String obtenerVoltajeBateria() {
-  float voltaje = leerVoltaje(BATERIA);
-  // enviarSMS("Voltaje: " + String(voltaje));
-  int nivelBateria = calcularNivelBateria(voltaje);
-  String sms = "nb:" + String(nivelBateria);
-  return sms;
-}
-
 float leerVoltaje(int pin) {
   // Configuracion divisor de voltaje
   const float R1 = 51000.0;
@@ -838,6 +830,14 @@ int calcularNivelBateria(float v) {
   else if (v >= 3.50) return 20;
   else if (v >= 3.40) return 10;
   else return 0;
+}
+
+String obtenerVoltajeBateria() {
+  float voltaje = leerVoltaje(BATERIA);
+  // enviarSMS("Voltaje: " + String(voltaje));
+  int nivelBateria = calcularNivelBateria(voltaje);
+  String sms = "BAT:" + String(nivelBateria);
+  return sms;
 }
 
 /* Configuración de puertos */
