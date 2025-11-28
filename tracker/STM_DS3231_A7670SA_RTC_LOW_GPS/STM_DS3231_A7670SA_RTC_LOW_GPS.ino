@@ -507,12 +507,12 @@ void procesarComando(String mensaje, String numeroRemitente) {
   
   // --- LOCATION ---
   else if (comando.indexOf("LOCATION") != -1 || comando.indexOf("LOCATION") != -1) {
-    enviarSMS("o>– Obteniendo ubicación...", numeroRemitente);
+    enviarSMS("o> Obteniendo ubicación...", numeroRemitente);
     
     String datosGPS = leerYGuardarGPS();
     String cellInfo = obtenerTorreCelular();
     
-    String ubicacion = "o>– GPS: " + datosGPS;
+    String ubicacion = "o> GPS: " + datosGPS;
     if (cellInfo.length() > 0) {
       ubicacion += "\n CT: " + cellInfo;
     }
@@ -889,7 +889,7 @@ void setup() {
   enviarComando("AT+CMGF=1",1000); // modo texto
 
   notificarEncendido();
-  debugEEPROMporSMS();
+  // debugEEPROMporSMS();
   // Esperar registro en red
   // if (esperarRegistroRed()) {
   //   notificarEncendido();
