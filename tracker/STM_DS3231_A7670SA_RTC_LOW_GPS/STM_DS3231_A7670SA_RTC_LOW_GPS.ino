@@ -38,12 +38,6 @@ Config config;
 // Dirección en EEPROM para guardar la configuración
 const uint16_t CONFIG_ADDRESS = 0;
 
-unsigned long ultimoChequeoSMS = 0;
-const unsigned long INTERVALO_MIN_CHEQUEO = 3000; // 3 segundos entre chequeos de SMS
-int contadorChequeos = 0;
-int mensajesDetectados = 0;
-int mensajesProcesados = 0;
-
 String latitude, longitude;
 
 int _timeout;
@@ -129,8 +123,6 @@ void resetearEEPROM() {
   // Reiniciar el dispositivo después
 }
 
-
-
 void configurarModoAhorroEnergia(bool modoAhorro) {
   if (modoAhorro) {
     // Configurar para modo ahorro de energia
@@ -165,30 +157,23 @@ void configurarModoAhorroEnergia(bool modoAhorro) {
   }
 }
 
-
-
 // ---------- Funciones del A7670SA ----------
 
 void enviarComando(const char* comando, int espera = 1000) {
   A7670SA.println(comando);
   delay(espera);
-
-  // while (A7670SA.available()) {
-  //   Serial.write(A7670SA.read());
-  // }
-  //Serial.println();a
 }
 
 void iniciarA7670SA(){
   //digitalWrite(LEFT_LED, HIGH);
    // 1. Probar comunicación AT
-  enviarComando("AT", 1000);
+  enviarComando("AT", 500);
 
   // 5. Establecer modo LTE (opcional)
-  enviarComando("AT+CNMP=2", 2000);
+  enviarComando("AT+CNMP=2", 1000);
 
   // Confirmar nivel de señal y registro otra vez
-  enviarComando("AT+CSQ", 1000);
+  enviarComando("AT+CSQ", 500);
   enviarComando("AT+CREG?", 1000);
 }
 
@@ -211,7 +196,6 @@ void limpiarBufferA7670SA() {
   }
   delay(50);
 }
-
 
 String leerRespuestaA7670SA(unsigned long timeout = 2000) {
   String response = "";
@@ -263,11 +247,10 @@ void flushA7670SA() {
 void enviarSMS(String SMS, String number = "+525620577634")
 {
   iniciarA7670SA();
-  enviarComando("AT+CREG?",1000);
-  enviarComando("AT+CMGF=1",1000);
+  enviarComando("AT+CREG?",500);
+  enviarComando("AT+CMGF=1",500);
 
-  //Serial.println ("Set SMS Number");
-  enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 3000); //Mobile phone number to send message
+  enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000); //Mobile phone number to send message
 
   A7670SA.println(SMS);
   delay(500);
@@ -275,7 +258,7 @@ void enviarSMS(String SMS, String number = "+525620577634")
   delay(500);
   _buffer = _readSerial();
 
-  delay(2000);
+  delay(1000);
 }
 
 bool esperarRegistroRed(unsigned long timeout = 30000) {
@@ -501,25 +484,29 @@ void procesarComando(String mensaje, String numeroRemitente) {
   
   // --- STATUS ---
   else if (comando.indexOf("STATUS") != -1) {
-    String info = "STATUS: ";
+    String info = "STATUS:\n";
     info += "ID: " + String(config.idRastreador) + ";";
     info += "RASTREO: " + String(config.rastreoActivo ? "ON" : "OFF") + ";";
     info += "MODOAHORRO: " + String(config.modoAhorro ? "ON" : "OFF") + ";";
     info += "INTERVALO: ";
-    enviarSMS(info, numeroRemitente);
 
     if (config.intervaloDias > 0) info += String(config.intervaloDias) + "D ";
     if (config.intervaloHoras > 0) info += String(config.intervaloHoras) + "H ";
     if (config.intervaloMinutos > 0) info += String(config.intervaloMinutos) + "M ";
-    if (config.intervaloSegundos > 0) info += String(config.intervaloSegundos) + "S;";
+    if (config.intervaloSegundos > 0) info += String(config.intervaloSegundos) + "S";
     
-    info += "NUM: " + String(strlen(config.numUsuario) > 0 ? String(config.numUsuario) : "No configurado");
+    info += ";#NUM: " + String(strlen(config.numUsuario) > 0 ? String(config.numUsuario) : "No configurado;");
+
+    String batteryCharge = "";
+    batteryCharge = obtenerVoltajeBateria();
     
+    info += batteryCharge + ";";
+
     enviarSMS(info, numeroRemitente);
   }
   
-  // --- UBICACION ---
-  else if (comando.indexOf("UBICACION") != -1 || comando.indexOf("UBICACIÓN") != -1) {
+  // --- LOCATION ---
+  else if (comando.indexOf("LOCATION") != -1 || comando.indexOf("LOCATION") != -1) {
     enviarSMS("o>– Obteniendo ubicación...", numeroRemitente);
     
     String datosGPS = leerYGuardarGPS();
@@ -575,148 +562,6 @@ String obtenerSMS() {
     return sms;
 }
 
-// void leerMensajes() {
-//   // Parpadeo largo - procesando mensajes
-//   digitalWrite(STM_LED, LOW);
-//   delay(500);
-//   digitalWrite(STM_LED, HIGH);
-  
-//   limpiarBufferA7670SA();
-  
-//   A7670SA.println("AT+CMGF=1");
-//   delay(300);
-//   limpiarBufferA7670SA();
-  
-//   A7670SA.println("AT+CMGL=\"REC UNREAD\"");
-//   delay(1000);
-  
-//   String respuesta = leerRespuestaA7670SA(5000);
-  
-//   // DEBUG: Siempre enviar la respuesta cruda
-//   String debug1 = "📩 RAW (" + String(respuesta.length()) + " chars):\n";
-//   debug1 += respuesta.substring(0, min(140, (int)respuesta.length()));
-//   enviarSMS(debug1, config.receptor);
-//   delay(2000);
-  
-//   if (respuesta.indexOf("+CMGL:") == -1) {
-//     enviarSMS("No se encontró +CMGL en respuesta", String(config.receptor));
-//     return;
-//   }
-  
-//   // Parsing del mensaje
-//   int index = respuesta.indexOf("+CMGL:");
-//   if (index == -1) return;
-  
-//   // Extraer toda la línea del header
-//   int finLinea = respuesta.indexOf('\n', index);
-//   if (finLinea == -1) {
-//     enviarSMS("No se encontró fin de línea", String(config.receptor));
-//     return;
-//   }
-  
-//   String header = respuesta.substring(index, finLinea);
-  
-//   // DEBUG: Mostrar header
-//   enviarSMS("📋 Header: " + header, String(config.receptor));
-//   delay(2000);
-  
-//   // Extraer ID
-//   int coma1 = header.indexOf(',');
-//   if (coma1 == -1) return;
-//   int id = header.substring(7, coma1).toInt();
-  
-//   // DEBUG: Mostrar ID
-//   enviarSMS("🆔 ID: " + String(id), String(config.receptor));
-//   delay(1000);
-  
-//   // Extraer número - formato: +CMGL: 1,"REC UNREAD","+5256..."
-//   int primerComilla = header.indexOf("\",\"");
-//   if (primerComilla == -1) {
-//     enviarSMS("No se encontró delimitador de número", String(config.receptor));
-//     return;
-//   }
-  
-//   int inicioNum = primerComilla + 3;
-//   int finNum = header.indexOf("\"", inicioNum);
-//   if (finNum == -1) {
-//     enviarSMS("No se encontró fin de número", String(config.receptor));
-//     return;
-//   }
-  
-//   String numeroRemitente = header.substring(inicioNum, finNum);
-//   numeroRemitente.trim();
-  
-//   // DEBUG: Mostrar número extraído
-//   enviarSMS("📱 Num: [" + numeroRemitente + "]", config.receptor);
-//   delay(2000);
-
-//   numeroRemitente = String(config.receptor);
-  
-//   // Extraer mensaje (línea siguiente)
-//   int inicioMsg = finLinea + 1;
-//   int finMsg = respuesta.indexOf("\n\n", inicioMsg);
-//   if (finMsg == -1) {
-//     finMsg = respuesta.indexOf("\nOK", inicioMsg);
-//     if (finMsg == -1) finMsg = respuesta.length();
-//   }
-  
-//   String mensaje = respuesta.substring(inicioMsg, finMsg);
-//   mensaje.trim();
-  
-//   // DEBUG: Mostrar mensaje
-//   enviarSMS("💬 Msg: [" + mensaje + "]", String(config.receptor));
-//   delay(2000);
-  
-//   // DEBUG: Mostrar config.receptor para comparar
-//   enviarSMS("👤 receptor: [" + String(config.receptor) + "]", String(config.receptor));
-//   delay(2000);
-  
-//   // Comparar números
-//   String numNormalizado = numeroRemitente;
-//   numNormalizado.replace(" ", "");
-//   numNormalizado.replace("-", "");
-  
-//   String receptorNormalizado = String(config.receptor);
-//   receptorNormalizado.replace(" ", "");
-//   receptorNormalizado.replace("-", "");
-  
-//   bool esreceptor = (numNormalizado == receptorNormalizado);
-  
-//   // DEBUG: Resultado de comparación
-//   String comp = "🔍 Comparación:\n";
-//   comp += "Remit: [" + numNormalizado + "]\n";
-//   comp += "receptor: [" + receptorNormalizado + "]\n";
-//   comp += "Match: " + String(esreceptor ? "SÍ ✅" : "NO ❌");
-//   enviarSMS(comp, String(config.receptor));
-//   delay(2000);
-  
-//   if (!esreceptor) {
-//     enviarSMS("⛔ Número no autorizado, ignorando", String(config.receptor));
-//     // Borrar mensaje de todas formas
-//     limpiarBufferA7670SA();
-//     A7670SA.print("AT+CMGD=");
-//     A7670SA.println(id);
-//     delay(500);
-//     return;
-//   }
-  
-//   // Procesar comando
-//   mensajesProcesados++;
-//   enviarSMS("Procesando comando...", String(config.receptor));
-//   delay(1000);
-  
-//   procesarComando(mensaje, numeroRemitente);
-  
-//   // Borrar mensaje
-//   delay(500);
-//   limpiarBufferA7670SA();
-//   A7670SA.print("AT+CMGD=");
-//   A7670SA.println(id);
-//   delay(500);
-  
-//   enviarSMS("🗑️ Mensaje borrado", String(config.receptor));
-// }
-
 // ---------- Funciones del rastreador ----------
 
 void enviarDatosRastreador(String datosGPS)
@@ -762,15 +607,15 @@ String crearMensaje(String datosGPS, String cellTowerInfo, String batteryCharge)
 void notificarEncendido()
 {
   digitalWrite(STM_LED, HIGH);
-  delay(500);
+  delay(200);
   digitalWrite(STM_LED, LOW);
-  delay(500);
+  delay(200);
   digitalWrite(STM_LED, HIGH);
-  delay(500);
+  delay(200);
   digitalWrite(STM_LED, LOW);
-  delay(500);
+  delay(200);
   digitalWrite(STM_LED, HIGH);
-  delay(500);
+  delay(200);
   digitalWrite(STM_LED, LOW);
   DateTime now = rtc.now();
 
@@ -789,7 +634,7 @@ void notificarEncendido()
     enviarSMS(SMS, String(config.numUsuario));
   }
 
-  delay(2000);
+  delay(500);
 }
 
 void debugEEPROMporSMS() {
