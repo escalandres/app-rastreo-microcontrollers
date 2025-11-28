@@ -261,38 +261,38 @@ void enviarSMS(String SMS, String number = "+525620577634")
   delay(1000);
 }
 
-bool esperarRegistroRed(unsigned long timeout = 30000) {
-  unsigned long start = millis();
-  int intentos = 0;
+// bool esperarRegistroRed(unsigned long timeout = 30000) {
+//   unsigned long start = millis();
+//   int intentos = 0;
   
-  while (millis() - start < timeout) {
-    limpiarBufferA7670SA();
+//   while (millis() - start < timeout) {
+//     limpiarBufferA7670SA();
     
-    enviarComando("AT+CREG?\r");
-    delay(500);
+//     enviarComando("AT+CREG?\r");
+//     delay(500);
     
-    String respuesta = leerRespuestaA7670SA(2000);
+//     String respuesta = leerRespuestaA7670SA(2000);
     
-    // +CREG: 0,1 = registrado en red local
-    // +CREG: 0,5 = registrado en roaming
-    if (respuesta.indexOf("+CREG: 0,1") != -1 || 
-        respuesta.indexOf("+CREG: 0,5") != -1) {
-      return true;
-    }
+//     // +CREG: 0,1 = registrado en red local
+//     // +CREG: 0,5 = registrado en roaming
+//     if (respuesta.indexOf("+CREG: 0,1") != -1 || 
+//         respuesta.indexOf("+CREG: 0,5") != -1) {
+//       return true;
+//     }
     
-    // Indicador visual cada 5 intentos
-    intentos++;
-    if (intentos % 5 == 0) {
-      digitalWrite(STM_LED, LOW);
-      delay(100);
-      digitalWrite(STM_LED, HIGH);
-    }
+//     // Indicador visual cada 5 intentos
+//     intentos++;
+//     if (intentos % 5 == 0) {
+//       digitalWrite(STM_LED, LOW);
+//       delay(100);
+//       digitalWrite(STM_LED, HIGH);
+//     }
     
-    delay(2000);
-  }
+//     delay(2000);
+//   }
   
-  return false;
-}
+//   return false;
+// }
 
 void procesarComando(String mensaje, String numeroRemitente) {
     mensaje.trim();
@@ -369,7 +369,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
   }
   
   // --- INTERVALO ---
-  else if (comando.indexOf("INTERVALO=") != -1) {
+  else if (comando.indexOf("TIME=") != -1) {
     String valor = comando.substring(10);
     valor.trim();
     
@@ -478,8 +478,8 @@ void procesarComando(String mensaje, String numeroRemitente) {
     config.firma = 0xCAFEBABE;
     guardarConfigEEPROM();
     
-    enviarSMS(";) Número guardado: " + nuevoNumero, numeroRemitente);
     delay(1000);
+    enviarSMS(";) Numero guardado: " + nuevoNumero, numeroRemitente);
   }
   
   // --- STATUS ---
@@ -495,7 +495,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
     if (config.intervaloMinutos > 0) info += String(config.intervaloMinutos) + "M ";
     if (config.intervaloSegundos > 0) info += String(config.intervaloSegundos) + "S";
     
-    info += ";#NUM: " + String(strlen(config.numUsuario) > 0 ? String(config.numUsuario) : "No configurado;");
+    info += ";#NUM: " + String(strlen(config.numUsuario) > 0 ? String(config.numUsuario) + ";" : "No configurado;");
 
     String batteryCharge = "";
     batteryCharge = obtenerVoltajeBateria();
@@ -506,7 +506,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
   }
   
   // --- LOCATION ---
-  else if (comando.indexOf("LOCATION") != -1 || comando.indexOf("LOCATION") != -1) {
+  else if (comando.indexOf("LOCATION") != -1) {
     enviarSMS("o> Obteniendo ubicación...", numeroRemitente);
     
     String datosGPS = leerYGuardarGPS();
@@ -514,7 +514,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
     
     String ubicacion = "o> GPS: " + datosGPS;
     if (cellInfo.length() > 0) {
-      ubicacion += "\n CT: " + cellInfo;
+      ubicacion += "\nCT: " + cellInfo;
     }
     
     enviarSMS(ubicacion, numeroRemitente);
