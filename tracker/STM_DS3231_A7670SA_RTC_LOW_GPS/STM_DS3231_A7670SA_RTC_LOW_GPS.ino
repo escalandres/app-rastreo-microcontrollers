@@ -315,7 +315,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
     mensaje.trim();
     mensaje.toUpperCase(); // Para evitar problemas con mayúsculas/minúsculas
     enviarSMS("COM: " + mensaje, numeroRemitente);
-    enviarSMS("COM1: " + mensaje);
+    enviarSMS("🔒 COM1: " + mensaje, numeroRemitente);
 
     // --- Verificar formato PIN=xxxxxx; ---
     if (!mensaje.startsWith("PIN=")) {
@@ -332,7 +332,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
 
     String pinIngresado = mensaje.substring(igual + 1, separador);
     pinIngresado.trim();
-    enviarSMS("PIN recibido: " + pinIngresado, numeroRemitente);
+    // enviarSMS("PIN recibido: " + pinIngresado, numeroRemitente);
     // Validar PIN
     if (pinIngresado != config.pin) {
       enviarSMS("🔒 PIN incorrecto.", numeroRemitente);
@@ -346,7 +346,6 @@ void procesarComando(String mensaje, String numeroRemitente) {
 
     // ========== COMANDOS ==========
   enviarSMS("Procesando comando: " + comando, numeroRemitente);
-  enviarSMS("Procesando comando2: " + comando);
   // --- RASTREAR ON/OFF ---
   if (comando.indexOf("RASTREAR") != -1) {
     if (comando.indexOf("ON") != -1) {
@@ -503,12 +502,14 @@ void procesarComando(String mensaje, String numeroRemitente) {
   
   // --- STATUS ---
   else if (comando.indexOf("STATUS") != -1) {
-    String info = "📊 ESTADO\n";
-    info += "ID: " + String(config.idRastreador) + "\n";
-    info += "R: " + String(config.rastreoActivo ? "ON" : "OFF") + "\n";
-    info += "A: " + String(config.modoAhorro ? "ON" : "OFF") + "\n";
+    // String info = "📊 ESTADO\n";
+    String info = "S: ";
+    info += "ID: " + String(config.idRastreador) + ";";
+    info += "R: " + String(config.rastreoActivo ? "ON" : "OFF") + ";";
+    info += "A: " + String(config.modoAhorro ? "ON" : "OFF") + ";";
     info += "I: ";
-    
+    enviarSMS(info, numeroRemitente);
+
     if (config.intervaloDias > 0) info += String(config.intervaloDias) + "D ";
     if (config.intervaloHoras > 0) info += String(config.intervaloHoras) + "H ";
     if (config.intervaloMinutos > 0) info += String(config.intervaloMinutos) + "M ";
@@ -516,8 +517,6 @@ void procesarComando(String mensaje, String numeroRemitente) {
     
     info += "\nU: " + String(strlen(config.numUsuario) > 0 ? String(config.numUsuario) : "No configurado");
     
-    enviarSMS(info, String(config.receptor));
-    delay(2000);
     enviarSMS(info, numeroRemitente);
   }
   
