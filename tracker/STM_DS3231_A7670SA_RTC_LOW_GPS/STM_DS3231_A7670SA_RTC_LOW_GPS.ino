@@ -334,7 +334,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
     comando.toUpperCase();
 
     // ========== COMANDOS ==========
-  enviarSMS("Procesando comando: " + comando, numeroRemitente);
+  // enviarSMS("Procesando comando: " + comando, numeroRemitente);
   // --- RASTREAR ON/OFF ---
   if (comando.indexOf("RASTREAR") != -1) {
     if (comando.indexOf("ON") != -1) {
@@ -377,7 +377,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
   }
   
   // --- INTERVALO ---
-  else if (comando.indexOf("TIME=") != -1) {
+  else if (comando.indexOf("INTERVALO=") != -1) {
     String valor = comando.substring(10);
     valor.trim();
     
