@@ -157,6 +157,13 @@ void configurarModoAhorroEnergia(bool modoAhorro) {
   }
 }
 
+void configurarRastreoContinuo(){
+  // Activar interrupción en FALLING
+  attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
+  configurarAlarma(0,0,0,30); // Activar cada 30 segundos
+  rtc.writeSqwPinMode(DS3231_OFF);   // Necesario para modo "INTERRUPCIÓN"
+}
+
 // ---------- Funciones del A7670SA ----------
 
 void enviarComando(const char* comando, int espera = 1000) {
@@ -332,6 +339,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
   if (comando.indexOf("RASTREAR") != -1) {
     if (comando.indexOf("ON") != -1) {
       config.rastreoActivo = true;
+      config.modoAhorro = true;
       config.firma = 0xCAFEBABE; // Asegurar firma válida
       guardarConfigEEPROM();
       enviarSMS("^_^ Rastreo ACTIVADO", numeroRemitente);
@@ -512,7 +520,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
     String datosGPS = leerYGuardarGPS();
     String cellInfo = obtenerTorreCelular();
     
-    String ubicacion = "o> GPS: " + datosGPS;
+  String ubicacion = "LOCATION:\nGPS: " + datosGPS;
     if (cellInfo.length() > 0) {
       ubicacion += "\nCT: " + cellInfo;
     }
@@ -940,7 +948,14 @@ void loop() {
 
       alarmFired = false;
 
-      configurarModoAhorroEnergia(config.modoAhorro);
+      // 1. Rastreo continuo (NO dormir)
+      if (!config.modoAhorro) {
+          configurarRastreoContinuo();
+      }
+      // 2. Rastreo con ahorro → dormir STM32 y A7670SA
+      else {
+          configurarModoAhorroEnergia(true);
+      }
     }
 
   } else {
