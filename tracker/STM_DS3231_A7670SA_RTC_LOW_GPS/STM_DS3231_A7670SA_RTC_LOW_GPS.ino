@@ -343,10 +343,11 @@ void procesarComando(String mensaje, String numeroRemitente) {
       guardarConfigEEPROM();
       if(!config.modoAhorro){
         configurarRastreoContinuo();
-        enviarSMS("^_^ Rastreo Continuo ACTIVADO", numeroRemitente);
+        enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 30S", numeroRemitente);
       }else{
+        String intervalo = "" + String(config.intervaloDias) + "D" + String(config.intervaloHoras) + "H" + String(config.intervaloMinutos) + "M" + String(config.intervaloSegundos) + "S";
+        enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, numeroRemitente);
         configurarModoAhorroEnergia(true);
-        enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO", numeroRemitente);
       }
     } else if (comando.indexOf("OFF") != -1) {
       config.rastreoActivo = false;
