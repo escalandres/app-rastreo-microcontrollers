@@ -339,16 +339,15 @@ void procesarComando(String mensaje, String numeroRemitente) {
   if (comando.indexOf("RASTREAR") != -1) {
     if (comando.indexOf("ON") != -1) {
       config.rastreoActivo = true;
-      config.modoAhorro = true;
       config.firma = 0xCAFEBABE; // Asegurar firma válida
       guardarConfigEEPROM();
-      enviarSMS("^_^ Rastreo ACTIVADO", numeroRemitente);
-      
-      // Confirmar con parpadeo largo
-      digitalWrite(STM_LED, LOW);
-      delay(500);
-      digitalWrite(STM_LED, HIGH);
-      
+      if(!config.modoAhorro){
+        configurarRastreoContinuo();
+        enviarSMS("^_^ Rastreo Continuo ACTIVADO", numeroRemitente);
+      }else{
+        configurarModoAhorroEnergia(true);
+        enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO", numeroRemitente);
+      }
     } else if (comando.indexOf("OFF") != -1) {
       config.rastreoActivo = false;
       config.firma = 0xCAFEBABE;
@@ -520,7 +519,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
     String datosGPS = leerYGuardarGPS();
     String cellInfo = obtenerTorreCelular();
     
-  String ubicacion = "LOCATION:\nGPS: " + datosGPS;
+    String ubicacion = "LOCATION:\nGPS: " + datosGPS;
     if (cellInfo.length() > 0) {
       ubicacion += "\nCT: " + cellInfo;
     }
@@ -910,10 +909,7 @@ void loop() {
   actualizarBuffer();
 
   if (config.rastreoActivo == true) {
-
     if (alarmFired) {
-
-      pinMode(STM_LED, OUTPUT);
       encenderLED();
 
       // Encender A7670SA
