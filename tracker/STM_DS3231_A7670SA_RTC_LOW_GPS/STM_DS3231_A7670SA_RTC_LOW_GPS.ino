@@ -136,7 +136,7 @@ void configurarModoAhorroEnergia() {
   configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
 
   // Configurar A7670SA para sleep automatico en idle
-  dormirA7670SA(true);
+  dormirA7670SA(false);
 
   // Configurar GPS para modo bajo consumo (si es posible)
   //configureGPS(NEO8M);
