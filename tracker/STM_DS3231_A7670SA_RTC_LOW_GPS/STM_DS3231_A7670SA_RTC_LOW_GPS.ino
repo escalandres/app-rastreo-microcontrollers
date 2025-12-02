@@ -180,11 +180,11 @@ void iniciarA7670SA(){
 void dormirA7670SA(bool dormir) {
   if (dormir) {
     enviarComando("AT+CSCLK=1");
-    delay(100);
+    delay(300);
     digitalWrite(SLEEP_PIN, HIGH);  // HIGH permite que el módulo entre en sleep
   } else {
     digitalWrite(SLEEP_PIN, LOW);   // LOW despierta el módulo
-    delay(100);
+    delay(300);
     enviarComando("AT+CSCLK=0");
     enviarComando("AT");
   }
@@ -916,7 +916,7 @@ void loop() {
       encenderLED();
 
       // Encender A7670SA
-      dormirA7670SA(false);
+      dormirA7670SA(true);
       iniciarA7670SA();
 
       // Esperar inicialización SIN perder SMS
