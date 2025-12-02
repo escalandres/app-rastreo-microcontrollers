@@ -166,15 +166,18 @@ void enviarComando(const char* comando, int espera = 1000) {
 
 void iniciarA7670SA(){
   //digitalWrite(LEFT_LED, HIGH);
-   // 1. Probar comunicación AT
+  // Probar comunicación AT
   enviarComando("AT", 500);
 
-  // 5. Establecer modo LTE (opcional)
+  // Establecer modo LTE (opcional)
   enviarComando("AT+CNMP=2", 1000);
 
   // Confirmar nivel de señal y registro otra vez
   enviarComando("AT+CSQ", 500);
   enviarComando("AT+CREG?", 1000);
+
+  enviarComando("AT+CMGF=1",1000); // modo texto
+
 }
 
 void dormirA7670SA(bool dormir) {
@@ -941,6 +944,10 @@ void loop() {
       while (millis() - t0 < 1500) {
         actualizarBuffer();
       }
+
+      // 🔥 OBLIGATORIO para modo ahorro: leer SMS desde memoria
+      enviarComando("AT+CMGL=\"REC UNREAD\"", 1500);
+      actualizarBuffer();
 
       // Revisar si hay mensajes SMS pendientes
       if (smsCompletoDisponible()) {
