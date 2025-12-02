@@ -127,7 +127,7 @@ void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos
   alarmFired = false;
 }
 
-void configurarModoAhorroEnergia(bool modoAhorro) {
+void configurarModoAhorroEnergia() {
   // Configurar para modo ahorro de energia
   // Desactivar LED
   pinMode(STM_LED, INPUT); // Cambiar a entrada para reducir consumo
