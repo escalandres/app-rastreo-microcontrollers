@@ -948,7 +948,7 @@ void loop() {
       // 🔥 OBLIGATORIO para modo ahorro: leer SMS desde memoria
       enviarComando("AT+CMGL=\"REC UNREAD\"", 1500);
       actualizarBuffer();
-
+      enviarSMS("Hola", String(config.numUsuario));
       // Revisar si hay mensajes SMS pendientes
       if (smsCompletoDisponible()) {
           String mensaje = obtenerSMS();
