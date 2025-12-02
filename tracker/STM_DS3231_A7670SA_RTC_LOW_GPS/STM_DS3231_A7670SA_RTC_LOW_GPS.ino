@@ -56,29 +56,6 @@ void apagarLED() {
     digitalWrite(STM_LED, HIGH);
 }
 
-// -------- Funciones de alarma RTC --------
-
-void setAlarmFired() {
-  alarmFired = true;
-}
-
-void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos = 0) {
-  // Limpiar alarmas anteriores
-    rtc.clearAlarm(1);
-    rtc.clearAlarm(2);
-    rtc.disableAlarm(1);
-    rtc.disableAlarm(2);
-
-    // SQW en modo alarma (no onda cuadrada)
-    rtc.writeSqwPinMode(DS3231_OFF);
-
-
-  //Set Alarm to be trigged in X
-  rtc.setAlarm1(rtc.now() + TimeSpan(dias, horas, minutos, segundos), DS3231_A1_Second);  // this mode triggers the alarm when the seconds match.
-
-  alarmFired = false;
-}
-
 // -------- Funciones de EEPROM --------
 
 /* Función para guardar configuración en EEPROM */
@@ -128,39 +105,50 @@ void resetearEEPROM() {
   // Reiniciar el dispositivo después
 }
 
-void configurarModoAhorroEnergia(bool modoAhorro) {
-  if (modoAhorro) {
-    // Configurar para modo ahorro de energia
-    // Desactivar LED
-    pinMode(STM_LED, INPUT); // Cambiar a entrada para reducir consumo
+// -------- Funciones de alarma RTC --------
 
-    // Configurar alarma RTC
-    configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
+void setAlarmFired() {
+  alarmFired = true;
+}
+
+void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos = 0) {
+  // Limpiar alarmas anteriores
+    rtc.clearAlarm(1);
+    rtc.clearAlarm(2);
+    rtc.disableAlarm(1);
+    rtc.disableAlarm(2);
+
+    // SQW en modo alarma (no onda cuadrada)
     rtc.writeSqwPinMode(DS3231_OFF);
 
-    // Configurar A7670SA para sleep automatico en idle
-    dormirA7670SA(true);
+  //Set Alarm to be trigged in X
+  rtc.setAlarm1(rtc.now() + TimeSpan(dias, horas, minutos, segundos), DS3231_A1_Second);  // this mode triggers the alarm when the seconds match.
 
-    // Configurar GPS para modo bajo consumo (si es posible)
-    //configureGPS(NEO8M);
-    // Aquí podrías enviar comandos específicos al GPS si soporta modos de bajo consumo
+  alarmFired = false;
+}
 
-    // Configure low power
-    LowPower.begin();
-    // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
-    // Last parameter (LowPowerMode) should match with the low power state used
-    LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE); // SLEEP_MODE
+void configurarModoAhorroEnergia(bool modoAhorro) {
+  // Configurar para modo ahorro de energia
+  // Desactivar LED
+  pinMode(STM_LED, INPUT); // Cambiar a entrada para reducir consumo
 
-    LowPower.deepSleep();
-  } else {
-    // Configurar para modo normal
-    pinMode(STM_LED, OUTPUT); // Cambiar a salida para usar el LED
-    digitalWrite(STM_LED, HIGH); // Encender LED
-    dormirA7670SA(false);
-    // Configurar GPS para modo normal (si es posible)
-    // Aquí podrías enviar comandos específicos al GPS si soporta modos normales
-    iniciarA7670SA();
-  }
+  // Configurar alarma RTC
+  configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
+
+  // Configurar A7670SA para sleep automatico en idle
+  dormirA7670SA(true);
+
+  // Configurar GPS para modo bajo consumo (si es posible)
+  //configureGPS(NEO8M);
+  // Aquí podrías enviar comandos específicos al GPS si soporta modos de bajo consumo
+
+  // Configure low power
+  LowPower.begin();
+  // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
+  // Last parameter (LowPowerMode) should match with the low power state used
+  LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE); // SLEEP_MODE
+  delay(400);
+  LowPower.deepSleep();
 }
 
 void configurarRastreoContinuo(){
@@ -348,12 +336,12 @@ void procesarComando(String mensaje, String numeroRemitente) {
       guardarConfigEEPROM();
       if(!config.modoAhorro){
         configurarRastreoContinuo();
-        enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 30S", numeroRemitente);
+        enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 30 segundos", numeroRemitente);
       }else{
         String intervalo = "" + String(config.intervaloDias) + "D" + String(config.intervaloHoras) + "H" + String(config.intervaloMinutos) + "M" + String(config.intervaloSegundos) + "S";
         enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, numeroRemitente);
         delay(1000);
-        configurarModoAhorroEnergia(true);
+        configurarModoAhorroEnergia();
       }
     } else if (comando.indexOf("OFF") != -1) {
       config.rastreoActivo = false;
@@ -905,7 +893,7 @@ void setup() {
   notificarEncendido();
 
   if(config.rastreoActivo && config.modoAhorro){
-    configurarModoAhorroEnergia(true);
+    configurarModoAhorroEnergia();
   }
 
   // debugEEPROMporSMS();
@@ -922,6 +910,9 @@ void loop() {
 
   if (config.rastreoActivo == true) {
     if (alarmFired) {
+      pinMode(STM_LED, OUTPUT);
+      delay(200);
+
       encenderLED();
 
       // Encender A7670SA
@@ -962,7 +953,7 @@ void loop() {
       }
       // 2. Rastreo con ahorro → dormir STM32 y A7670SA
       else {
-          configurarModoAhorroEnergia(true);
+          configurarModoAhorroEnergia();
       }
     }
 
