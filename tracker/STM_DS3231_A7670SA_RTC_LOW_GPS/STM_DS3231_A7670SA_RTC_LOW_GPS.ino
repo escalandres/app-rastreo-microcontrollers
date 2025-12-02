@@ -63,10 +63,15 @@ void setAlarmFired() {
 }
 
 void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos = 0) {
-  rtc.clearAlarm(1);
-  rtc.clearAlarm(2);
-  rtc.disableAlarm(1);
-  rtc.disableAlarm(2);
+  // Limpiar alarmas anteriores
+    rtc.clearAlarm(1);
+    rtc.clearAlarm(2);
+    rtc.disableAlarm(1);
+    rtc.disableAlarm(2);
+
+    // SQW en modo alarma (no onda cuadrada)
+    rtc.writeSqwPinMode(DS3231_OFF);
+
 
   //Set Alarm to be trigged in X
   rtc.setAlarm1(rtc.now() + TimeSpan(dias, horas, minutos, segundos), DS3231_A1_Second);  // this mode triggers the alarm when the seconds match.
@@ -131,6 +136,7 @@ void configurarModoAhorroEnergia(bool modoAhorro) {
 
     // Configurar alarma RTC
     configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
+    rtc.writeSqwPinMode(DS3231_OFF);
 
     // Configurar A7670SA para sleep automatico en idle
     dormirA7670SA(true);
@@ -161,7 +167,6 @@ void configurarRastreoContinuo(){
   // Activar interrupción en FALLING
   attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
   configurarAlarma(0,0,0,30); // Activar cada 30 segundos
-  rtc.writeSqwPinMode(DS3231_OFF);   // Necesario para modo "INTERRUPCIÓN"
 }
 
 // ---------- Funciones del A7670SA ----------
@@ -347,6 +352,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
       }else{
         String intervalo = "" + String(config.intervaloDias) + "D" + String(config.intervaloHoras) + "H" + String(config.intervaloMinutos) + "M" + String(config.intervaloSegundos) + "S";
         enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, numeroRemitente);
+        delay(1000);
         configurarModoAhorroEnergia(true);
       }
     } else if (comando.indexOf("OFF") != -1) {
@@ -897,6 +903,11 @@ void setup() {
   enviarComando("AT+CMGF=1",1000); // modo texto
 
   notificarEncendido();
+
+  if(config.rastreoActivo && config.modoAhorro){
+    configurarModoAhorroEnergia(true);
+  }
+
   // debugEEPROMporSMS();
   // Esperar registro en red
   // if (esperarRegistroRed()) {
