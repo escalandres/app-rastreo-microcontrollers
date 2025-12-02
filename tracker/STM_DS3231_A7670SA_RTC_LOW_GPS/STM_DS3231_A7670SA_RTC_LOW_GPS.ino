@@ -536,6 +536,7 @@ void actualizarBuffer() {
 }
 
 bool smsCompletoDisponible() {
+  enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
   // Para recepción en vivo
   if (rxBuffer.indexOf("+CMT:") != -1) {
     // Debe tener encabezado +CMT
