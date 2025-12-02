@@ -536,6 +536,8 @@ void actualizarBuffer() {
 }
 
 bool smsCompletoDisponible() {
+  // Para recepción en vivo
+  if (rxBuffer.indexOf("+CMT:") != -1) {
     // Debe tener encabezado +CMT
     int idx = rxBuffer.indexOf("+CMT:");
     if (idx == -1) return false;
@@ -548,6 +550,20 @@ bool smsCompletoDisponible() {
     if (secondNL == -1) return false;
 
     return true; // ya llegó encabezado + texto
+  }
+   // Para lectura por memoria (cuando hay sleep/PSM)
+    if (rxBuffer.indexOf("+CMGL:") != -1 || rxBuffer.indexOf("+CMGR:") != -1) {
+        // Busca al menos un salto después del encabezado
+        int idx = rxBuffer.indexOf("+CMGL:");
+        if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
+        int firstNL = rxBuffer.indexOf("\n", idx);
+        if (firstNL == -1) return false;
+
+        // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
+        return true;
+    }
+
+    return false;
 }
 
 String obtenerSMS() {
@@ -928,6 +944,7 @@ void loop() {
       // Revisar si hay mensajes SMS pendientes
       if (smsCompletoDisponible()) {
           String mensaje = obtenerSMS();
+          enviarSMS("Comando: " + mensaje, String(config.numUsuario));
           procesarComando(mensaje, String(config.receptor));
       }
 
