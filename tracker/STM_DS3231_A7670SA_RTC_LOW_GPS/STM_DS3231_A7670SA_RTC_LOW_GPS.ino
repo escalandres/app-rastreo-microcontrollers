@@ -572,7 +572,7 @@ void actualizarBuffer() {
 // }
 
 bool smsCompletoDisponible() {
-    enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
+    enviarSMS("rxBuffer: "+rxBuffer, String(config.numUsuario));
     if (rxBuffer.indexOf("+CMT:") != -1 ||
         rxBuffer.indexOf("+CMGL:") != -1 ||
         rxBuffer.indexOf("+CMGR:") != -1) {
@@ -893,7 +893,7 @@ String obtenerVoltajeBateria() {
   float voltaje = leerVoltaje(BATERIA);
   // enviarSMS("Voltaje: " + String(voltaje));
   int nivelBateria = calcularNivelBateria(voltaje);
-  String sms = "BAT:" + String(nivelBateria);
+  String sms = "bat:" + String(nivelBateria);
   return sms;
 }
 
