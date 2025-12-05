@@ -989,10 +989,19 @@ void loop() {
       enviarSMS("Hola", String(config.numUsuario));
 
       rxBuffer = "";  // limpiar antes
-      enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-      delay(300);
+      // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+      // delay(300);
 
-      enviarComando("AT+CMGL=\"REC UNREAD\"", 500);
+      enviarComando("AT+CPMS?", 1000);
+      unsigned long t0 = millis();
+      while (millis() - t0 < 1000) actualizarBuffer();
+      enviarSMS("rxBuffer 1:", rxBuffer);
+      delay(1000);
+      rxBuffer = "";
+      enviarComando("AT+CMGL=\"REC UNREAD\"", 1500);
+      t0 = millis();
+      while (millis() - t0 < 2000) actualizarBuffer();
+      enviarSMS("rxBuffer 2:", rxBuffer);
 
       // Esperar y acumular toda la respuesta
       unsigned long t0 = millis();
