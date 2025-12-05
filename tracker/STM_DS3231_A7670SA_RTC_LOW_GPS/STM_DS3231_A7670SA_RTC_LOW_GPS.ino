@@ -983,7 +983,7 @@ void loop() {
       encenderLED();
 
       // Encender A7670SA
-      encenderA7670SA();
+      despertarA7670SA();
       iniciarA7670SA();
 
       enviarSMS("Hola", String(config.numUsuario));
@@ -1004,7 +1004,7 @@ void loop() {
       enviarSMS("rxBuffer 2:", rxBuffer);
 
       // Esperar y acumular toda la respuesta
-      unsigned long t0 = millis();
+      t0 = millis();
       while (millis() - t0 < 2000) {
           actualizarBuffer();
       }
