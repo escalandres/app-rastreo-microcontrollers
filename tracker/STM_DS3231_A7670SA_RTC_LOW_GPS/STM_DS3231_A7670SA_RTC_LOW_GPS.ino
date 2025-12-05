@@ -572,6 +572,7 @@ void actualizarBuffer() {
 // }
 
 bool smsCompletoDisponible() {
+    enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
     if (rxBuffer.indexOf("+CMT:") != -1 ||
         rxBuffer.indexOf("+CMGL:") != -1 ||
         rxBuffer.indexOf("+CMGR:") != -1) {
