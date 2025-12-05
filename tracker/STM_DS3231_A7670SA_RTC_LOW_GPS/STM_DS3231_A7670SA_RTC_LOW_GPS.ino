@@ -538,50 +538,82 @@ void actualizarBuffer() {
     }
 }
 
+// bool smsCompletoDisponible() {
+//   enviarSMS("smsCompletoDisponible", String(config.receptor))
+//   enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
+//   // Para recepción en vivo
+//   if (rxBuffer.indexOf("+CMT:") != -1) {
+//     // Debe tener encabezado +CMT
+//     int idx = rxBuffer.indexOf("+CMT:");
+//     if (idx == -1) return false;
+
+//     // Debe tener al menos dos saltos de línea después
+//     int firstNL  = rxBuffer.indexOf("\n", idx);
+//     if (firstNL == -1) return false;
+
+//     int secondNL = rxBuffer.indexOf("\n", firstNL + 1);
+//     if (secondNL == -1) return false;
+
+//     return true; // ya llegó encabezado + texto
+//   }
+//    // Para lectura por memoria (cuando hay sleep/PSM)
+//     if (rxBuffer.indexOf("+CMGL:") != -1 || rxBuffer.indexOf("+CMGR:") != -1) {
+//         // Busca al menos un salto después del encabezado
+//         int idx = rxBuffer.indexOf("+CMGL:");
+//         if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
+//         int firstNL = rxBuffer.indexOf("\n", idx);
+//         if (firstNL == -1) return false;
+
+//         // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
+//         return true;
+//     }
+
+//     return false;
+// }
+
 bool smsCompletoDisponible() {
-  enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
-  // Para recepción en vivo
-  if (rxBuffer.indexOf("+CMT:") != -1) {
-    // Debe tener encabezado +CMT
-    int idx = rxBuffer.indexOf("+CMT:");
-    if (idx == -1) return false;
-
-    // Debe tener al menos dos saltos de línea después
-    int firstNL  = rxBuffer.indexOf("\n", idx);
-    if (firstNL == -1) return false;
-
-    int secondNL = rxBuffer.indexOf("\n", firstNL + 1);
-    if (secondNL == -1) return false;
-
-    return true; // ya llegó encabezado + texto
-  }
-   // Para lectura por memoria (cuando hay sleep/PSM)
-    if (rxBuffer.indexOf("+CMGL:") != -1 || rxBuffer.indexOf("+CMGR:") != -1) {
-        // Busca al menos un salto después del encabezado
-        int idx = rxBuffer.indexOf("+CMGL:");
+    if (rxBuffer.indexOf("+CMT:") != -1 ||
+        rxBuffer.indexOf("+CMGL:") != -1 ||
+        rxBuffer.indexOf("+CMGR:") != -1) {
+        // Basta con que haya un encabezado y al menos un salto
+        int idx = rxBuffer.indexOf("+CMT:");
+        if (idx == -1) idx = rxBuffer.indexOf("+CMGL:");
         if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
-        int firstNL = rxBuffer.indexOf("\n", idx);
+        int firstNL = rxBuffer.indexOf("\r\n", idx);
         if (firstNL == -1) return false;
-
-        // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
         return true;
     }
-
     return false;
 }
 
+// String obtenerSMS() {
+//     int idx = rxBuffer.indexOf("+CMT:");
+//     int start = rxBuffer.indexOf("\n", idx) + 1;
+//     int end   = rxBuffer.indexOf("\n", start);
+
+//     String sms = rxBuffer.substring(start, end);
+//     sms.trim();
+
+//     // Limpiar lo consumido
+//     rxBuffer = rxBuffer.substring(end);
+
+//     return sms;
+// }
+
 String obtenerSMS() {
-    int idx = rxBuffer.indexOf("+CMT:");
-    int start = rxBuffer.indexOf("\n", idx) + 1;
-    int end   = rxBuffer.indexOf("\n", start);
+    int hdr = rxBuffer.indexOf("+CMGL:");
+    if (hdr == -1) hdr = rxBuffer.indexOf("+CMGR:");
+    if (hdr == -1) hdr = rxBuffer.indexOf("+CMT:");
+    if (hdr == -1) return "";
 
-    String sms = rxBuffer.substring(start, end);
-    sms.trim();
+    int start = rxBuffer.indexOf("\r\n", hdr);
+    if (start == -1) return "";
+    start += 2; // saltar CRLF
 
-    // Limpiar lo consumido
-    rxBuffer = rxBuffer.substring(end);
+    int end = rxBuffer.indexOf("\r\nOK", start);
+    if (end == -1) end = rxBuffer.length();
 
-    return sms;
+    return rxBuffer.substring(start, end).trim();
 }
 
 // ---------- Funciones del rastreador ----------
@@ -939,16 +971,17 @@ void loop() {
       dormirA7670SA(true);
       iniciarA7670SA();
 
-      // Esperar inicialización SIN perder SMS
+      enviarSMS("Hola", String(config.numUsuario));
+
+      rxBuffer = "";  // limpiar antes
+      enviarComando("AT+CMGL=\"REC UNREAD\"", 500);
+
+      // Esperar y acumular toda la respuesta
       unsigned long t0 = millis();
-      while (millis() - t0 < 1500) {
-        actualizarBuffer();
+      while (millis() - t0 < 2000) {
+          actualizarBuffer();
       }
 
-      // 🔥 OBLIGATORIO para modo ahorro: leer SMS desde memoria
-      enviarComando("AT+CMGL=\"REC UNREAD\"", 1500);
-      actualizarBuffer();
-      enviarSMS("Hola", String(config.numUsuario));
       // Revisar si hay mensajes SMS pendientes
       if (smsCompletoDisponible()) {
           String mensaje = obtenerSMS();
