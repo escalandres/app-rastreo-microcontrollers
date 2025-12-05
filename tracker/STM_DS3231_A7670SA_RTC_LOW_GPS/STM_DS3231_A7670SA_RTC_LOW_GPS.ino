@@ -613,7 +613,9 @@ String obtenerSMS() {
     int end = rxBuffer.indexOf("\r\nOK", start);
     if (end == -1) end = rxBuffer.length();
 
-    return rxBuffer.substring(start, end).trim();
+    String cuerpo = rxBuffer.substring(start, end);
+    cuerpo.trim();
+    return cuerpo;
 }
 
 // ---------- Funciones del rastreador ----------
