@@ -977,7 +977,7 @@ void loop() {
       enviarSMS("Hola", String(config.numUsuario));
 
       rxBuffer = "";  // limpiar antes
-      enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000); // probar primero con SM
+      enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
       delay(300);
 
       enviarComando("AT+CMGL=\"REC UNREAD\"", 500);
