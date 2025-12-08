@@ -969,6 +969,9 @@ void setup() {
 
   notificarEncendido();
 
+  enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
+
+
   if(config.rastreoActivo && config.modoAhorro){
     configurarModoAhorroEnergia();
   }
@@ -1048,14 +1051,13 @@ void loop() {
     }
 
   } else {
-    encenderLED();
     // Rastreo apagado, pero revisar SMS
     if (smsCompletoDisponible()) {
+        encenderLED();
         String mensaje = obtenerSMS();
         procesarComando(mensaje, String(config.receptor));
+        apagarLED();
     }
-    delay(1000);
-    apagarLED();
 
     // Espera sin perder paquetes
     unsigned long t0 = millis();
