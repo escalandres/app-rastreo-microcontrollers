@@ -969,7 +969,7 @@ void setup() {
 
   notificarEncendido();
 
-  enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
+  // enviarComando("AT+CNM I=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
 
 
   if(config.rastreoActivo && config.modoAhorro){
