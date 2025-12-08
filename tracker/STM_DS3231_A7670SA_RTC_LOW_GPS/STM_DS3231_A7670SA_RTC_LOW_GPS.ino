@@ -90,7 +90,7 @@ void cargarConfiguracionPorDefecto() {
   config.intervaloDias = 0;
   config.modoAhorro = false;
   strcpy(config.pin, "589649");
-  config.configurado = true;  // Marcar como configurado
+  config.configurado = false;  // Marcar como configurado
   config.rastreoActivo = false;
   
   guardarConfigEEPROM();
@@ -593,7 +593,7 @@ void actualizarBuffer() {
 // }
 
 bool smsCompletoDisponible() {
-    enviarSMS("rxBuffer: "+rxBuffer, String(config.numUsuario));
+    enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
     if (rxBuffer.indexOf("+CMT:") != -1 ||
         rxBuffer.indexOf("+CMGL:") != -1 ||
         rxBuffer.indexOf("+CMGR:") != -1) {
@@ -973,11 +973,6 @@ void setup() {
     configurarModoAhorroEnergia();
   }
 
-  // debugEEPROMporSMS();
-  // Esperar registro en red
-  // if (esperarRegistroRed()) {
-  //   notificarEncendido();
-  // } 
   digitalWrite(STM_LED,HIGH);
 }
 
@@ -1053,7 +1048,6 @@ void loop() {
     }
 
   } else {
-
     // Rastreo apagado, pero revisar SMS
     if (smsCompletoDisponible()) {
         encenderLED();
