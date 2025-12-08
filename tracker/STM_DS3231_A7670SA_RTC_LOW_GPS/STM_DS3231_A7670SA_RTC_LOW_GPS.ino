@@ -350,17 +350,24 @@ void procesarComando(String mensaje, String numeroRemitente) {
       config.firma = 0xCAFEBABE; // Asegurar firma válida
       guardarConfigEEPROM();
       if(!config.modoAhorro){
+        // Rastreo sin modo ahorro
         configurarRastreoContinuo();
         enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 30 segundos", numeroRemitente);
+        enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
       }else{
-        String intervalo = "" + String(config.intervaloDias) + "D" + String(config.intervaloHoras) + "H" + String(config.intervaloMinutos) + "M" + String(config.intervaloSegundos) + "S";
+        // Rastreo con modo ahorro
+        String intervalo = String(config.intervaloDias) + "D" +
+                   String(config.intervaloHoras) + "H" +
+                   String(config.intervaloMinutos) + "M" +
+                   String(config.intervaloSegundos) + "S";
         enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, numeroRemitente);
-        delay(1000);
+        enviarComando("AT+CNMI=2,1,0,0,0"); // Almacenar SMS en memoria
         configurarModoAhorroEnergia();
       }
     } else if (comando.indexOf("OFF") != -1) {
       config.rastreoActivo = false;
       config.firma = 0xCAFEBABE;
+      enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
       guardarConfigEEPROM();
       enviarSMS("-_- Rastreo DESACTIVADO", numeroRemitente);
     }
@@ -369,8 +376,10 @@ void procesarComando(String mensaje, String numeroRemitente) {
   // --- MODO AHORRO ---
   else if (comando.indexOf("MODOAHORRO=") != -1) {
     if (comando.indexOf("ON") != -1) {
+      // Activar modo ahorro
       config.modoAhorro = true;
     } else if (comando.indexOf("OFF") != -1) {
+      // Desactivar modo ahorro
       config.modoAhorro = false;
     } else {
       enviarSMS("Use: MODOAHORRO=ON o OFF", numeroRemitente);
@@ -986,7 +995,7 @@ void loop() {
       despertarA7670SA();
       iniciarA7670SA();
 
-      enviarSMS("Hola", String(config.numUsuario));
+      // enviarSMS("Hola", String(config.numUsuario));
 
       rxBuffer = "";  // limpiar antes
       // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
