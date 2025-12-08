@@ -705,7 +705,8 @@ void notificarEncendido()
   String currentTime = String(buffer);
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
-  SMS += " esta encendido. Tiempo: " + currentTime;
+  SMS += " esta encendido. Tiempo: " + currentTime + ", config: " + String(config.configurado ? "OK" : "NO") + ". " + "ModoAhorro: " + String(config.modoAhorro ? "ON" : "OFF") + "."
+    + "Rastreo: " + String(config.rastreoActivo ? "ON" : "OFF") + ".";
   enviarSMS(SMS, String(config.receptor));
 
   if(String(config.numUsuario) != ""){
