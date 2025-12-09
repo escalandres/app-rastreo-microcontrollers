@@ -560,86 +560,86 @@ void actualizarBuffer() {
     }
 }
 
-// bool smsCompletoDisponible() {
-//   enviarSMS("smsCompletoDisponible", String(config.receptor))
-//   enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
-//   // Para recepción en vivo
-//   if (rxBuffer.indexOf("+CMT:") != -1) {
-//     // Debe tener encabezado +CMT
-//     int idx = rxBuffer.indexOf("+CMT:");
-//     if (idx == -1) return false;
-
-//     // Debe tener al menos dos saltos de línea después
-//     int firstNL  = rxBuffer.indexOf("\n", idx);
-//     if (firstNL == -1) return false;
-
-//     int secondNL = rxBuffer.indexOf("\n", firstNL + 1);
-//     if (secondNL == -1) return false;
-
-//     return true; // ya llegó encabezado + texto
-//   }
-//    // Para lectura por memoria (cuando hay sleep/PSM)
-//     if (rxBuffer.indexOf("+CMGL:") != -1 || rxBuffer.indexOf("+CMGR:") != -1) {
-//         // Busca al menos un salto después del encabezado
-//         int idx = rxBuffer.indexOf("+CMGL:");
-//         if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
-//         int firstNL = rxBuffer.indexOf("\n", idx);
-//         if (firstNL == -1) return false;
-
-//         // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
-//         return true;
-//     }
-
-//     return false;
-// }
-
 bool smsCompletoDisponible() {
-    enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
-    if (rxBuffer.indexOf("+CMT:") != -1 ||
-        rxBuffer.indexOf("+CMGL:") != -1 ||
-        rxBuffer.indexOf("+CMGR:") != -1) {
-        // Basta con que haya un encabezado y al menos un salto
-        int idx = rxBuffer.indexOf("+CMT:");
-        if (idx == -1) idx = rxBuffer.indexOf("+CMGL:");
+  enviarSMS("smsCompletoDisponible", String(config.receptor))
+  enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
+  // Para recepción en vivo
+  if (rxBuffer.indexOf("+CMT:") != -1) {
+    // Debe tener encabezado +CMT
+    int idx = rxBuffer.indexOf("+CMT:");
+    if (idx == -1) return false;
+
+    // Debe tener al menos dos saltos de línea después
+    int firstNL  = rxBuffer.indexOf("\n", idx);
+    if (firstNL == -1) return false;
+
+    int secondNL = rxBuffer.indexOf("\n", firstNL + 1);
+    if (secondNL == -1) return false;
+
+    return true; // ya llegó encabezado + texto
+  }
+   // Para lectura por memoria (cuando hay sleep/PSM)
+    if (rxBuffer.indexOf("+CMGL:") != -1 || rxBuffer.indexOf("+CMGR:") != -1) {
+        // Busca al menos un salto después del encabezado
+        int idx = rxBuffer.indexOf("+CMGL:");
         if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
-        int firstNL = rxBuffer.indexOf("\r\n", idx);
+        int firstNL = rxBuffer.indexOf("\n", idx);
         if (firstNL == -1) return false;
+
+        // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
         return true;
     }
+
     return false;
 }
 
-// String obtenerSMS() {
-//     int idx = rxBuffer.indexOf("+CMT:");
-//     int start = rxBuffer.indexOf("\n", idx) + 1;
-//     int end   = rxBuffer.indexOf("\n", start);
-
-//     String sms = rxBuffer.substring(start, end);
-//     sms.trim();
-
-//     // Limpiar lo consumido
-//     rxBuffer = rxBuffer.substring(end);
-
-//     return sms;
+// bool smsCompletoDisponible() {
+//     // enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
+//     if (rxBuffer.indexOf("+CMT:") != -1 ||
+//         rxBuffer.indexOf("+CMGL:") != -1 ||
+//         rxBuffer.indexOf("+CMGR:") != -1) {
+//         // Basta con que haya un encabezado y al menos un salto
+//         int idx = rxBuffer.indexOf("+CMT:");
+//         if (idx == -1) idx = rxBuffer.indexOf("+CMGL:");
+//         if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
+//         int firstNL = rxBuffer.indexOf("\r\n", idx);
+//         if (firstNL == -1) return false;
+//         return true;
+//     }
+//     return false;
 // }
 
 String obtenerSMS() {
-    int hdr = rxBuffer.indexOf("+CMGL:");
-    if (hdr == -1) hdr = rxBuffer.indexOf("+CMGR:");
-    if (hdr == -1) hdr = rxBuffer.indexOf("+CMT:");
-    if (hdr == -1) return "";
+    int idx = rxBuffer.indexOf("+CMT:");
+    int start = rxBuffer.indexOf("\n", idx) + 1;
+    int end   = rxBuffer.indexOf("\n", start);
 
-    int start = rxBuffer.indexOf("\r\n", hdr);
-    if (start == -1) return "";
-    start += 2; // saltar CRLF
+    String sms = rxBuffer.substring(start, end);
+    sms.trim();
 
-    int end = rxBuffer.indexOf("\r\nOK", start);
-    if (end == -1) end = rxBuffer.length();
+    // Limpiar lo consumido
+    rxBuffer = rxBuffer.substring(end);
 
-    String cuerpo = rxBuffer.substring(start, end);
-    cuerpo.trim();
-    return cuerpo;
+    return sms;
 }
+
+// String obtenerSMS() {
+//     int hdr = rxBuffer.indexOf("+CMGL:");
+//     if (hdr == -1) hdr = rxBuffer.indexOf("+CMGR:");
+//     if (hdr == -1) hdr = rxBuffer.indexOf("+CMT:");
+//     if (hdr == -1) return "";
+
+//     int start = rxBuffer.indexOf("\r\n", hdr);
+//     if (start == -1) return "";
+//     start += 2; // saltar CRLF
+
+//     int end = rxBuffer.indexOf("\r\nOK", start);
+//     if (end == -1) end = rxBuffer.length();
+
+//     String cuerpo = rxBuffer.substring(start, end);
+//     cuerpo.trim();
+//     return cuerpo;
+// }
 
 // ---------- Funciones del rastreador ----------
 
