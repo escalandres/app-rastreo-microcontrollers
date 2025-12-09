@@ -553,7 +553,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
 }
 
 void actualizarBuffer() {
-  // rxBuffer = "";
+  // rxBu}}ffer = "";
     while (A7670SA.available()) {
         char c = A7670SA.read();
         rxBuffer += c;
