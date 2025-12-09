@@ -561,7 +561,7 @@ void actualizarBuffer() {
 }
 
 bool smsCompletoDisponible() {
-  enviarSMS("smsCompletoDisponible", String(config.receptor))
+  enviarSMS("smsCompletoDisponible", String(config.receptor));
   enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
   // Para recepción en vivo
   if (rxBuffer.indexOf("+CMT:") != -1) {
