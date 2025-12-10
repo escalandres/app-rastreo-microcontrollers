@@ -250,7 +250,7 @@ void enviarSMS(String SMS, String number = config.receptor)
 
   enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000); //Mobile phone number to send message
 
-  A7670SA.println(mensaje);
+  A7670SA.println(SMS);
   delay(500);
   A7670SA.println((char)26);// ASCII code of CTRL+Z
   delay(500);
@@ -298,14 +298,18 @@ void procesarComando(String mensaje) {
 
     // --- Verificar formato PIN=xxxxxx; ---
     if (!mensaje.startsWith("PIN=")) {
-      enviarSMS(">:( Falta el prefijo PIN en el comando.", numeroRemitente);
+      if(String(config.numUsuario) =! ""){
+        enviarSMS(">:( Falta el prefijo PIN en el comando.", String(config.numUsuario));
+      }
       return;
     }
 
     int igual = mensaje.indexOf('=');
     int separador = mensaje.indexOf(';');
     if (separador == -1) {
-      enviarSMS(">:( Formato inválido. Use: PIN=xxxxxx;COMANDO", numeroRemitente);
+      if(String(config.numUsuario) =! ""){
+        enviarSMS(">:( Formato inválido. Use: PIN=xxxxxx;COMANDO", String(config.numUsuario));
+      }
       return;
     }
 
@@ -314,7 +318,7 @@ void procesarComando(String mensaje) {
     // Validar PIN
     if (pinIngresado != config.pin) {
       if(config.numUsuario != ""){
-        enviarSMS(">:( PIN incorrecto.", numeroRemitente);
+        enviarSMS(">:( PIN incorrecto.", String(config.numUsuario));
       }
       return;
     }
@@ -473,7 +477,7 @@ void procesarComando(String mensaje) {
     if (config.intervaloMinutos > 0) resumen += String(config.intervaloMinutos) + "M ";
     if (config.intervaloSegundos > 0) resumen += String(config.intervaloSegundos) + "S";
     if(config.numUsuario != ""){
-      enviarSMS(";-) " + resumen, numeroRemitente);
+      enviarSMS(";-) " + resumen, String(config.numUsuario));
     }
   }
   
