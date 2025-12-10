@@ -1179,7 +1179,7 @@ void loop() {
     encenderLED();
 
     // Despertar módem
-    encenderA7670SA();
+    despertarA7670SA();
     iniciarA7670SA();
 
     // Leer SMS pendientes desde memoria
