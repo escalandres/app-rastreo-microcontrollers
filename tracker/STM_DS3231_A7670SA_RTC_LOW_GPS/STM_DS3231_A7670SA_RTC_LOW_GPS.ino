@@ -294,7 +294,7 @@ void enviarSMS(String SMS, String number = config.receptor)
 
 void configurarModoAhorroEnergia() {
   // CNMI para guardar SMS en memoria
-  enviarComando("AT+CNMI=2,1,0,0,0");
+  enviarComando("AT+CNMI=2,1,0,0,0",2000);
 
   // Configurar para modo ahorro de energia
   // Desactivar LED
@@ -618,8 +618,6 @@ void actualizarBuffer() {
 }
 
 bool smsCompletoDisponible() {
-  // enviarSMS("smsCompletoDisponible", String(config.receptor));
-  // enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
   // Para recepción en vivo
   if (rxBuffer.indexOf("+CMT:") != -1) {
     // Debe tener encabezado +CMT
@@ -635,19 +633,22 @@ bool smsCompletoDisponible() {
 
     return true; // ya llegó encabezado + texto
   }
-   // Para lectura por memoria (cuando hay sleep/PSM)
-    if (rxBuffer.indexOf("+CMGL:") != -1 || rxBuffer.indexOf("+CMGR:") != -1) {
-        // Busca al menos un salto después del encabezado
-        int idx = rxBuffer.indexOf("+CMGL:");
-        if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
-        int firstNL = rxBuffer.indexOf("\n", idx);
-        if (firstNL == -1) return false;
+  // Para lectura por memoria (cuando hay sleep/PSM)
+  if (rxBuffer.indexOf("+CMGL:") != -1 || rxBuffer.indexOf("+CMGR:") != -1) {
+      // Busca al menos un salto después del encabezado
+      int idx = rxBuffer.indexOf("+CMGL:");
+      if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
+      int firstNL = rxBuffer.indexOf("\n", idx);
+      if (firstNL == -1) return false;
 
-        // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
-        return true;
-    }
+      // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
+      return true;
+  }
 
-    return false;
+  enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
+
+
+  return false;
 }
 
 // bool smsCompletoDisponible() {
