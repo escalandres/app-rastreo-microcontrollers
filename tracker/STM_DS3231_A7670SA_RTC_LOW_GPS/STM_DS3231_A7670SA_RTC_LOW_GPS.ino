@@ -1042,11 +1042,10 @@ void setup() {
 
   notificarEncendido();
 
-  // enviarComando("AT+CNM I=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
-
-
   if(config.rastreoActivo && config.modoAhorro){
     configurarModoAhorroEnergia();
+  }else{
+    configurarRastreoContinuo(45); // Cada 45 segundos
   }
 
   digitalWrite(STM_LED,HIGH);
@@ -1159,7 +1158,7 @@ void loop() {
     unsigned long t0 = millis();
     while (millis() - t0 < 2000) actualizarBuffer();
   }
-  else if (config.rastreoActivo && !config.modoAhorro && alarmFired) {
+  else if (config.rastreoActivo && !config.modoAhorro) {
     // Rastreo continuo: usar RTC o millis para intervalos
     if (alarmFired) {
       alarmFired = false; // reset bandera
