@@ -1149,8 +1149,10 @@ void loop() {
   if (!config.rastreoActivo) {
     // Solo escuchar SMS
     if (smsCompletoDisponible()) {
+      encenderLED();
       String mensaje = obtenerSMS();
       procesarComando(mensaje);
+      apagarLED();
     }
 
     // Espera defensiva para acumular datos
@@ -1162,12 +1164,14 @@ void loop() {
     if (alarmFired) {
       alarmFired = false; // reset bandera
       if (smsCompletoDisponible()) {
+        encenderLED();
         String mensaje = obtenerSMS();
         procesarComando(mensaje);
       }
       String datosGPS = leerYGuardarGPS();
       enviarDatosRastreador(datosGPS);
       configurarRastreoContinuo();
+      apagarLED();
     }
   }
   else if (config.rastreoActivo && config.modoAhorro && alarmFired) {
