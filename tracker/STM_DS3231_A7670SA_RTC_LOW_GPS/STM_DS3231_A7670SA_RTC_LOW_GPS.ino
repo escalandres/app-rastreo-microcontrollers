@@ -292,6 +292,45 @@ void enviarSMS(String SMS, String number = config.receptor)
 //   return false;
 // }
 
+void configurarModoAhorroEnergia() {
+  // CNMI para guardar SMS en memoria
+  enviarComando("AT+CNMI=2,1,0,0,0");
+
+  // Configurar para modo ahorro de energia
+  // Desactivar LED
+  pinMode(STM_LED, INPUT); // Cambiar a entrada para reducir consumo
+
+  alarmFired = false; // Resetear bandera
+
+  // Configurar alarma RTC
+  configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
+
+  // Configurar A7670SA para sleep automatico en idle
+  dormirA7670SA();
+
+  // Configurar GPS para modo bajo consumo (si es posible)
+  //configureGPS(NEO8M);
+  // Aquí podrías enviar comandos específicos al GPS si soporta modos de bajo consumo
+
+  // Configure low power
+  LowPower.begin();
+  // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
+  // Last parameter (LowPowerMode) should match with the low power state used
+  LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE); // SLEEP_MODE
+  delay(400);
+  LowPower.deepSleep();
+}
+
+void configurarRastreoContinuo(unsigned int segundos = 45) {
+  // CNMI para SMS en vivo
+  enviarComando("AT+CNMI=1,2,0,0,0");
+  // RTC alarma cada X segundos
+  configurarAlarma(0,0,0,segundos);
+
+  // Activar interrupción en FALLING
+  attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
+}
+
 void procesarComando(String mensaje) {
     mensaje.trim();
     mensaje.toUpperCase(); // Para evitar problemas con mayúsculas/minúsculas
@@ -569,45 +608,6 @@ void procesarComando(String mensaje) {
       enviarSMS(">:( Comando desconocido: " + comando, String(config.numUsuario));
     }
   }
-}
-
-void configurarModoAhorroEnergia() {
-  // CNMI para guardar SMS en memoria
-  enviarComando("AT+CNMI=2,1,0,0,0");
-
-  // Configurar para modo ahorro de energia
-  // Desactivar LED
-  pinMode(STM_LED, INPUT); // Cambiar a entrada para reducir consumo
-
-  alarmFired = false; // Resetear bandera
-
-  // Configurar alarma RTC
-  configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
-
-  // Configurar A7670SA para sleep automatico en idle
-  dormirA7670SA();
-
-  // Configurar GPS para modo bajo consumo (si es posible)
-  //configureGPS(NEO8M);
-  // Aquí podrías enviar comandos específicos al GPS si soporta modos de bajo consumo
-
-  // Configure low power
-  LowPower.begin();
-  // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
-  // Last parameter (LowPowerMode) should match with the low power state used
-  LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE); // SLEEP_MODE
-  delay(400);
-  LowPower.deepSleep();
-}
-
-void configurarRastreoContinuo(unsigned int segundos = 45) {
-  // CNMI para SMS en vivo
-  enviarComando("AT+CNMI=1,2,0,0,0");
-  // RTC alarma cada X segundos
-  configurarAlarma(0,0,0,segundos);
-
-  // Activar interrupción en FALLING
-  attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
 }
 
 void actualizarBuffer() {
