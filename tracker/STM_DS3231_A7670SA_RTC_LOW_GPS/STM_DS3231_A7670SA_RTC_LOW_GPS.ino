@@ -1160,13 +1160,15 @@ void loop() {
   }
   else if (config.rastreoActivo && !config.modoAhorro) {
     // Rastreo continuo: usar RTC o millis para intervalos
+    if (smsCompletoDisponible()) {
+      encenderLED();
+      String mensaje = obtenerSMS();
+      procesarComando(mensaje);
+      apagarLED();
+    }
     if (alarmFired) {
+      encenderLED();
       alarmFired = false; // reset bandera
-      if (smsCompletoDisponible()) {
-        encenderLED();
-        String mensaje = obtenerSMS();
-        procesarComando(mensaje);
-      }
       String datosGPS = leerYGuardarGPS();
       enviarDatosRastreador(datosGPS);
       configurarRastreoContinuo();
@@ -1174,6 +1176,7 @@ void loop() {
     }
   }
   else if (config.rastreoActivo && config.modoAhorro && alarmFired) {
+    // Rastreo con modo ahorro
     alarmFired = false; // reset bandera
 
     pinMode(STM_LED, OUTPUT);
