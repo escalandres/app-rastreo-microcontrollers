@@ -128,9 +128,14 @@ void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos
 }
 
 void configurarModoAhorroEnergia() {
+  // CNMI para guardar SMS en memoria
+  enviarComando("AT+CNMI=2,1,0,0,0");
+
   // Configurar para modo ahorro de energia
   // Desactivar LED
   pinMode(STM_LED, INPUT); // Cambiar a entrada para reducir consumo
+
+  alarmFired = false; // Resetear bandera
 
   // Configurar alarma RTC
   configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
@@ -151,10 +156,14 @@ void configurarModoAhorroEnergia() {
   LowPower.deepSleep();
 }
 
-void configurarRastreoContinuo(){
+void configurarRastreoContinuo(unsigned int segundos = 45) {
+  // CNMI para SMS en vivo
+  enviarComando("AT+CNMI=1,2,0,0,0");
+  // RTC alarma cada X segundos
+  configurarAlarma(0,0,0,segundos);
+
   // Activar interrupción en FALLING
   attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
-  configurarAlarma(0,0,0,30); // Activar cada 30 segundos
 }
 
 // ---------- Funciones del A7670SA ----------
@@ -259,15 +268,28 @@ void flushA7670SA() {
     }
 }
 
-void enviarSMS(String SMS, String number = "+525620577634")
-{
-  iniciarA7670SA();
-  enviarComando("AT+CREG?",500);
+void enviarMensaje(String mensaje, String number) {
+
   enviarComando("AT+CMGF=1",500);
 
   enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000); //Mobile phone number to send message
 
-  A7670SA.println(SMS);
+  A7670SA.println(mensaje);
+  delay(500);
+  A7670SA.println((char)26);// ASCII code of CTRL+Z
+  delay(500);
+  _buffer = _readSerial();
+
+  delay(1000);
+}
+
+void enviarSMS(String SMS, String number = config.receptor)
+{
+  enviarComando("AT+CMGF=1",500);
+
+  enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000); //Mobile phone number to send message
+
+  A7670SA.println(mensaje);
   delay(500);
   A7670SA.println((char)26);// ASCII code of CTRL+Z
   delay(500);
@@ -309,10 +331,9 @@ void enviarSMS(String SMS, String number = "+525620577634")
 //   return false;
 // }
 
-void procesarComando(String mensaje, String numeroRemitente) {
+void procesarComando(String mensaje) {
     mensaje.trim();
     mensaje.toUpperCase(); // Para evitar problemas con mayúsculas/minúsculas
-    // enviarSMS("COM: " + mensaje, numeroRemitente);
 
     // --- Verificar formato PIN=xxxxxx; ---
     if (!mensaje.startsWith("PIN=")) {
@@ -329,10 +350,11 @@ void procesarComando(String mensaje, String numeroRemitente) {
 
     String pinIngresado = mensaje.substring(igual + 1, separador);
     pinIngresado.trim();
-    // enviarSMS("PIN recibido: " + pinIngresado, numeroRemitente);
     // Validar PIN
     if (pinIngresado != config.pin) {
-      enviarSMS(">:( PIN incorrecto.", numeroRemitente);
+      if(config.numUsuario != ""){
+        enviarSMS(">:( PIN incorrecto.", numeroRemitente);
+      }
       return;
     }
 
@@ -342,7 +364,7 @@ void procesarComando(String mensaje, String numeroRemitente) {
     comando.toUpperCase();
 
     // ========== COMANDOS ==========
-  // enviarSMS("Procesando comando: " + comando, numeroRemitente);
+  // enviarSMS("Procesando comando: " + comando);
   // --- RASTREAR ON/OFF ---
   if (comando.indexOf("RASTREAR") != -1) {
     if (comando.indexOf("ON") != -1) {
@@ -351,17 +373,22 @@ void procesarComando(String mensaje, String numeroRemitente) {
       guardarConfigEEPROM();
       if(!config.modoAhorro){
         // Rastreo sin modo ahorro
-        configurarRastreoContinuo();
-        enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 30 segundos", numeroRemitente);
-        enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
+        configurarRastreoContinuo(45); // Cada 45 segundos
+        enviarSMS("Rastreo Continuo ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
+
+        if(config.numUsuario != ""){
+          enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 45 segundos", String(config.numUsuario));
+        }
       }else{
         // Rastreo con modo ahorro
         String intervalo = String(config.intervaloDias) + "D" +
                    String(config.intervaloHoras) + "H" +
                    String(config.intervaloMinutos) + "M" +
                    String(config.intervaloSegundos) + "S";
-        enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, numeroRemitente);
-        enviarComando("AT+CNMI=2,1,0,0,0"); // Almacenar SMS en memoria
+        enviarSMS("Rastreo con Modo Ahorro ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC() + ". INT: " + intervalo, String(config.receptor));
+        if(config.numUsuario != ""){
+          enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, String(config.numUsuario));
+        }
         configurarModoAhorroEnergia();
       }
     } else if (comando.indexOf("OFF") != -1) {
@@ -369,7 +396,10 @@ void procesarComando(String mensaje, String numeroRemitente) {
       config.firma = 0xCAFEBABE;
       enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
       guardarConfigEEPROM();
-      enviarSMS("-_- Rastreo DESACTIVADO", numeroRemitente);
+      enviarSMS("Rastreo DESACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
+      if(config.numUsuario != ""){
+        enviarSMS("-_- Rastreo DESACTIVADO.", String(config.numUsuario));
+      }
     }
   }
   
@@ -382,16 +412,22 @@ void procesarComando(String mensaje, String numeroRemitente) {
       // Desactivar modo ahorro
       config.modoAhorro = false;
     } else {
-      enviarSMS("Use: MODOAHORRO=ON o OFF", numeroRemitente);
+      if(config.numUsuario != ""){
+        enviarSMS("Use: MODOAHORRO=ON o OFF");
+      }
       return;
     }
     
     config.firma = 0xCAFEBABE;
     guardarConfigEEPROM();
     
-    String msg = ":O Modo ahorro: ";
+    String msg = "Modo ahorro: ";
     msg += config.modoAhorro ? "ON" : "OFF";
-    enviarSMS(msg, numeroRemitente);
+    msg += ". Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC();
+    enviarSMS(msg, String(config.receptor));
+    if(config.numUsuario != ""){
+      enviarSMS(msg, String(config.numUsuario));
+    }
   }
   
   // --- INTERVALO ---
@@ -400,7 +436,9 @@ void procesarComando(String mensaje, String numeroRemitente) {
     valor.trim();
     
     if (valor.length() == 0) {
-      enviarSMS(">:( Formato: INTERVALO=5M o 1H30M", numeroRemitente);
+      if(config.numUsuario != ""){
+        enviarSMS(">:( Formato: INTERVALO=5M o 1H30M");
+      }
       return;
     }
     
@@ -450,27 +488,32 @@ void procesarComando(String mensaje, String numeroRemitente) {
     }
     
     if (!formatoValido) {
-      enviarSMS(">:( Formato inválido. Use: 5M, 1H30M, 1D2H", numeroRemitente);
+      if(config.numUsuario != ""){
+        enviarSMS(">:( Formato inválido. Use: 5M, 1H30M, 1D2H");
+      }
       return;
     }
     
     // Validar que no sea todo cero
     if (config.intervaloSegundos == 0 && config.intervaloMinutos == 0 &&
         config.intervaloHoras == 0 && config.intervaloDias == 0) {
-      enviarSMS(">:( Intervalo no puede ser 0", numeroRemitente);
+      if(config.numUsuario != ""){
+        enviarSMS(">:( Intervalo no puede ser 0");
+      }
       return;
     }
     
     config.firma = 0xCAFEBABE;
     guardarConfigEEPROM();
     
-    String resumen = ":O Intervalo: ";
+    String resumen = "Intervalo configurado: ";
     if (config.intervaloDias > 0) resumen += String(config.intervaloDias) + "D ";
     if (config.intervaloHoras > 0) resumen += String(config.intervaloHoras) + "H ";
     if (config.intervaloMinutos > 0) resumen += String(config.intervaloMinutos) + "M ";
     if (config.intervaloSegundos > 0) resumen += String(config.intervaloSegundos) + "S";
-    
-    enviarSMS(resumen, numeroRemitente);
+    if(config.numUsuario != ""){
+      enviarSMS(";-) " + resumen, numeroRemitente);
+    }
   }
   
   // --- SETNUM (solo receptor) ---
@@ -480,7 +523,9 @@ void procesarComando(String mensaje, String numeroRemitente) {
     
     // Validar formato
     if (!nuevoNumero.startsWith("+") || nuevoNumero.length() < 11) {
-      enviarSMS(">:( Formato: +52XXXXXXXXXX", numeroRemitente);
+      if(config.numUsuario != ""){
+        enviarSMS(">:( Formato: +52XXXXXXXXXX", String(config.numUsuario));
+      }
       return;
     }
     
@@ -495,7 +540,9 @@ void procesarComando(String mensaje, String numeroRemitente) {
     
     int digitos = nuevoNumero.length() - 1;
     if (!valido || digitos < 10 || digitos > 15) {
-      enviarSMS(">:( Número inválido (10-15 dígitos)", numeroRemitente);
+      if(config.numUsuario != ""){
+        enviarSMS(">:( Número inválido (10-15 dígitos)", String(config.numUsuario));
+      }
       return;
     }
     
@@ -504,8 +551,10 @@ void procesarComando(String mensaje, String numeroRemitente) {
     config.firma = 0xCAFEBABE;
     guardarConfigEEPROM();
     
-    delay(1000);
-    enviarSMS(";) Numero guardado: " + nuevoNumero, numeroRemitente);
+    delay(500);
+    if(config.numUsuario != ""){
+      enviarSMS(";) Numero guardado: " + nuevoNumero, String(config.numUsuario));
+    }
   }
   
   // --- STATUS ---
@@ -527,33 +576,37 @@ void procesarComando(String mensaje, String numeroRemitente) {
     batteryCharge = obtenerVoltajeBateria();
     
     info += batteryCharge + ";";
-
-    enviarSMS(info, numeroRemitente);
+    if(config.numUsuario != ""){
+      enviarSMS(info, String(config.numUsuario));
+    }
   }
   
   // --- LOCATION ---
   else if (comando.indexOf("LOCATION") != -1) {
-    enviarSMS("o> Obteniendo ubicación...", numeroRemitente);
-    
+    String ubicacion = "Ubicación obtenida!";
     String datosGPS = leerYGuardarGPS();
+
+    ubicacion += "\nGPS: " + datosGPS;
+
     String cellInfo = obtenerTorreCelular();
     
-    String ubicacion = "LOCATION:\nGPS: " + datosGPS;
     if (cellInfo.length() > 0) {
-      ubicacion += "\nCT: " + cellInfo;
+      ubicacion += ".\nCT: " + cellInfo;
     }
-    
-    enviarSMS(ubicacion, numeroRemitente);
+    if(config.numUsuario != ""){
+      enviarSMS(ubicacion, String(config.numUsuario));
+    }
   }
   
   // --- COMANDO NO RECONOCIDO ---
   else {
-    enviarSMS(">:( Comando desconocido: " + comando, numeroRemitente);
+    if(config.numUsuario != ""){
+      enviarSMS(">:( Comando desconocido: " + comando, String(config.numUsuario));
+    }
   }
 }
 
 void actualizarBuffer() {
-  // rxBu}}ffer = "";
     while (A7670SA.available()) {
         char c = A7670SA.read();
         rxBuffer += c;
@@ -642,23 +695,15 @@ String obtenerSMS() {
 // }
 
 // ---------- Funciones del rastreador ----------
+String obtenerTiempoRTC() {
+    DateTime now = rtc.now();
 
-void enviarDatosRastreador(String datosGPS)
-{
-  digitalWrite(STM_LED, LOW);
+    char buffer[20];
+    sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
+          now.year(), now.month(), now.day(),
+          now.hour(), now.minute(), now.second());
 
-  String cellTowerInfo = "";
-  cellTowerInfo = obtenerTorreCelular();
-
-  String batteryCharge = "";
-  batteryCharge = obtenerVoltajeBateria();
-
-  String SMS = crearMensaje(datosGPS, cellTowerInfo, batteryCharge);
-  enviarSMS(SMS);
-
-  delay(2000);
-  digitalWrite(STM_LED,HIGH);
-
+    return String(buffer);
 }
 
 String crearMensaje(String datosGPS, String cellTowerInfo, String batteryCharge){
@@ -683,6 +728,28 @@ String crearMensaje(String datosGPS, String cellTowerInfo, String batteryCharge)
   return output;
 }
 
+void enviarDatosRastreador(String datosGPS)
+{
+  digitalWrite(STM_LED, LOW);
+
+  String cellTowerInfo = "";
+  cellTowerInfo = obtenerTorreCelular();
+
+  String batteryCharge = "";
+  batteryCharge = obtenerVoltajeBateria();
+
+  String SMS = crearMensaje(datosGPS, cellTowerInfo, batteryCharge);
+  enviarSMS(SMS, String(config.receptor));
+
+  if(String(config.numUsuario) != ""){
+    enviarSMS("Hay novedades de tu rastreador!", String(config.numUsuario));
+  }
+
+  delay(500);
+  digitalWrite(STM_LED,HIGH);
+
+}
+
 void notificarEncendido()
 {
   digitalWrite(STM_LED, HIGH);
@@ -696,14 +763,14 @@ void notificarEncendido()
   digitalWrite(STM_LED, HIGH);
   delay(200);
   digitalWrite(STM_LED, LOW);
-  DateTime now = rtc.now();
+  // DateTime now = rtc.now();
 
-  char buffer[20];
-  sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
-        now.year(), now.month(), now.day(),
-        now.hour(), now.minute(), now.second());
+  // char buffer[20];
+  // sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
+  //       now.year(), now.month(), now.day(),
+  //       now.hour(), now.minute(), now.second());
 
-  String currentTime = String(buffer);
+  String currentTime = obtenerTiempoRTC();
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
   SMS += " esta encendido. Tiempo: " + currentTime + ", config: " + String(config.configurado ? "OK" : "NO") + ". " + "ModoAhorro: " + String(config.modoAhorro ? "ON" : "OFF") + "."
@@ -980,89 +1047,163 @@ void setup() {
   digitalWrite(STM_LED,HIGH);
 }
 
+// void loop() {
+//   // Siempre escuchar fragmentos entrantes
+//   actualizarBuffer();
+
+//   if (config.rastreoActivo == true) {
+//     if (alarmFired) {
+//       pinMode(STM_LED, OUTPUT);
+//       delay(200);
+
+//       encenderLED();
+//       if(config.modoAhorro){
+//         // Encender A7670SA
+//         despertarA7670SA();
+//         iniciarA7670SA();
+
+//       }
+//       delay(200);
+//       // enviarSMS("Hola", String(config.numUsuario));
+
+//       rxBuffer = "";  // limpiar antes
+//       // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+//       // delay(300);
+
+//       enviarComando("AT+CPMS?", 1000);
+//       unsigned long t0 = millis();
+//       while (millis() - t0 < 1000) actualizarBuffer();
+//       enviarSMS("rxBuffer 1:", rxBuffer);
+//       delay(1000);
+//       rxBuffer = "";
+//       enviarComando("AT+CMGL=\"REC UNREAD\"", 1500);
+//       t0 = millis();
+//       while (millis() - t0 < 2000) actualizarBuffer();
+//       enviarSMS("rxBuffer 2:", rxBuffer);
+
+//       // Esperar y acumular toda la respuesta
+//       t0 = millis();
+//       while (millis() - t0 < 2000) {
+//           actualizarBuffer();
+//       }
+
+//       // Revisar si hay mensajes SMS pendientes
+//       if (smsCompletoDisponible()) {
+//           String mensaje = obtenerSMS();
+//           enviarSMS("Comando: " + mensaje, String(config.numUsuario));
+//           procesarComando(mensaje, String(config.receptor));
+//       }
+
+//       // Leer GPS
+//       String datosGPS = leerYGuardarGPS();
+
+//       // Enviar datos de rastreo
+//       enviarDatosRastreador(datosGPS);
+
+//       // Espera sin perder data
+//       t0 = millis();
+//       while (millis() - t0 < 3000) {
+//         actualizarBuffer();
+//       }
+
+//       apagarLED();
+
+//       alarmFired = false;
+
+//       // 1. Rastreo continuo (NO dormir)
+//       if (!config.modoAhorro) {
+//           configurarRastreoContinuo();
+//       }
+//       // 2. Rastreo con ahorro → dormir STM32 y A7670SA
+//       else {
+//           configurarModoAhorroEnergia();
+//       }
+//     }
+
+//   } else {
+//     // Rastreo apagado, pero revisar SMS
+//     if (smsCompletoDisponible()) {
+//         encenderLED();
+//         String mensaje = obtenerSMS();
+//         procesarComando(mensaje, String(config.receptor));
+//         apagarLED();
+//     }
+
+//     // Espera sin perder paquetes
+//     unsigned long t0 = millis();
+//     while (millis() - t0 < 3000) {
+//       actualizarBuffer();
+//     }
+//   }
+// }
+
 void loop() {
   // Siempre escuchar fragmentos entrantes
   actualizarBuffer();
 
-  if (config.rastreoActivo == true) {
-    if (alarmFired) {
-      pinMode(STM_LED, OUTPUT);
-      delay(200);
-
-      encenderLED();
-
-      // Encender A7670SA
-      despertarA7670SA();
-      iniciarA7670SA();
-
-      // enviarSMS("Hola", String(config.numUsuario));
-
-      rxBuffer = "";  // limpiar antes
-      // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-      // delay(300);
-
-      enviarComando("AT+CPMS?", 1000);
-      unsigned long t0 = millis();
-      while (millis() - t0 < 1000) actualizarBuffer();
-      enviarSMS("rxBuffer 1:", rxBuffer);
-      delay(1000);
-      rxBuffer = "";
-      enviarComando("AT+CMGL=\"REC UNREAD\"", 1500);
-      t0 = millis();
-      while (millis() - t0 < 2000) actualizarBuffer();
-      enviarSMS("rxBuffer 2:", rxBuffer);
-
-      // Esperar y acumular toda la respuesta
-      t0 = millis();
-      while (millis() - t0 < 2000) {
-          actualizarBuffer();
-      }
-
-      // Revisar si hay mensajes SMS pendientes
-      if (smsCompletoDisponible()) {
-          String mensaje = obtenerSMS();
-          enviarSMS("Comando: " + mensaje, String(config.numUsuario));
-          procesarComando(mensaje, String(config.receptor));
-      }
-
-      // Leer GPS
-      String datosGPS = leerYGuardarGPS();
-
-      // Enviar datos de rastreo
-      enviarDatosRastreador(datosGPS);
-
-      // Espera sin perder data
-      t0 = millis();
-      while (millis() - t0 < 3000) {
-        actualizarBuffer();
-      }
-
-      apagarLED();
-
-      alarmFired = false;
-
-      // 1. Rastreo continuo (NO dormir)
-      if (!config.modoAhorro) {
-          configurarRastreoContinuo();
-      }
-      // 2. Rastreo con ahorro → dormir STM32 y A7670SA
-      else {
-          configurarModoAhorroEnergia();
-      }
-    }
-
-  } else {
-    // Rastreo apagado, pero revisar SMS
+  if (!config.rastreoActivo) {
+    // Solo escuchar SMS
     if (smsCompletoDisponible()) {
-        encenderLED();
-        String mensaje = obtenerSMS();
-        procesarComando(mensaje, String(config.receptor));
-        apagarLED();
+      String mensaje = obtenerSMS();
+      procesarComando(mensaje);
     }
 
-    // Espera sin perder paquetes
+    // Espera defensiva para acumular datos
     unsigned long t0 = millis();
-    while (millis() - t0 < 3000) {
+    while (millis() - t0 < 2000) actualizarBuffer();
+  }
+  else if (config.rastreoActivo && !config.modoAhorro && alarmFired) {
+    // Rastreo continuo: usar RTC o millis para intervalos
+    if (alarmFired) {
+      alarmFired = false; // reset bandera
+      if (smsCompletoDisponible()) {
+        String mensaje = obtenerSMS();
+        procesarComando(mensaje);
+      }
+      String datosGPS = leerYGuardarGPS();
+      enviarDatosRastreador(datosGPS);
+      configurarRastreoContinuo();
+    }
+  }
+  else if (config.rastreoActivo && config.modoAhorro && alarmFired) {
+    alarmFired = false; // reset bandera
+
+    pinMode(STM_LED, OUTPUT);
+    delay(200);
+
+    encenderLED();
+
+    // Despertar módem
+    encenderA7670SA();
+    iniciarA7670SA();
+
+    // Leer SMS pendientes desde memoria
+    rxBuffer = "";
+    enviarComando("AT+CPMS?", 1000);
+    enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
+
+    unsigned long t0 = millis();
+    while (millis() - t0 < 2000) actualizarBuffer();
+
+    if (smsCompletoDisponible()) {
+      String mensaje = obtenerSMS();
+      procesarComando(mensaje);
+    }
+
+    // Leer GPS y enviar datos
+    String datosGPS = leerYGuardarGPS();
+    enviarDatosRastreador(datosGPS);
+
+    apagarLED();
+    alarmFired = false;
+
+    // Volver a dormir
+    configurarModoAhorroEnergia();
+  }
+  else {
+    // Espera defensiva para acumular datos
+    unsigned long t0 = millis();
+    while (millis() - t0 < 2000) {
       actualizarBuffer();
     }
   }
