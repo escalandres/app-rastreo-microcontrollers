@@ -635,6 +635,7 @@ bool smsCompletoDisponible() {
   }
   // Para lectura por memoria (cuando hay sleep/PSM)
   if (rxBuffer.indexOf("+CMGL:") != -1 || rxBuffer.indexOf("+CMGR:") != -1) {
+      enviarSMS("Para lectura por memoria", String(config.receptor));
       // Busca al menos un salto después del encabezado
       int idx = rxBuffer.indexOf("+CMGL:");
       if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
