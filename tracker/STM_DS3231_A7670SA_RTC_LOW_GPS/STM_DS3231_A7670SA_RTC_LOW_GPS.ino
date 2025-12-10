@@ -1044,7 +1044,7 @@ void setup() {
 
   if(config.rastreoActivo && config.modoAhorro){
     configurarModoAhorroEnergia();
-  }else{
+  }else if(config.rastreoActivo && !config.modoAhorro){
     configurarRastreoContinuo(45); // Cada 45 segundos
   }
 
