@@ -1205,7 +1205,9 @@ void loop() {
     enviarSMS(rxBuffer, String(config.receptor)); // imprime para ver si hay mensajes en SM o ME
 
     rxBuffer = "";
-    enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
+    // enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
+    enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+    
     enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
 
     t0 = millis();
@@ -1213,7 +1215,8 @@ void loop() {
 
     if (!smsCompletoDisponible()) {
       rxBuffer = "";
-      enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+      // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+      enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
       enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
       while (millis() - t0 < 2000) actualizarBuffer();
     }
