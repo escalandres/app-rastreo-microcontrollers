@@ -1143,6 +1143,26 @@ void setup() {
 //   }
 // }
 
+void leerSMSPendientes() {
+  rxBuffer = "";
+  enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+  enviarComando("AT+CMGL=\"ALL\"", 5000);
+
+  unsigned long t0 = millis();
+  while (millis() - t0 < 6000) actualizarBuffer();
+
+  enviarSMS(rxBuffer, String(config.receptor)); // debug
+
+  // Buscar todos los +CMGL:
+  int pos = 0;
+  while ((pos = rxBuffer.indexOf("+CMGL:", pos)) != -1) {
+    int fin = rxBuffer.indexOf("\r\n", pos);
+    String sms = rxBuffer.substring(pos, fin);
+    procesarComando(sms);
+    pos = fin;
+  }
+}
+
 void loop() {
   // Siempre escuchar fragmentos entrantes
   actualizarBuffer();
@@ -1196,40 +1216,41 @@ void loop() {
     // Delay inicial para que la pila de SMS esté lista
     delay(1000);
 
+    leerSMSPendientes();
 
-    // Leer SMS pendientes desde memoria
-    rxBuffer = "";
-    enviarComando("AT+CPMS?", 1000);
-    unsigned long t0 = millis();
-    while (millis() - t0 < 1000) actualizarBuffer();
-    enviarSMS(rxBuffer, String(config.receptor)); // imprime para ver si hay mensajes en SM o ME
-
-    rxBuffer = "";
-    // enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-    enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-    
-    enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
-
+    // // Leer SMS pendientes desde memoria
+    // rxBuffer = "";
+    // enviarComando("AT+CPMS?", 1000);
     // unsigned long t0 = millis();
-    t0 = millis();
-    while (millis() - t0 < 2000) actualizarBuffer();
+    // while (millis() - t0 < 1000) actualizarBuffer();
+    // enviarSMS(rxBuffer, String(config.receptor)); // imprime para ver si hay mensajes en SM o ME
 
-    if (!smsCompletoDisponible()) {
-      enviarSMS("Revisando ALL.", String(config.receptor));
-      rxBuffer = "";
-      // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-      // enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-      // enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
-      t0 = millis();
-      enviarComando("AT+CMGL=\"ALL\"", 2000);
-      while (millis() - t0 < 2000) actualizarBuffer();
-    }
+    // rxBuffer = "";
+    // // enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
+    // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+    
+    // enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
 
-    // Revisar si hay mensajes SMS pendientes
-    if (smsCompletoDisponible()) {
-      String mensaje = obtenerSMS();
-      procesarComando(mensaje);
-    }
+    // // unsigned long t0 = millis();
+    // t0 = millis();
+    // while (millis() - t0 < 2000) actualizarBuffer();
+
+    // if (!smsCompletoDisponible()) {
+    //   enviarSMS("Revisando ALL.", String(config.receptor));
+    //   rxBuffer = "";
+    //   // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+    //   // enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
+    //   // enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
+    //   t0 = millis();
+    //   enviarComando("AT+CMGL=\"ALL\"", 5000);
+    //   while (millis() - t0 < 2000) actualizarBuffer();
+    // }
+
+    // // Revisar si hay mensajes SMS pendientes
+    // if (smsCompletoDisponible()) {
+    //   String mensaje = obtenerSMS();
+    //   procesarComando(mensaje);
+    // }
 
     // Leer GPS y enviar datos
     String datosGPS = leerYGuardarGPS();
