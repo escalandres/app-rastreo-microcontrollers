@@ -1199,21 +1199,23 @@ void loop() {
 
     // Leer SMS pendientes desde memoria
     rxBuffer = "";
-    // enviarComando("AT+CPMS?", 1000);
-    // unsigned long t0 = millis();
-    // while (millis() - t0 < 1000) actualizarBuffer();
-    // enviarSMS(rxBuffer, String(config.receptor)); // imprime para ver si hay mensajes en SM o ME
+    enviarComando("AT+CPMS?", 1000);
+    unsigned long t0 = millis();
+    while (millis() - t0 < 1000) actualizarBuffer();
+    enviarSMS(rxBuffer, String(config.receptor)); // imprime para ver si hay mensajes en SM o ME
 
-    // rxBuffer = "";
+    rxBuffer = "";
     // enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
     enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
     
     enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
 
-    unsigned long t0 = millis();
+    // unsigned long t0 = millis();
+    t0 = millis();
     while (millis() - t0 < 2000) actualizarBuffer();
 
     if (!smsCompletoDisponible()) {
+      enviarSMS("Revisando ALL.", String(config.receptor));
       rxBuffer = "";
       // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
       // enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
