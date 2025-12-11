@@ -646,7 +646,7 @@ bool smsCompletoDisponible() {
       return true;
   }
 
-  enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
+  enviarSMS("rxBuffer: "+rxBuffer, String(config.numUsuario));
 
 
   return false;
@@ -1216,8 +1216,10 @@ void loop() {
     if (!smsCompletoDisponible()) {
       rxBuffer = "";
       // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-      enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-      enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
+      // enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
+      // enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
+      t0 = millis();
+      enviarComando("AT+CMGL=\"ALL\"", 2000);
       while (millis() - t0 < 2000) actualizarBuffer();
     }
 
