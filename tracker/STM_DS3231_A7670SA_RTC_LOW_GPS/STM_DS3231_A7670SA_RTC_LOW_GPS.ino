@@ -1048,6 +1048,8 @@ void setup() {
     configurarModoAhorroEnergia();
   }else if(config.rastreoActivo && !config.modoAhorro){
     configurarRastreoContinuo(45); // Cada 45 segundos
+  }else{
+    enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
   }
 
   digitalWrite(STM_LED,HIGH);
