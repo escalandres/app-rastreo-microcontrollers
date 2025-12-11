@@ -1190,14 +1190,35 @@ void loop() {
     despertarA7670SA();
     iniciarA7670SA();
 
+    // Reconfigurar CNMI para modo ahorro
+    enviarComando("AT+CNMI=2,1,0,0,0", 1000);
+
+    // Delay inicial para que la pila de SMS esté lista
+    delay(1000);
+
+
     // Leer SMS pendientes desde memoria
     rxBuffer = "";
     enviarComando("AT+CPMS?", 1000);
+    unsigned long t0 = millis();
+    while (millis() - t0 < 1000) actualizarBuffer();
+    enviarSMS(rxBuffer, String(config.receptor)); // imprime para ver si hay mensajes en SM o ME
+
+    rxBuffer = "";
+    enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
     enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
 
-    unsigned long t0 = millis();
+    t0 = millis();
     while (millis() - t0 < 2000) actualizarBuffer();
 
+    if (!smsCompletoDisponible()) {
+      rxBuffer = "";
+      enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+      enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
+      while (millis() - t0 < 2000) actualizarBuffer();
+    }
+
+    // Revisar si hay mensajes SMS pendientes
     if (smsCompletoDisponible()) {
       String mensaje = obtenerSMS();
       procesarComando(mensaje);
