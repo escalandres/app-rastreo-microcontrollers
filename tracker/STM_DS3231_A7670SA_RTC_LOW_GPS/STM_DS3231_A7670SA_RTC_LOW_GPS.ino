@@ -1210,7 +1210,7 @@ void loop() {
     
     enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
 
-    t0 = millis();
+    unsigned long t0 = millis();
     while (millis() - t0 < 2000) actualizarBuffer();
 
     if (!smsCompletoDisponible()) {
