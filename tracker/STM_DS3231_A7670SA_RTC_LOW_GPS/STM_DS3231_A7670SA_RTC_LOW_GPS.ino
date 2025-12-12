@@ -645,9 +645,16 @@ bool smsCompletoDisponible() {
       // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
       return true;
   }
-  if(rxBuffer.length() > 0){
-    //
-    enviarSMS("rxBuffer: "+rxBuffer, String(config.numUsuario));
+  if (rxBuffer != "" &&
+    rxBuffer.indexOf("+CNMI") == -1 &&
+    rxBuffer.indexOf("AT+CPMS") == -1 &&
+    rxBuffer.indexOf("OK") == -1) {
+    
+    String mensaje = "rxBuffer: " + rxBuffer;
+    if (mensaje.length() > 160) {
+      mensaje = mensaje.substring(0, 160); // truncar para SMS
+    }
+    enviarSMS(mensaje, String(config.numUsuario));
   }
 
   return false;
