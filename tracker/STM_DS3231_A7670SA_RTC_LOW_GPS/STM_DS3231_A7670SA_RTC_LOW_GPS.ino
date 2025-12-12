@@ -700,6 +700,7 @@ bool smsCompletoDisponible() {
       // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
       return true;
   }
+  rxBuffer.trim();
   if (rxBuffer != "" &&
     rxBuffer.indexOf("+CNMI") == -1 &&
     rxBuffer.indexOf("AT+CPMS") == -1 &&
