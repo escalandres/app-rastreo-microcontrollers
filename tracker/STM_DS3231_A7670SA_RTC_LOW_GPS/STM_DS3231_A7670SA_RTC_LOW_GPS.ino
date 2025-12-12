@@ -645,9 +645,10 @@ bool smsCompletoDisponible() {
       // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
       return true;
   }
-
-  enviarSMS("rxBuffer: "+rxBuffer, String(config.numUsuario));
-
+  if(rxBuffer.length() > 0){
+    //
+    enviarSMS("rxBuffer: "+rxBuffer, String(config.numUsuario));
+  }
 
   return false;
 }
@@ -947,27 +948,54 @@ String hexToDec(String hexStr) {
   return String(decVal);
 }
 
+// float leerVoltaje(int pin) {
+//   // Configuracion divisor de voltaje
+//   const float R1 = 51000.0;
+//   const float R2 = 20000.0;
+//   const float Vref = 3.3;  // referencia ADC
+//   const float factorDivisor = (R1 + R2) / R2;  // ≈ 3.55
+
+//   // int lecturaADC = analogRead(pin);
+//   float suma = 0;
+//   for (int i = 0; i < 10; i++) {
+//     suma += analogRead(pin);
+//     delay(5);
+//   }
+
+//   int lecturaADC = suma / 10;
+//   // Convertir lectura ADC a voltaje real de la batería
+//   float voltajeADC = (lecturaADC / 4095.0) * Vref;
+//   float voltajeBateria = voltajeADC * factorDivisor;
+
+//   return voltajeBateria;
+// }
+
 float leerVoltaje(int pin) {
-  // Configuracion divisor de voltaje
   const float R1 = 51000.0;
   const float R2 = 20000.0;
-  const float Vref = 3.3;  // referencia ADC
+  const float Vref = 3.3;
   const float factorDivisor = (R1 + R2) / R2;  // ≈ 3.55
 
-  // int lecturaADC = analogRead(pin);
+  // --- Lectura "dummy" obligatoria con divisores de alta impedancia ---
+  analogRead(pin);  
+  delayMicroseconds(200);  // pequeño delay para estabilizar
+
+  // --- Promediar varias lecturas ---
   float suma = 0;
   for (int i = 0; i < 10; i++) {
     suma += analogRead(pin);
-    delay(5);
+    delay(3);  // con divisores altos no conviene muestrear demasiado rápido
   }
 
-  int lecturaADC = suma / 10;
-  // Convertir lectura ADC a voltaje real de la batería
+  float lecturaADC = suma / 10.0;
+
+  // Convertir a voltaje
   float voltajeADC = (lecturaADC / 4095.0) * Vref;
   float voltajeBateria = voltajeADC * factorDivisor;
 
   return voltajeBateria;
 }
+
 
 int calcularNivelBateria(float v) {
   if (v >= 4.10) return 100;
@@ -1184,12 +1212,14 @@ void loop() {
   }
   else if (config.rastreoActivo && !config.modoAhorro) {
     // Rastreo continuo: usar RTC o millis para intervalos
+    // Primero revisar SMS pendientes
     if (smsCompletoDisponible()) {
       encenderLED();
       String mensaje = obtenerSMS();
       procesarComando(mensaje);
       apagarLED();
     }
+    // Luego revisar si es tiempo de rastrear
     if (alarmFired) {
       encenderLED();
       alarmFired = false; // reset bandera
