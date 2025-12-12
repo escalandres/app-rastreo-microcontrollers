@@ -113,16 +113,26 @@ void setAlarmFired() {
 
 void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos = 0) {
   // Limpiar alarmas anteriores
-    rtc.clearAlarm(1);
-    rtc.clearAlarm(2);
-    rtc.disableAlarm(1);
-    rtc.disableAlarm(2);
+  rtc.clearAlarm(1);
+  rtc.clearAlarm(2);
+  rtc.disableAlarm(1);
+  rtc.disableAlarm(2);
 
-    // SQW en modo alarma (no onda cuadrada)
-    rtc.writeSqwPinMode(DS3231_OFF);
+  // SQW en modo alarma (no onda cuadrada)
+  rtc.writeSqwPinMode(DS3231_OFF);
+  DateTime now = rtc.now();
 
-  //Set Alarm to be trigged in X
-  rtc.setAlarm1(rtc.now() + TimeSpan(dias, horas, minutos, segundos), DS3231_A1_Second);  // this mode triggers the alarm when the seconds match.
+  if(segundos > 0){
+    DateTime nextAlarm = now + TimeSpan(0, 0, 0, segundos);
+
+    //Set Alarm to be trigged in X seconds
+    rtc.setAlarm1(nextAlarm, DS3231_A1_Second);  // this mode triggers the alarm when the seconds match.
+  }else{
+    DateTime nextAlarm = now + TimeSpan(dias, horas, minutos, 0);
+
+    //Set Alarm to be trigged in X
+    rtc.setAlarm2(nextAlarm, DS3231_A2_Minute);  // this mode triggers the alarm when the seconds match.
+  }
 
   alarmFired = false;
 }
@@ -244,19 +254,64 @@ void enviarMensaje(String mensaje, String number) {
   delay(1000);
 }
 
-void enviarSMS(String SMS, String number = config.receptor)
-{
-  enviarComando("AT+CMGF=1",500);
+// void enviarSMS(String SMS, String number = config.receptor)
+// {
+//   enviarComando("AT+CMGF=1",500);
 
-  enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000); //Mobile phone number to send message
+//   enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000); //Mobile phone number to send message
 
+//   A7670SA.println(SMS);
+//   delay(500);
+//   A7670SA.println((char)26);// ASCII code of CTRL+Z
+//   delay(500);
+//   _buffer = _readSerial();
+
+//   delay(1000);
+// }
+
+bool enviarSMS(String SMS, String number = config.receptor) {
+  // 1. Validar registro en red
+  enviarComando("AT+CREG?", 1000);
+  String resp = _readSerial();
+  if (!(resp.indexOf("+CREG: 0,1") != -1 || resp.indexOf("+CREG: 0,5") != -1)) {
+    // No registrado en red
+    return false;
+  }
+
+  // 2. Validar nivel de señal
+  enviarComando("AT+CSQ", 1000);
+  resp = _readSerial();
+  int csq = -1;
+  int commaIndex = resp.indexOf(",");
+  if (resp.indexOf("+CSQ:") != -1) {
+    csq = resp.substring(resp.indexOf(":") + 1, commaIndex).toInt();
+  }
+  if (csq < 10) {
+    // Señal muy baja, no enviar
+    return false;
+  }
+
+  // 3. Configurar modo texto
+  enviarComando("AT+CMGF=1", 500);
+
+  // 4. Iniciar envío
+  enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000);
+
+  // 5. Escribir mensaje y terminar con Ctrl+Z
   A7670SA.println(SMS);
   delay(500);
-  A7670SA.println((char)26);// ASCII code of CTRL+Z
+  A7670SA.write(26); // ASCII Ctrl+Z
   delay(500);
-  _buffer = _readSerial();
 
-  delay(1000);
+  // 6. Leer respuesta y validar confirmación
+  resp = _readSerial();
+  if (resp.indexOf("+CMGS:") != -1 && resp.indexOf("OK") != -1) {
+    return true; // SMS enviado correctamente
+  } else {
+    // Error de envío → limpiar buffer y devolver false
+    while (A7670SA.available()) A7670SA.read();
+    return false;
+  }
 }
 
 // bool esperarRegistroRed(unsigned long timeout = 30000) {
@@ -810,40 +865,77 @@ void debugEEPROMporSMS() {
   enviarSMS(debug, "+525620577634");
 }
 
+// String leerYGuardarGPS() {
+//     String nuevaLat = "";
+//     String nuevaLon = "";
+//     bool ubicacionActualizada = false;
+//     unsigned long startTime = millis();
+//     int intentos = 0;
+
+//     while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) {
+//         while (NEO8M.available()) {
+//             char c = NEO8M.read();
+//             gps1.encode(c);
+
+//             // Verifica si la ubicación es válida y hay satélites disponibles
+//             if (gps1.location.isUpdated() && gps1.location.isValid() && gps1.satellites.value() > 0) {
+//                 nuevaLat = String(gps1.location.lat(), 6);
+//                 nuevaLon = String(gps1.location.lng(), 6);
+
+//                 latitude = nuevaLat;
+//                 longitude = nuevaLon;
+//                 ubicacionActualizada = true;
+//                 break;
+//             }
+//         }
+//         delay(50);
+//         intentos++;
+//     }
+
+//     // Si NO hay conexión con satélites, actualiza los valores a 0.0 en el STM32
+//     if (gps1.satellites.value() == 0 || latitude == "" || longitude == "") {
+//         latitude = "0.0";
+//         longitude = "0.0";
+//     }
+
+//     return "lat:" + latitude + ",lon:" + longitude;
+// }
+
 String leerYGuardarGPS() {
-    String nuevaLat = "";
-    String nuevaLon = "";
-    bool ubicacionActualizada = false;
-    unsigned long startTime = millis();
-    int intentos = 0;
+  String nuevaLat = "";
+  String nuevaLon = "";
+  bool ubicacionActualizada = false;
+  unsigned long startTime = millis();
+  int intentos = 0;
 
-    while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) {
-        while (NEO8M.available()) {
-            char c = NEO8M.read();
-            gps1.encode(c);
+  while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) {
+      while (NEO8M.available()) {
+          char c = NEO8M.read();
+          gps1.encode(c);
 
-            // Verifica si la ubicación es válida y hay satélites disponibles
-            if (gps1.location.isUpdated() && gps1.location.isValid() && gps1.satellites.value() > 0) {
-                nuevaLat = String(gps1.location.lat(), 6);
-                nuevaLon = String(gps1.location.lng(), 6);
+          if (gps1.location.isUpdated() && gps1.location.isValid() && gps1.satellites.value() > 0) {
+              nuevaLat = String(gps1.location.lat(), 6);
+              nuevaLon = String(gps1.location.lng(), 6);
 
-                latitude = nuevaLat;
-                longitude = nuevaLon;
-                ubicacionActualizada = true;
-                break;
-            }
-        }
-        delay(50);
-        intentos++;
-    }
+              latitude = nuevaLat;
+              longitude = nuevaLon;
+              ubicacionActualizada = true;
+              break;
+          }
+      }
+      delay(50);
+      intentos++;
+  }
 
-    // Si NO hay conexión con satélites, actualiza los valores a 0.0 en el STM32
-    if (gps1.satellites.value() == 0 || latitude == "" || longitude == "") {
-        latitude = "0.0";
-        longitude = "0.0";
-    }
+  // Caso 1: nunca hubo fix → mandar 0.0
+  if (!ubicacionActualizada && (latitude == "" || longitude == "")) {
+      latitude = "0.0";
+      longitude = "0.0";
+  }
+  // Caso 2: ya hubo fix antes → conservar última coordenada válida
+  // No pisar con 0.0 aunque momentáneamente satélites sea 0
 
-    return "lat:" + latitude + ",lon:" + longitude;
+  return "lat:" + latitude + ",lon:" + longitude;
 }
 
 void corregirRTC() {
@@ -955,28 +1047,6 @@ String hexToDec(String hexStr) {
   return String(decVal);
 }
 
-// float leerVoltaje(int pin) {
-//   // Configuracion divisor de voltaje
-//   const float R1 = 51000.0;
-//   const float R2 = 20000.0;
-//   const float Vref = 3.3;  // referencia ADC
-//   const float factorDivisor = (R1 + R2) / R2;  // ≈ 3.55
-
-//   // int lecturaADC = analogRead(pin);
-//   float suma = 0;
-//   for (int i = 0; i < 10; i++) {
-//     suma += analogRead(pin);
-//     delay(5);
-//   }
-
-//   int lecturaADC = suma / 10;
-//   // Convertir lectura ADC a voltaje real de la batería
-//   float voltajeADC = (lecturaADC / 4095.0) * Vref;
-//   float voltajeBateria = voltajeADC * factorDivisor;
-
-//   return voltajeBateria;
-// }
-
 float leerVoltaje(int pin) {
   const float R1 = 51000.0;
   const float R2 = 20000.0;
@@ -991,7 +1061,7 @@ float leerVoltaje(int pin) {
   float suma = 0;
   for (int i = 0; i < 10; i++) {
     suma += analogRead(pin);
-    delay(3);  // con divisores altos no conviene muestrear demasiado rápido
+    delay(5);  // con divisores altos no conviene muestrear demasiado rápido
   }
 
   float lecturaADC = suma / 10.0;
@@ -1239,6 +1309,9 @@ void loop() {
   else if (config.rastreoActivo && config.modoAhorro && alarmFired) {
     // Rastreo con modo ahorro
     alarmFired = false; // reset bandera
+    // limpiar flags de alarma
+    rtc.clearAlarm(1);
+    rtc.clearAlarm(2);
 
     pinMode(STM_LED, OUTPUT);
     delay(200);
