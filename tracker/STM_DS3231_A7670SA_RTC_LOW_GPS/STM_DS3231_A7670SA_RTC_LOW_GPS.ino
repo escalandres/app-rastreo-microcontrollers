@@ -273,23 +273,22 @@ bool enviarSMS(String SMS, String number = config.receptor) {
   // 1. Validar registro en red
   enviarComando("AT+CREG?", 1000);
   String resp = _readSerial();
-  if (!(resp.indexOf("+CREG: 0,1") != -1 || resp.indexOf("+CREG: 0,5") != -1)) {
-    // No registrado en red
+  resp.trim();
+  if (!(resp.indexOf("0,1") != -1 || resp.indexOf("0,5") != -1 || resp.indexOf("1,1") != -1)) {
     return false;
   }
 
   // 2. Validar nivel de señal
   enviarComando("AT+CSQ", 1000);
   resp = _readSerial();
+  resp.trim();
   int csq = -1;
-  int commaIndex = resp.indexOf(",");
   if (resp.indexOf("+CSQ:") != -1) {
-    csq = resp.substring(resp.indexOf(":") + 1, commaIndex).toInt();
+    int start = resp.indexOf(":") + 1;
+    int end = resp.indexOf(",", start);
+    csq = resp.substring(start, end).toInt();
   }
-  if (csq < 10) {
-    // Señal muy baja, no enviar
-    return false;
-  }
+  if (csq < 10) return false;
 
   // 3. Configurar modo texto
   enviarComando("AT+CMGF=1", 500);
@@ -305,10 +304,10 @@ bool enviarSMS(String SMS, String number = config.receptor) {
 
   // 6. Leer respuesta y validar confirmación
   resp = _readSerial();
-  if (resp.indexOf("+CMGS:") != -1 && resp.indexOf("OK") != -1) {
-    return true; // SMS enviado correctamente
+  resp.trim();
+  if (resp.indexOf("+CMGS:") != -1 || resp.indexOf("OK") != -1) {
+    return true;
   } else {
-    // Error de envío → limpiar buffer y devolver false
     while (A7670SA.available()) A7670SA.read();
     return false;
   }
