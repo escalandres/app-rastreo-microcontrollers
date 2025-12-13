@@ -270,7 +270,7 @@ void enviarMensaje(String mensaje, String number) {
 // }
 
 bool enviarSMS(String SMS, String number = config.receptor) {
-  // 1. Validar registro en red
+  // Validar registro
   enviarComando("AT+CREG?", 1000);
   String resp = _readSerial();
   resp.trim();
@@ -278,7 +278,7 @@ bool enviarSMS(String SMS, String number = config.receptor) {
     return false;
   }
 
-  // 2. Validar nivel de señal
+  // Validar señal
   enviarComando("AT+CSQ", 1000);
   resp = _readSerial();
   resp.trim();
@@ -290,21 +290,24 @@ bool enviarSMS(String SMS, String number = config.receptor) {
   }
   if (csq < 10) return false;
 
-  // 3. Configurar modo texto
+  // Configurar modo texto
   enviarComando("AT+CMGF=1", 500);
 
-  // 4. Iniciar envío
+  // Iniciar envío y esperar prompt
   enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000);
-
-  // 5. Escribir mensaje y terminar con Ctrl+Z
-  A7670SA.println(SMS);
-  delay(500);
-  A7670SA.write(26); // ASCII Ctrl+Z
-  delay(500);
-
-  // 6. Leer respuesta y validar confirmación
   resp = _readSerial();
-  resp.trim();
+  if (resp.indexOf(">") == -1) {
+    return false; // no llegó prompt
+  }
+
+  // Mandar mensaje
+  A7670SA.println(SMS);
+  delay(200);
+  A7670SA.write(26); // Ctrl+Z
+  delay(500);
+
+  // Validar confirmación
+  resp = _readSerial();
   if (resp.indexOf("+CMGS:") != -1 || resp.indexOf("OK") != -1) {
     return true;
   } else {
@@ -312,7 +315,6 @@ bool enviarSMS(String SMS, String number = config.receptor) {
     return false;
   }
 }
-
 // bool esperarRegistroRed(unsigned long timeout = 30000) {
 //   unsigned long start = millis();
 //   int intentos = 0;
