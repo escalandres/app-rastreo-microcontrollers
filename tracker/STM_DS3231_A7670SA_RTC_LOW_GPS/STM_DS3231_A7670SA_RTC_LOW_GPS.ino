@@ -254,26 +254,27 @@ void enviarMensaje(String mensaje, String number) {
   delay(1000);
 }
 
-// void enviarSMS(String SMS, String number = config.receptor)
-// {
-//   enviarComando("AT+CMGF=1",500);
+void enviarSMS2(String SMS, String number = config.receptor)
+{
+  enviarComando("AT+CMGF=1",500);
 
-//   enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000); //Mobile phone number to send message
+  enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000); //Mobile phone number to send message
 
-//   A7670SA.println(SMS);
-//   delay(500);
-//   A7670SA.println((char)26);// ASCII code of CTRL+Z
-//   delay(500);
-//   _buffer = _readSerial();
+  A7670SA.println(SMS);
+  delay(500);
+  A7670SA.println((char)26);// ASCII code of CTRL+Z
+  delay(500);
+  _buffer = _readSerial();
 
-//   delay(1000);
-// }
+  delay(1000);
+}
 
 bool enviarSMS(String SMS, String number = config.receptor) {
   // Validar registro
   enviarComando("AT+CREG?", 1000);
   String resp = _readSerial();
   resp.trim();
+  enviarSMS2(resp, String(config.receptor));
   if (!(resp.indexOf("0,1") != -1 || resp.indexOf("0,5") != -1 || resp.indexOf("1,1") != -1)) {
     return false;
   }
