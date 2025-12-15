@@ -409,8 +409,11 @@ int nivelSenal() {
 // }
 
 void configurarModoAhorroEnergia() {
-  // CNMI para guardar SMS en memoria
-  enviarComando("AT+CNMI=2,1,0,0,0",2000);
+  // Configurar almacenamiento en SIM
+  enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
+
+  // Configurar CNMI para guardar en memoria sin notificar
+  enviarComando("AT+CNMI=2,1,0,0,0", 1000);
 
   // Configurar para modo ahorro de energia
   // Desactivar LED
@@ -438,6 +441,9 @@ void configurarModoAhorroEnergia() {
 }
 
 void configurarRastreoContinuo(unsigned int segundos = 45) {
+  // Configurar almacenamiento en memoria interna
+  enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+
   // CNMI para SMS en vivo
   enviarComando("AT+CNMI=1,2,0,0,0");
   // RTC alarma cada X segundos
@@ -1314,21 +1320,23 @@ void setup() {
 
 void leerSMSPendientes() {
   rxBuffer = "";
+
+  // 1. Intentar en memoria interna
   enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-  enviarComando("AT+CMGL=\"ALL\"", 5000);
+  enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
+  String resp = _readSerial();
 
-  unsigned long t0 = millis();
-  while (millis() - t0 < 6000) actualizarBuffer();
+  // 2. Si no hay en ME, probar en SIM
+  if (resp.indexOf("+CMGL:") == -1) {
+    enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
+    enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
+    resp = _readSerial();
+  }
 
-  enviarSMS(rxBuffer, String(config.receptor)); // debug
-
-  // Buscar todos los +CMGL:
-  int pos = 0;
-  while ((pos = rxBuffer.indexOf("+CMGL:", pos)) != -1) {
-    int fin = rxBuffer.indexOf("\r\n", pos);
-    String sms = rxBuffer.substring(pos, fin);
-    procesarComando(sms);
-    pos = fin;
+  // 3. Procesar si hay mensajes
+  if (resp.indexOf("+CMGL:") != -1) {
+    enviarSMS(resp, String(config.numUsuario)); // imprime para ver si hay mensajes en SM o ME
+    // procesarComando(resp); // tu helper para parsear y actuar
   }
 }
 
