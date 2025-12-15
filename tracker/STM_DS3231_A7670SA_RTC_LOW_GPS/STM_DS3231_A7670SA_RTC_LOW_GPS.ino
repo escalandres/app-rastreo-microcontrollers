@@ -270,6 +270,9 @@ void enviarSMS2(String SMS, String number = config.receptor)
 }
 
 bool enviarSMS(String SMS, String number = config.receptor) {
+  // Limpiar buffer antes de validar condiciones de envio
+  limpiarBufferA7670SA();
+
   // Validar registro
   enviarComando("AT+CREG?", 1000);
   String resp = _readSerial();
@@ -293,6 +296,9 @@ bool enviarSMS(String SMS, String number = config.receptor) {
 
   // Configurar modo texto
   enviarComando("AT+CMGF=1", 500);
+
+  // Limpiar buffer antes de enviar
+  limpiarBufferA7670SA();
 
   // Iniciar envío y esperar prompt
   enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000);
