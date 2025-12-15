@@ -254,9 +254,14 @@ void enviarMensaje(String mensaje, String number) {
   delay(1000);
 }
 
-void enviarSMS2(String SMS, String number = config.receptor)
+void enviarSMS(String SMS, String number = config.receptor)
 {
-  enviarComando("AT+CMGF=1",500);
+  // Limpiar buffer antes de enviar
+  limpiarBufferA7670SA();
+  delay(1000);
+
+  // Configurar modo texto
+  enviarComando("AT+CMGF=1",500);  
 
   enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000); //Mobile phone number to send message
 
@@ -306,69 +311,69 @@ int nivelSenal() {
   return -1; // no válido
 }
 
-bool enviarSMS(String SMS, String number = config.receptor) {
-  // --- Validar registro en red ---
-  enviarComando("AT+CREG?", 1000);
-  unsigned long start = millis();
-  bool registrado = false;
-  while (millis() - start < 2000) {
-    if (A7670SA.available()) {
-      String linea = A7670SA.readStringUntil('\n');
-      linea.trim();
-      if (linea.startsWith("+CREG:")) {
-        if (linea.indexOf(",1") != -1 || linea.indexOf(",5") != -1) {
-          registrado = true;
-        }
-        break;
-      }
-      // ignorar URCs como *ATREADY, *ISIMAID
-    }
-  }
-  if (!registrado) return false;
+// bool enviarSMS(String SMS, String number = config.receptor) {
+//   // --- Validar registro en red ---
+//   enviarComando("AT+CREG?", 1000);
+//   unsigned long start = millis();
+//   bool registrado = false;
+//   while (millis() - start < 2000) {
+//     if (A7670SA.available()) {
+//       String linea = A7670SA.readStringUntil('\n');
+//       linea.trim();
+//       if (linea.startsWith("+CREG:")) {
+//         if (linea.indexOf(",1") != -1 || linea.indexOf(",5") != -1) {
+//           registrado = true;
+//         }
+//         break;
+//       }
+//       // ignorar URCs como *ATREADY, *ISIMAID
+//     }
+//   }
+//   if (!registrado) return false;
 
-  // --- Validar nivel de señal ---
-  enviarComando("AT+CSQ", 1000);
-  int csq = -1;
-  start = millis();
-  while (millis() - start < 2000) {
-    if (A7670SA.available()) {
-      String linea = A7670SA.readStringUntil('\n');
-      linea.trim();
-      if (linea.startsWith("+CSQ:")) {
-        int startIdx = linea.indexOf(":") + 1;
-        int endIdx = linea.indexOf(",", startIdx);
-        csq = linea.substring(startIdx, endIdx).toInt();
-        break;
-      }
-    }
-  }
-  if (csq < 10) return false; // señal muy baja
+//   // --- Validar nivel de señal ---
+//   enviarComando("AT+CSQ", 1000);
+//   int csq = -1;
+//   start = millis();
+//   while (millis() - start < 2000) {
+//     if (A7670SA.available()) {
+//       String linea = A7670SA.readStringUntil('\n');
+//       linea.trim();
+//       if (linea.startsWith("+CSQ:")) {
+//         int startIdx = linea.indexOf(":") + 1;
+//         int endIdx = linea.indexOf(",", startIdx);
+//         csq = linea.substring(startIdx, endIdx).toInt();
+//         break;
+//       }
+//     }
+//   }
+//   if (csq < 10) return false; // señal muy baja
 
-  // --- Configurar modo texto ---
-  enviarComando("AT+CMGF=1", 500);
+//   // --- Configurar modo texto ---
+//   enviarComando("AT+CMGF=1", 500);
 
-  // --- Iniciar envío y esperar prompt '>' ---
-  enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000);
-  String resp = _readSerial();
-  if (resp.indexOf(">") == -1) {
-    return false; // no llegó prompt
-  }
+//   // --- Iniciar envío y esperar prompt '>' ---
+//   enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000);
+//   String resp = _readSerial();
+//   if (resp.indexOf(">") == -1) {
+//     return false; // no llegó prompt
+//   }
 
-  // --- Mandar mensaje ---
-  A7670SA.println(SMS);
-  delay(200);
-  A7670SA.write(26); // Ctrl+Z
-  delay(500);
+//   // --- Mandar mensaje ---
+//   A7670SA.println(SMS);
+//   delay(200);
+//   A7670SA.write(26); // Ctrl+Z
+//   delay(500);
 
-  // --- Validar confirmación ---
-  resp = _readSerial();
-  if (resp.indexOf("+CMGS:") != -1 || resp.indexOf("OK") != -1) {
-    return true; // SMS enviado correctamente
-  } else {
-    while (A7670SA.available()) A7670SA.read(); // limpiar buffer
-    return false;
-  }
-}
+//   // --- Validar confirmación ---
+//   resp = _readSerial();
+//   if (resp.indexOf("+CMGS:") != -1 || resp.indexOf("OK") != -1) {
+//     return true; // SMS enviado correctamente
+//   } else {
+//     while (A7670SA.available()) A7670SA.read(); // limpiar buffer
+//     return false;
+//   }
+// }
 
 // bool esperarRegistroRed(unsigned long timeout = 30000) {
 //   unsigned long start = millis();
