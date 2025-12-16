@@ -311,103 +311,6 @@ int nivelSenal() {
   return -1; // no válido
 }
 
-// bool enviarSMS(String SMS, String number = config.receptor) {
-//   // --- Validar registro en red ---
-//   enviarComando("AT+CREG?", 1000);
-//   unsigned long start = millis();
-//   bool registrado = false;
-//   while (millis() - start < 2000) {
-//     if (A7670SA.available()) {
-//       String linea = A7670SA.readStringUntil('\n');
-//       linea.trim();
-//       if (linea.startsWith("+CREG:")) {
-//         if (linea.indexOf(",1") != -1 || linea.indexOf(",5") != -1) {
-//           registrado = true;
-//         }
-//         break;
-//       }
-//       // ignorar URCs como *ATREADY, *ISIMAID
-//     }
-//   }
-//   if (!registrado) return false;
-
-//   // --- Validar nivel de señal ---
-//   enviarComando("AT+CSQ", 1000);
-//   int csq = -1;
-//   start = millis();
-//   while (millis() - start < 2000) {
-//     if (A7670SA.available()) {
-//       String linea = A7670SA.readStringUntil('\n');
-//       linea.trim();
-//       if (linea.startsWith("+CSQ:")) {
-//         int startIdx = linea.indexOf(":") + 1;
-//         int endIdx = linea.indexOf(",", startIdx);
-//         csq = linea.substring(startIdx, endIdx).toInt();
-//         break;
-//       }
-//     }
-//   }
-//   if (csq < 10) return false; // señal muy baja
-
-//   // --- Configurar modo texto ---
-//   enviarComando("AT+CMGF=1", 500);
-
-//   // --- Iniciar envío y esperar prompt '>' ---
-//   enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000);
-//   String resp = _readSerial();
-//   if (resp.indexOf(">") == -1) {
-//     return false; // no llegó prompt
-//   }
-
-//   // --- Mandar mensaje ---
-//   A7670SA.println(SMS);
-//   delay(200);
-//   A7670SA.write(26); // Ctrl+Z
-//   delay(500);
-
-//   // --- Validar confirmación ---
-//   resp = _readSerial();
-//   if (resp.indexOf("+CMGS:") != -1 || resp.indexOf("OK") != -1) {
-//     return true; // SMS enviado correctamente
-//   } else {
-//     while (A7670SA.available()) A7670SA.read(); // limpiar buffer
-//     return false;
-//   }
-// }
-
-// bool esperarRegistroRed(unsigned long timeout = 30000) {
-//   unsigned long start = millis();
-//   int intentos = 0;
-  
-//   while (millis() - start < timeout) {
-//     limpiarBufferA7670SA();
-    
-//     enviarComando("AT+CREG?\r");
-//     delay(500);
-    
-//     String respuesta = leerRespuestaA7670SA(2000);
-    
-//     // +CREG: 0,1 = registrado en red local
-//     // +CREG: 0,5 = registrado en roaming
-//     if (respuesta.indexOf("+CREG: 0,1") != -1 || 
-//         respuesta.indexOf("+CREG: 0,5") != -1) {
-//       return true;
-//     }
-    
-//     // Indicador visual cada 5 intentos
-//     intentos++;
-//     if (intentos % 5 == 0) {
-//       digitalWrite(STM_LED, LOW);
-//       delay(100);
-//       digitalWrite(STM_LED, HIGH);
-//     }
-    
-//     delay(2000);
-//   }
-  
-//   return false;
-// }
-
 void configurarModoAhorroEnergia() {
   // Configurar almacenamiento en SIM
   enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
@@ -1326,12 +1229,14 @@ void leerSMSPendientes() {
   enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
   enviarComando("AT+CMGL=\"REC UNREAD\"", 5000); // más tiempo
   String resp = _readSerial();
+  enviarSMS("ME: " + resp, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
 
   if (resp.indexOf("+CMGL:") == -1) {
     // 2. Si no hay en ME, probar en SIM (SM)
     enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
     enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
     resp = _readSerial();
+    enviarSMS("SM: " + resp, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
   }
 
   // 3. Procesar si hay mensajes
