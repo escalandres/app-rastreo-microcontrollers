@@ -1319,26 +1319,47 @@ void setup() {
 // }
 
 void leerSMSPendientes() {
+  limpiarBufferA7670SA();
   rxBuffer = "";
 
-  // 1. Intentar en memoria interna
+  // 1. Intentar en memoria interna (ME)
   enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-  enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
+  enviarComando("AT+CMGL=\"REC UNREAD\"", 5000); // más tiempo
   String resp = _readSerial();
 
-  enviarSMS("ME" + resp, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
-  // 2. Si no hay en ME, probar en SIM
   if (resp.indexOf("+CMGL:") == -1) {
+    // 2. Si no hay en ME, probar en SIM (SM)
     enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-    enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
+    enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
     resp = _readSerial();
   }
-    enviarSMS("SM:" + resp, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
 
   // 3. Procesar si hay mensajes
   if (resp.indexOf("+CMGL:") != -1) {
-    enviarSMS(resp, String(config.numUsuario)); // imprime para ver si hay mensajes en SM o ME
-    // procesarComando(resp); // tu helper para parsear y actuar
+    int pos = 0;
+    while ((pos = resp.indexOf("+CMGL:", pos)) != -1) {
+      int fin = resp.indexOf("\r\n", pos);
+      if (fin == -1) break;
+      String smsHeader = resp.substring(pos, fin);
+      pos = fin + 2;
+
+      // Extraer cuerpo del SMS
+      int bodyEnd = resp.indexOf("\r\n", pos);
+      if (bodyEnd == -1) break;
+      String smsBody = resp.substring(pos, bodyEnd);
+      pos = bodyEnd + 2;
+
+      // Enviar solo el cuerpo por SMS al usuario
+      enviarSMS("SMS: " + smsBody, String(config.numUsuario));
+
+      // Opcional: borrar el SMS procesado
+      int idxStart = smsHeader.indexOf(":");
+      int idxEnd = smsHeader.indexOf(",");
+      if (idxStart != -1 && idxEnd != -1) {
+        int smsIndex = smsHeader.substring(idxStart + 1, idxEnd).toInt();
+        enviarComando("AT+CMGD=" + String(smsIndex), 1000);
+      }
+    }
   }
 }
 
