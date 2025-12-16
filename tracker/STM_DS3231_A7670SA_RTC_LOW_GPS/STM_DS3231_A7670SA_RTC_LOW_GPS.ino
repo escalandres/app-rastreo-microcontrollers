@@ -1326,14 +1326,14 @@ void leerSMSPendientes() {
   enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
   String resp = _readSerial();
 
-  enviarSMS(resp, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
+  enviarSMS("ME" + resp, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
   // 2. Si no hay en ME, probar en SIM
   if (resp.indexOf("+CMGL:") == -1) {
     enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
     enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
     resp = _readSerial();
   }
-    enviarSMS(resp, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
+    enviarSMS("SM:" + resp, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
 
   // 3. Procesar si hay mensajes
   if (resp.indexOf("+CMGL:") != -1) {
