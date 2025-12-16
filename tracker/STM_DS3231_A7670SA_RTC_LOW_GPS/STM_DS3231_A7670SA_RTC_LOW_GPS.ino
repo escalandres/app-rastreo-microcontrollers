@@ -1268,29 +1268,6 @@ void setup() {
 //   }
 // }
 
-void leerSMSPendientes() {
-  limpiarBufferA7670SA();
-  rxBuffer = "";
-
-  // 1. Leer en memoria interna (ME)
-  enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-  enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
-  String respME = _readSerial();
-  enviarSMS("ME: " + respME, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
-  if (respME.indexOf("+CMGL:") != -1) {
-    procesarSMS(respME, "ME");
-  }
-
-  // 2. Leer en SIM (SM)
-  enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-  enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
-  String respSM = _readSerial();
-  enviarSMS("SM: " + respSM, String(config.numUsuario)); // imprime para ver si hay mensajes en SM
-  if (respSM.indexOf("+CMGL:") != -1) {
-    procesarSMS(respSM, "SM");
-  }
-}
-
 void procesarSMS(String resp, String banco) {
   int pos = 0;
   while ((pos = resp.indexOf("+CMGL:", pos)) != -1) {
@@ -1313,6 +1290,29 @@ void procesarSMS(String resp, String banco) {
       int smsIndex = header.substring(idxStart + 1, idxEnd).toInt();
       enviarComando("AT+CMGD=" + String(smsIndex), 1000);
     }
+  }
+}
+
+void leerSMSPendientes() {
+  limpiarBufferA7670SA();
+  rxBuffer = "";
+
+  // 1. Leer en memoria interna (ME)
+  enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+  enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
+  String respME = _readSerial();
+  enviarSMS("ME: " + respME, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
+  if (respME.indexOf("+CMGL:") != -1) {
+    procesarSMS(respME, "ME");
+  }
+
+  // 2. Leer en SIM (SM)
+  enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
+  enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
+  String respSM = _readSerial();
+  enviarSMS("SM: " + respSM, String(config.numUsuario)); // imprime para ver si hay mensajes en SM
+  if (respSM.indexOf("+CMGL:") != -1) {
+    procesarSMS(respSM, "SM");
   }
 }
 
