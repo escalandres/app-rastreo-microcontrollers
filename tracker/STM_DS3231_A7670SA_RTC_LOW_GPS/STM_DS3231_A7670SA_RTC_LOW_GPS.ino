@@ -1357,7 +1357,7 @@ void leerSMSPendientes() {
       int idxEnd = smsHeader.indexOf(",");
       if (idxStart != -1 && idxEnd != -1) {
         int smsIndex = smsHeader.substring(idxStart + 1, idxEnd).toInt();
-        enviarComando("AT+CMGD=" + String(smsIndex), 1000);
+        enviarComando(("AT+CMGD=" + String(smsIndex)).c_str(), 1000);
       }
     }
   }
