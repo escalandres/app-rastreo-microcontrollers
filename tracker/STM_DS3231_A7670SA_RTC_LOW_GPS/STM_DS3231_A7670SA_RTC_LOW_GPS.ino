@@ -1317,6 +1317,9 @@ void procesarSMS(String resp, String banco) {
       int smsIndex = header.substring(idxStart + 1, idxEnd).toInt();
       enviarComando(("AT+CMGD=" + String(smsIndex)).c_str(), 1000);
     }
+
+    // Procesar comando en cuerpo del SMS
+    procesarComando(body);
   }
 }
 
