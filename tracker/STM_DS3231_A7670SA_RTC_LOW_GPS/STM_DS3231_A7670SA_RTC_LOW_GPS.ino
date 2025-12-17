@@ -1324,22 +1324,28 @@ void leerSMSPendientes() {
   limpiarBufferA7670SA();
   rxBuffer = "";
 
-  // 1. Leer en memoria interna (ME)
+  // 1. Leer en ME
   enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
   String respME = enviarComando("AT+CMGL=\"REC UNREAD\"", 10000);
-  // String respME = _readSerial(12000);
-  enviarSMS("ME: " + respME, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
   if (respME.indexOf("+CMGL:") != -1) {
     procesarSMS(respME, "ME");
+  } else {
+    respME = enviarComando("AT+CMGL=\"ALL\"", 10000);
+    if (respME.indexOf("+CMGL:") != -1) {
+      procesarSMS(respME, "ME");
+    }
   }
 
-  // 2. Leer en SIM (SM)
+  // 2. Leer en SM
   enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-  String respSM = enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
-  // String respSM = _readSerial(12000);
-  enviarSMS("SM: " + respSM, String(config.numUsuario)); // imprime para ver si hay mensajes en SM
+  String respSM = enviarComando("AT+CMGL=\"REC UNREAD\"", 10000);
   if (respSM.indexOf("+CMGL:") != -1) {
     procesarSMS(respSM, "SM");
+  } else {
+    respSM = enviarComando("AT+CMGL=\"ALL\"", 10000);
+    if (respSM.indexOf("+CMGL:") != -1) {
+      procesarSMS(respSM, "SM");
+    }
   }
 }
 
