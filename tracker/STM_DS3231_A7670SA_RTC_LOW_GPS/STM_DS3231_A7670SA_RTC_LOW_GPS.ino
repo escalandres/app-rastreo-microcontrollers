@@ -139,9 +139,32 @@ void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos
 
 // ---------- Funciones del A7670SA ----------
 
-void enviarComando(const char* comando, int espera = 1000) {
+// void enviarComando(const char* comando, int espera = 1000) {
+//   A7670SA.println(comando);
+//   delay(espera);
+// }
+
+String enviarComando(const char* comando, unsigned long timeout = 1000) {
+  // 1. Limpiar buffer antes de enviar
+  while (A7670SA.available()) {
+    A7670SA.read();
+  }
+
+  // 2. Enviar comando
   A7670SA.println(comando);
-  delay(espera);
+
+  // 3. Leer respuesta con timeout real
+  String resp = "";
+  unsigned long start = millis();
+  while (millis() - start < timeout) {
+    while (A7670SA.available()) {
+      char c = A7670SA.read();
+      resp += c;
+      start = millis(); // reinicia timeout si siguen llegando datos
+    }
+  }
+
+  return resp;
 }
 
 void iniciarA7670SA(){
@@ -1303,8 +1326,8 @@ void leerSMSPendientes() {
 
   // 1. Leer en memoria interna (ME)
   enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-  enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
-  String respME = _readSerial(12000);
+  String respME = enviarComando("AT+CMGL=\"REC UNREAD\"", 10000);
+  // String respME = _readSerial(12000);
   enviarSMS("ME: " + respME, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
   if (respME.indexOf("+CMGL:") != -1) {
     procesarSMS(respME, "ME");
@@ -1312,8 +1335,8 @@ void leerSMSPendientes() {
 
   // 2. Leer en SIM (SM)
   enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-  enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
-  String respSM = _readSerial(12000);
+  String respSM = enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
+  // String respSM = _readSerial(12000);
   enviarSMS("SM: " + respSM, String(config.numUsuario)); // imprime para ver si hay mensajes en SM
   if (respSM.indexOf("+CMGL:") != -1) {
     procesarSMS(respSM, "SM");
