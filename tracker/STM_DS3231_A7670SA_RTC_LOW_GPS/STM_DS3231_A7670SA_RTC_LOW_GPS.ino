@@ -139,12 +139,12 @@ void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos
 
 // ---------- Funciones del A7670SA ----------
 
-// void enviarComando(const char* comando, int espera = 1000) {
-//   A7670SA.println(comando);
-//   delay(espera);
-// }
+void enviarComando(const char* comando, int espera = 1000) {
+  A7670SA.println(comando);
+  delay(espera);
+}
 
-String enviarComando(const char* comando, unsigned long timeout = 1000) {
+String enviarComandoConRetorno(const char* comando, unsigned long timeout = 1000) {
   // 1. Limpiar buffer antes de enviar
   while (A7670SA.available()) {
     A7670SA.read();
@@ -1326,11 +1326,13 @@ void leerSMSPendientes() {
 
   // 1. Leer en ME
   enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-  String respME = enviarComando("AT+CMGL=\"REC UNREAD\"", 10000);
+  String respME = enviarComandoConRetorno("AT+CMGL=\"REC UNREAD\"", 10000);
+  enviarSMS("ME: " + respME, String(config.numUsuario));
   if (respME.indexOf("+CMGL:") != -1) {
     procesarSMS(respME, "ME");
   } else {
-    respME = enviarComando("AT+CMGL=\"ALL\"", 10000);
+    respME = enviarComandoConRetorno("AT+CMGL=\"ALL\"", 10000);
+    enviarSMS("MEAL: " + respME, String(config.numUsuario));
     if (respME.indexOf("+CMGL:") != -1) {
       procesarSMS(respME, "ME");
     }
@@ -1338,11 +1340,13 @@ void leerSMSPendientes() {
 
   // 2. Leer en SM
   enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-  String respSM = enviarComando("AT+CMGL=\"REC UNREAD\"", 10000);
+  String respSM = enviarComandoConRetorno("AT+CMGL=\"REC UNREAD\"", 10000);
+  enviarSMS("SM: " + respSM, String(config.numUsuario));
   if (respSM.indexOf("+CMGL:") != -1) {
     procesarSMS(respSM, "SM");
   } else {
-    respSM = enviarComando("AT+CMGL=\"ALL\"", 10000);
+    respSM = enviarComandoConRetorno("AT+CMGL=\"ALL\"", 10000);
+    enviarSMS("SMAL: " + respSM, String(config.numUsuario));
     if (respSM.indexOf("+CMGL:") != -1) {
       procesarSMS(respSM, "SM");
     }
