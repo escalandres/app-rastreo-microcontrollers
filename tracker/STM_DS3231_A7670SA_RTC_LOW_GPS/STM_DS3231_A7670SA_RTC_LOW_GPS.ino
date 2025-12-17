@@ -173,16 +173,17 @@ void iniciarA7670SA(){
 //   }
 // }
 void dormirA7670SA() {
-  digitalWrite(SLEEP_PIN, LOW);   // LOW despierta el módulo
+  // digitalWrite(SLEEP_PIN, LOW);   // LOW despierta el módulo
+  digitalWrite(SLEEP_PIN, HIGH);   // HIGH permite que el módulo entre en sleep
   delay(300);
-  enviarComando("AT+CSCLK=0");
-  enviarComando("AT");
+  enviarComando("AT+CSCLK=1");
 }
 
 void despertarA7670SA() {
-  enviarComando("AT+CSCLK=1");
+  enviarComando("AT+CSCLK=0");
   delay(300);
-  digitalWrite(SLEEP_PIN, HIGH);  // HIGH permite que el módulo entre en sleep
+  digitalWrite(SLEEP_PIN, LOW);  // LOW despierta el módulo
+  enviarComando("AT");
 }
 
 void limpiarBufferA7670SA() {
@@ -217,16 +218,19 @@ String leerRespuestaA7670SA(unsigned long timeout = 2000) {
   return response;
 }
 
-String _readSerial() {
-  _timeout = 0;
-  while  (!A7670SA.available() && _timeout < 12000  )
-  {
-    delay(13);
-    _timeout++;
+String _readSerial(unsigned long timeout = 5000) {
+  String resp = "";
+  unsigned long start = millis();
+
+  while (millis() - start < timeout) {
+    while (A7670SA.available()) {
+      char c = A7670SA.read();
+      resp += c;
+      start = millis(); // reinicia timeout si siguen llegando datos
+    }
   }
-  if (A7670SA.available()) {
-    return A7670SA.readString();
-  }
+
+  return resp;
 }
 
 void flushA7670SA() {
@@ -1300,7 +1304,7 @@ void leerSMSPendientes() {
   // 1. Leer en memoria interna (ME)
   enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
   enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
-  String respME = _readSerial();
+  String respME = _readSerial(12000);
   enviarSMS("ME: " + respME, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
   if (respME.indexOf("+CMGL:") != -1) {
     procesarSMS(respME, "ME");
@@ -1309,7 +1313,7 @@ void leerSMSPendientes() {
   // 2. Leer en SIM (SM)
   enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
   enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
-  String respSM = _readSerial();
+  String respSM = _readSerial(12000);
   enviarSMS("SM: " + respSM, String(config.numUsuario)); // imprime para ver si hay mensajes en SM
   if (respSM.indexOf("+CMGL:") != -1) {
     procesarSMS(respSM, "SM");
