@@ -424,6 +424,9 @@ void procesarComando(String mensaje) {
   // --- RASTREAR ON/OFF ---
   if (comando.indexOf("RASTREAR") != -1) {
     if (comando.indexOf("ON") != -1) {
+      // Si ya está activado el rastreo, seguir.
+      if(config.rastreoActivo) return;
+      
       config.rastreoActivo = true;
       config.firma = 0xCAFEBABE; // Asegurar firma válida
       guardarConfigEEPROM();
@@ -448,6 +451,9 @@ void procesarComando(String mensaje) {
         configurarModoAhorroEnergia();
       }
     } else if (comando.indexOf("OFF") != -1) {
+      // Si ya está desactivado el rastreo, seguir.
+      if(!config.rastreoActivo) return;
+
       config.rastreoActivo = false;
       config.modoAhorro = false;
       config.firma = 0xCAFEBABE;
@@ -465,9 +471,13 @@ void procesarComando(String mensaje) {
   // --- MODO AHORRO ---
   else if (comando.indexOf("MODOAHORRO=") != -1) {
     if (comando.indexOf("ON") != -1) {
+      // Si ya está activado el modo ahorro, seguir.
+      if(config.modoAhorro) return;
       // Activar modo ahorro
       config.modoAhorro = true;
     } else if (comando.indexOf("OFF") != -1) {
+      // Si ya está desactivado el modo ahorro, seguir.
+      if(!config.modoAhorro) return;
       // Desactivar modo ahorro
       config.modoAhorro = false;
     } else {
