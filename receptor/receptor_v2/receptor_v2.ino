@@ -16,7 +16,6 @@ const char* PASSWORD = "F0AF853B53E3";
 const String TOKEN = "1fbb3d99ca08eedc1322ceefb678eb7ae3f6063459c39621b88a4ec83dc810eb";
 const String SERVER = "https://app-rastreo-backend-1.onrender.com";
 const String URL = SERVER + "/api/tracker/";
-const String ENCENDIDO = SERVER + "/api/tracker/tracker-on";
 const String number = "+525545464585";
 
 const int LED = 2;
@@ -149,14 +148,53 @@ bool enviarEncendido(String message) {
   }
 
 
-  Serial.println("Enviando peticion a: " + ENCENDIDO);
+  Serial.println("Enviando peticion a: " + URL + "/tracker-on");
 
   WiFiClientSecure client;
   client.setCACert(rootCACertificate);
   HTTPClient http;
 
   http.setTimeout(90000);
-  http.begin(client, ENCENDIDO);
+  http.begin(client, URL + "/tracker-on");
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Authorization", "Bearer " + TOKEN);
+
+  StaticJsonDocument<256> doc;
+  doc["datos"] = cleanString(message);
+  String payload;
+  serializeJson(doc, payload);
+
+  Serial.println("Enviando JSON: " + payload);
+
+  int httpCode = http.POST(payload);
+  Serial.println("HTTP Response: " + String(httpCode));
+
+  if (httpCode > 0) {
+    Serial.println("Respuesta servidor: " + http.getString());
+    http.end();
+    return true;
+  } else {
+    Serial.println("Error en POST");
+    http.end();
+    return false;
+  }
+}
+
+bool enviarRastreoActivo(String message) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi no conectado");
+    return false;
+  }
+
+
+  Serial.println("Enviando peticion a: " + URL + "/rastreo-on");
+
+  WiFiClientSecure client;
+  client.setCACert(rootCACertificate);
+  HTTPClient http;
+
+  http.setTimeout(90000);
+  http.begin(client, URL + "/rastreo-on");
   http.addHeader("Content-Type", "application/json");
   http.addHeader("Authorization", "Bearer " + TOKEN);
 
@@ -219,21 +257,8 @@ void leerMensaje(int index) {
     return;
   }
 
-  if (message.indexOf("rastreador:") != -1) {
-    despertarServidor();
-    delay(5000);
-    const int maxRetries = 3;
-    for (int i = 0; i < maxRetries; i++) {
-      if (enviarEncendido(message)) {
-        SIM800L.println("AT+CMGD=" + String(index));
-        delay(2000);
-        break;
-      }
-      delay(10000); // espera 10 segundos antes de reintentar
-    }
-  }
-
   if (message.indexOf("id:") != -1) {
+    // Datos de rastreo
     despertarServidor();
     delay(5000);
     const int maxRetries = 3;
@@ -246,19 +271,46 @@ void leerMensaje(int index) {
       delay(10000); // espera 10 segundos antes de reintentar
     }
   } else if (message == "BORRAR*") {
+    // Comando para limpiar buffer
     borrarTodosMensajes();
     enviarMensajeRecibido("Mensajes eliminados");
   } else if (message == "ESTATUS?") {
+    // Comando para saber estatus del receptor
     SIM800L.println("AT");
     delay(500);
     enviarMensajeRecibido(SIM800L.readString());
   } else if (message == "SERVER?") {
+    // Comando para revisar conexion con el servidor backend
     despertarServidor();
     delay(5000);
     String response = checkServerEstatus();
     delay(500);
     enviarMensajeRecibido(response);
-  }
+  } else if (message.indexOf("El rastreador:") != -1) {
+    despertarServidor();
+    delay(5000);
+    const int maxRetries = 3;
+    for (int i = 0; i < maxRetries; i++) {
+      if (enviarEncendido(message)) {
+        SIM800L.println("AT+CMGD=" + String(index));
+        delay(2000);
+        break;
+      }
+      delay(10000); // espera 10 segundos antes de reintentar
+    }
+  } else if (message.indexOf("Rastreo Continuo ACTIVADO") != -1 || message.indexOf("Rastreo con Modo Ahorro ACTIVADO") != -1) {
+    despertarServidor();
+    delay(5000);
+    const int maxRetries = 3;
+    for (int i = 0; i < maxRetries; i++) {
+      if (enviarRastreoActivo(message)) {
+        SIM800L.println("AT+CMGD=" + String(index));
+        delay(2000);
+        break;
+      }
+      delay(10000); // espera 10 segundos antes de reintentar
+    }
+  } else 
 }
 
 /* Recibir mensajes en vivo */
