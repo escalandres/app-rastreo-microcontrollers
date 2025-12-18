@@ -813,7 +813,7 @@ void enviarDatosRastreador(String datosGPS)
   enviarSMS(SMS, String(config.receptor));
 
   if(String(config.numUsuario) != ""){
-    enviarSMS("Hay novedades de tu rastreador!", String(config.numUsuario));
+    enviarSMS("¡Hay novedades de tu rastreador: " + String(config.idRastreador) + "!", String(config.numUsuario));
   }
 
   delay(500);
@@ -1326,12 +1326,12 @@ void leerSMSPendientes() {
   // 1. Leer en ME
   enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
   String respME = enviarComandoConRetorno("AT+CMGL=\"REC UNREAD\"", 7000);
-  enviarSMS("ME: " + respME, String(config.numUsuario));
+  // enviarSMS("ME: " + respME, String(config.numUsuario));
   if (respME.indexOf("+CMGL:") != -1) {
     procesarSMS(respME, "ME");
   } else {
     respME = enviarComandoConRetorno("AT+CMGL=\"ALL\"", 7000);
-    enviarSMS("MEAL: " + respME, String(config.numUsuario));
+    // enviarSMS("MEAL: " + respME, String(config.numUsuario));
     if (respME.indexOf("+CMGL:") != -1) {
       procesarSMS(respME, "ME");
     }
@@ -1340,12 +1340,12 @@ void leerSMSPendientes() {
   // 2. Leer en SM
   enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
   String respSM = enviarComandoConRetorno("AT+CMGL=\"REC UNREAD\"", 7000);
-  enviarSMS("SM: " + respSM, String(config.numUsuario));
+  // enviarSMS("SM: " + respSM, String(config.numUsuario));
   if (respSM.indexOf("+CMGL:") != -1) {
     procesarSMS(respSM, "SM");
   } else {
     respSM = enviarComandoConRetorno("AT+CMGL=\"ALL\"", 7000);
-    enviarSMS("SMAL: " + respSM, String(config.numUsuario));
+    // enviarSMS("SMAL: " + respSM, String(config.numUsuario));
     if (respSM.indexOf("+CMGL:") != -1) {
       procesarSMS(respSM, "SM");
     }
