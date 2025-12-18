@@ -196,16 +196,17 @@ void iniciarA7670SA(){
 //   }
 // }
 void dormirA7670SA() {
+  enviarComando("AT+CSCLK=1");
   // digitalWrite(SLEEP_PIN, LOW);   // LOW despierta el módulo
   digitalWrite(SLEEP_PIN, HIGH);   // HIGH permite que el módulo entre en sleep
   delay(300);
-  enviarComando("AT+CSCLK=1");
+
 }
 
 void despertarA7670SA() {
-  enviarComando("AT+CSCLK=0");
-  delay(300);
   digitalWrite(SLEEP_PIN, LOW);  // LOW despierta el módulo
+  delay(300);
+  enviarComando("AT+CSCLK=0");
   enviarComando("AT");
 }
 
@@ -429,7 +430,7 @@ void procesarComando(String mensaje) {
       guardarConfigEEPROM();
       if(!config.modoAhorro){
         // Rastreo sin modo ahorro
-        configurarRastreoContinuo(45); // Cada 45 segundos
+        configurarRastreoContinuo(59); // Cada 59 segundos
         enviarSMS("Rastreo Continuo ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
 
         if(config.numUsuario != ""){
@@ -438,9 +439,9 @@ void procesarComando(String mensaje) {
       }else{
         // Rastreo con modo ahorro
         String intervalo = String(config.intervaloDias) + "D" +
-                   String(config.intervaloHoras) + "H" +
-                   String(config.intervaloMinutos) + "M" +
-                   String(config.intervaloSegundos) + "S";
+                  String(config.intervaloHoras) + "H" +
+                  String(config.intervaloMinutos) + "M" +
+                  String(config.intervaloSegundos) + "S";
         enviarSMS("Rastreo con Modo Ahorro ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC() + ". INT: " + intervalo, String(config.receptor));
         if(config.numUsuario != ""){
           enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, String(config.numUsuario));
@@ -449,7 +450,10 @@ void procesarComando(String mensaje) {
       }
     } else if (comando.indexOf("OFF") != -1) {
       config.rastreoActivo = false;
+      config.modoAhorro = false;
       config.firma = 0xCAFEBABE;
+      // Leer mensajes desde la memoria interna
+      enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
       enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
       guardarConfigEEPROM();
       enviarSMS("Rastreo DESACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
@@ -831,18 +835,11 @@ void notificarEncendido()
   digitalWrite(STM_LED, HIGH);
   delay(200);
   digitalWrite(STM_LED, LOW);
-  // DateTime now = rtc.now();
-
-  // char buffer[20];
-  // sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
-  //       now.year(), now.month(), now.day(),
-  //       now.hour(), now.minute(), now.second());
 
   String currentTime = obtenerTiempoRTC();
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
-  SMS += " esta encendido. Tiempo: " + currentTime + ", config: " + String(config.configurado ? "OK" : "NO") + ". " + "ModoAhorro: " + String(config.modoAhorro ? "ON" : "OFF") + "."
-    + "Rastreo: " + String(config.rastreoActivo ? "ON" : "OFF") + ".";
+  SMS += " esta encendido. Tiempo: " + currentTime + ".";
   enviarSMS(SMS, String(config.receptor));
 
   if(String(config.numUsuario) != ""){
