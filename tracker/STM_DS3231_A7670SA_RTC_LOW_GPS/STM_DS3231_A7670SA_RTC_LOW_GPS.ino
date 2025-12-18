@@ -672,43 +672,87 @@ void actualizarBuffer() {
     }
 }
 
-bool smsCompletoDisponible() {
-  // Para recepción en vivo
-  if (rxBuffer.indexOf("+CMT:") != -1) {
-    // Debe tener encabezado +CMT
-    int idx = rxBuffer.indexOf("+CMT:");
-    if (idx == -1) return false;
+// bool smsCompletoDisponible() {
+//   // Para recepción en vivo
+//   if (rxBuffer.indexOf("+CMT:") != -1) {
+//     // Debe tener encabezado +CMT
+//     int idx = rxBuffer.indexOf("+CMT:");
+//     if (idx == -1) return false;
 
-    // Debe tener al menos dos saltos de línea después
-    int firstNL  = rxBuffer.indexOf("\n", idx);
+//     // Debe tener al menos dos saltos de línea después
+//     int firstNL  = rxBuffer.indexOf("\n", idx);
+//     if (firstNL == -1) return false;
+
+//     int secondNL = rxBuffer.indexOf("\n", firstNL + 1);
+//     if (secondNL == -1) return false;
+
+//     return true; // ya llegó encabezado + texto
+//   }
+//   // Para lectura por memoria (cuando hay sleep/PSM)
+//   if (rxBuffer.indexOf("+CMGL:") != -1 || rxBuffer.indexOf("+CMGR:") != -1) {
+//       enviarSMS("Para lectura por memoria", String(config.receptor));
+//       // Busca al menos un salto después del encabezado
+//       int idx = rxBuffer.indexOf("+CMGL:");
+//       if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
+//       int firstNL = rxBuffer.indexOf("\n", idx);
+//       if (firstNL == -1) return false;
+
+//       // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
+//       return true;
+//   }
+//   rxBuffer.trim();
+//   if (rxBuffer != "" &&
+//     rxBuffer.indexOf("+CNMI") == -1 &&
+//     rxBuffer.indexOf("AT+CPMS") == -1 &&
+//     rxBuffer.indexOf("OK") == -1) {
+    
+//     String mensaje = "rxBuffer: " + rxBuffer;
+//     if (mensaje.length() > 160) {
+//       mensaje = mensaje.substring(0, 160); // truncar para SMS
+//     }
+//     enviarSMS(mensaje, String(config.numUsuario));
+//   }
+
+//   return false;
+// }
+
+bool smsCompletoDisponible() {
+  // Normalizar saltos de línea
+  rxBuffer.replace("\r\n", "\n");
+
+  // Recepción en vivo (CNMI con +CMT:)
+  int idxCMT = rxBuffer.indexOf("+CMT:");
+  if (idxCMT != -1) {
+    int firstNL = rxBuffer.indexOf("\n", idxCMT);
     if (firstNL == -1) return false;
 
-    int secondNL = rxBuffer.indexOf("\n", firstNL + 1);
-    if (secondNL == -1) return false;
-
-    return true; // ya llegó encabezado + texto
-  }
-  // Para lectura por memoria (cuando hay sleep/PSM)
-  if (rxBuffer.indexOf("+CMGL:") != -1 || rxBuffer.indexOf("+CMGR:") != -1) {
-      enviarSMS("Para lectura por memoria", String(config.receptor));
-      // Busca al menos un salto después del encabezado
-      int idx = rxBuffer.indexOf("+CMGL:");
-      if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
-      int firstNL = rxBuffer.indexOf("\n", idx);
-      if (firstNL == -1) return false;
-
-      // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
+    // Verifica que haya texto después del encabezado
+    if (rxBuffer.length() > firstNL + 1) {
       return true;
+    }
   }
+
+  // Lectura desde memoria (CMGL o CMGR)
+  int idxMem = rxBuffer.indexOf("+CMGL:");
+  if (idxMem == -1) idxMem = rxBuffer.indexOf("+CMGR:");
+  if (idxMem != -1) {
+    int firstNL = rxBuffer.indexOf("\n", idxMem);
+    if (firstNL == -1) return false;
+
+    if (rxBuffer.length() > firstNL + 1) {
+      return true;
+    }
+  }
+
+  // Mensajes inesperados (debug defensivo)
   rxBuffer.trim();
   if (rxBuffer != "" &&
-    rxBuffer.indexOf("+CNMI") == -1 &&
-    rxBuffer.indexOf("AT+CPMS") == -1 &&
-    rxBuffer.indexOf("OK") == -1) {
-    
+      rxBuffer.indexOf("+CNMI") == -1 &&
+      rxBuffer.indexOf("AT+CPMS") == -1 &&
+      rxBuffer.indexOf("OK") == -1) {
     String mensaje = "rxBuffer: " + rxBuffer;
     if (mensaje.length() > 160) {
-      mensaje = mensaje.substring(0, 160); // truncar para SMS
+      mensaje = mensaje.substring(0, 160);
     }
     enviarSMS(mensaje, String(config.numUsuario));
   }
@@ -716,53 +760,57 @@ bool smsCompletoDisponible() {
   return false;
 }
 
-// bool smsCompletoDisponible() {
-//     // enviarSMS("rxBuffer: "+rxBuffer, String(config.receptor));
-//     if (rxBuffer.indexOf("+CMT:") != -1 ||
-//         rxBuffer.indexOf("+CMGL:") != -1 ||
-//         rxBuffer.indexOf("+CMGR:") != -1) {
-//         // Basta con que haya un encabezado y al menos un salto
-//         int idx = rxBuffer.indexOf("+CMT:");
-//         if (idx == -1) idx = rxBuffer.indexOf("+CMGL:");
-//         if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
-//         int firstNL = rxBuffer.indexOf("\r\n", idx);
-//         if (firstNL == -1) return false;
-//         return true;
-//     }
-//     return false;
+// String obtenerSMS() {
+//     int idx = rxBuffer.indexOf("+CMT:");
+//     int start = rxBuffer.indexOf("\n", idx) + 1;
+//     int end   = rxBuffer.indexOf("\n", start);
+
+//     String sms = rxBuffer.substring(start, end);
+//     sms.trim();
+
+//     // Limpiar lo consumido
+//     rxBuffer = rxBuffer.substring(end);
+
+//     return sms;
 // }
 
 String obtenerSMS() {
-    int idx = rxBuffer.indexOf("+CMT:");
+  // Normalizar saltos de línea
+  rxBuffer.replace("\r\n", "\n");
+
+  // Buscar encabezado +CMT
+  int idx = rxBuffer.indexOf("+CMT:");
+  if (idx != -1) {
     int start = rxBuffer.indexOf("\n", idx) + 1;
     int end   = rxBuffer.indexOf("\n", start);
+    if (end == -1) end = rxBuffer.length();
 
     String sms = rxBuffer.substring(start, end);
     sms.trim();
 
     // Limpiar lo consumido
     rxBuffer = rxBuffer.substring(end);
-
     return sms;
+  }
+
+  // Buscar encabezado +CMGL o +CMGR
+  idx = rxBuffer.indexOf("+CMGL:");
+  if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
+  if (idx != -1) {
+    int start = rxBuffer.indexOf("\n", idx) + 1;
+    int end   = rxBuffer.indexOf("\n", start);
+    if (end == -1) end = rxBuffer.length();
+
+    String sms = rxBuffer.substring(start, end);
+    sms.trim();
+
+    // Limpiar lo consumido
+    rxBuffer = rxBuffer.substring(end);
+    return sms;
+  }
+
+  return "";
 }
-
-// String obtenerSMS() {
-//     int hdr = rxBuffer.indexOf("+CMGL:");
-//     if (hdr == -1) hdr = rxBuffer.indexOf("+CMGR:");
-//     if (hdr == -1) hdr = rxBuffer.indexOf("+CMT:");
-//     if (hdr == -1) return "";
-
-//     int start = rxBuffer.indexOf("\r\n", hdr);
-//     if (start == -1) return "";
-//     start += 2; // saltar CRLF
-
-//     int end = rxBuffer.indexOf("\r\nOK", start);
-//     if (end == -1) end = rxBuffer.length();
-
-//     String cuerpo = rxBuffer.substring(start, end);
-//     cuerpo.trim();
-//     return cuerpo;
-// }
 
 // ---------- Funciones del rastreador ----------
 
@@ -858,42 +906,6 @@ void debugEEPROMporSMS() {
   debug += ",num:" + String(config.numUsuario);
   enviarSMS(debug, "+525620577634");
 }
-
-// String leerYGuardarGPS() {
-//     String nuevaLat = "";
-//     String nuevaLon = "";
-//     bool ubicacionActualizada = false;
-//     unsigned long startTime = millis();
-//     int intentos = 0;
-
-//     while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) {
-//         while (NEO8M.available()) {
-//             char c = NEO8M.read();
-//             gps1.encode(c);
-
-//             // Verifica si la ubicación es válida y hay satélites disponibles
-//             if (gps1.location.isUpdated() && gps1.location.isValid() && gps1.satellites.value() > 0) {
-//                 nuevaLat = String(gps1.location.lat(), 6);
-//                 nuevaLon = String(gps1.location.lng(), 6);
-
-//                 latitude = nuevaLat;
-//                 longitude = nuevaLon;
-//                 ubicacionActualizada = true;
-//                 break;
-//             }
-//         }
-//         delay(50);
-//         intentos++;
-//     }
-
-//     // Si NO hay conexión con satélites, actualiza los valores a 0.0 en el STM32
-//     if (gps1.satellites.value() == 0 || latitude == "" || longitude == "") {
-//         latitude = "0.0";
-//         longitude = "0.0";
-//     }
-
-//     return "lat:" + latitude + ",lon:" + longitude;
-// }
 
 String leerYGuardarGPS() {
   String nuevaLat = "";
@@ -1153,143 +1165,6 @@ void setup() {
 
   digitalWrite(STM_LED,HIGH);
 }
-
-// void loop() {
-//   // Siempre escuchar fragmentos entrantes
-//   actualizarBuffer();
-
-//   if (config.rastreoActivo == true) {
-//     if (alarmFired) {
-//       pinMode(STM_LED, OUTPUT);
-//       delay(200);
-
-//       encenderLED();
-//       if(config.modoAhorro){
-//         // Encender A7670SA
-//         despertarA7670SA();
-//         iniciarA7670SA();
-
-//       }
-//       delay(200);
-//       // enviarSMS("Hola", String(config.numUsuario));
-
-//       rxBuffer = "";  // limpiar antes
-//       // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-//       // delay(300);
-
-//       enviarComando("AT+CPMS?", 1000);
-//       unsigned long t0 = millis();
-//       while (millis() - t0 < 1000) actualizarBuffer();
-//       enviarSMS("rxBuffer 1:", rxBuffer);
-//       delay(1000);
-//       rxBuffer = "";
-//       enviarComando("AT+CMGL=\"REC UNREAD\"", 1500);
-//       t0 = millis();
-//       while (millis() - t0 < 2000) actualizarBuffer();
-//       enviarSMS("rxBuffer 2:", rxBuffer);
-
-//       // Esperar y acumular toda la respuesta
-//       t0 = millis();
-//       while (millis() - t0 < 2000) {
-//           actualizarBuffer();
-//       }
-
-//       // Revisar si hay mensajes SMS pendientes
-//       if (smsCompletoDisponible()) {
-//           String mensaje = obtenerSMS();
-//           enviarSMS("Comando: " + mensaje, String(config.numUsuario));
-//           procesarComando(mensaje, String(config.receptor));
-//       }
-
-//       // Leer GPS
-//       String datosGPS = leerYGuardarGPS();
-
-//       // Enviar datos de rastreo
-//       enviarDatosRastreador(datosGPS);
-
-//       // Espera sin perder data
-//       t0 = millis();
-//       while (millis() - t0 < 3000) {
-//         actualizarBuffer();
-//       }
-
-//       apagarLED();
-
-//       alarmFired = false;
-
-//       // 1. Rastreo continuo (NO dormir)
-//       if (!config.modoAhorro) {
-//           configurarRastreoContinuo();
-//       }
-//       // 2. Rastreo con ahorro → dormir STM32 y A7670SA
-//       else {
-//           configurarModoAhorroEnergia();
-//       }
-//     }
-
-//   } else {
-//     // Rastreo apagado, pero revisar SMS
-//     if (smsCompletoDisponible()) {
-//         encenderLED();
-//         String mensaje = obtenerSMS();
-//         procesarComando(mensaje, String(config.receptor));
-//         apagarLED();
-//     }
-
-//     // Espera sin perder paquetes
-//     unsigned long t0 = millis();
-//     while (millis() - t0 < 3000) {
-//       actualizarBuffer();
-//     }
-//   }
-// }
-
-// void leerSMSPendientes() {
-//   limpiarBufferA7670SA();
-//   rxBuffer = "";
-
-//   // 1. Intentar en memoria interna (ME)
-//   enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-//   enviarComando("AT+CMGL=\"REC UNREAD\"", 5000); // más tiempo
-//   String resp = _readSerial();
-//   enviarSMS("ME: " + resp, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
-
-//   if (resp.indexOf("+CMGL:") == -1) {
-//     // 2. Si no hay en ME, probar en SIM (SM)
-//     enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-//     enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
-//     resp = _readSerial();
-//     enviarSMS("SM: " + resp, String(config.numUsuario)); // imprime para ver si hay mensajes en ME
-//   }
-
-//   // 3. Procesar si hay mensajes
-//   if (resp.indexOf("+CMGL:") != -1) {
-//     int pos = 0;
-//     while ((pos = resp.indexOf("+CMGL:", pos)) != -1) {
-//       int fin = resp.indexOf("\r\n", pos);
-//       if (fin == -1) break;
-//       String smsHeader = resp.substring(pos, fin);
-//       pos = fin + 2;
-
-//       // Extraer cuerpo del SMS
-//       int bodyEnd = resp.indexOf("\r\n", pos);
-//       if (bodyEnd == -1) break;
-//       String smsBody = resp.substring(pos, bodyEnd);
-//       pos = bodyEnd + 2;
-
-//       // Enviar solo el cuerpo por SMS al usuario
-//       enviarSMS("SMS: " + smsBody, String(config.numUsuario));
-
-//       // Opcional: borrar el SMS procesado
-//       int idxStart = smsHeader.indexOf(":");
-//       int idxEnd = smsHeader.indexOf(",");
-//       if (idxStart != -1 && idxEnd != -1) {
-//         int smsIndex = smsHeader.substring(idxStart + 1, idxEnd).toInt();
-//         enviarComando("AT+CMGD=" + String(smsIndex), 1000);
-//       }
-//     }
-//   }
-// }
 
 void procesarSMS(String resp, String banco) {
   int pos = 0;
