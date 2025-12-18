@@ -483,7 +483,7 @@ void procesarComando(String mensaje) {
     String msg = "Modo ahorro: ";
     msg += config.modoAhorro ? "ON" : "OFF";
     msg += ". Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC();
-    enviarSMS(msg, String(config.receptor));
+    // enviarSMS(msg, String(config.receptor));
     if(config.numUsuario != ""){
       enviarSMS(msg, String(config.numUsuario));
     }
@@ -495,8 +495,8 @@ void procesarComando(String mensaje) {
     valor.trim();
     
     if (valor.length() == 0) {
-      if(config.numUsuario != ""){
-        enviarSMS(">:( Formato: INTERVALO=5M o 1H30M");
+      if(String(config.numUsuario) != ""){
+        enviarSMS(">:( Formato: INTERVALO=5M o 1H30M", String(config.numUsuario));
       }
       return;
     }
@@ -548,7 +548,7 @@ void procesarComando(String mensaje) {
     
     if (!formatoValido) {
       if(config.numUsuario != ""){
-        enviarSMS(">:( Formato inválido. Use: 5M, 1H30M, 1D2H");
+        enviarSMS(">:( Formato inválido. Use: 5M, 1H30M, 1D2H", String(config.numUsuario));
       }
       return;
     }
@@ -557,7 +557,7 @@ void procesarComando(String mensaje) {
     if (config.intervaloSegundos == 0 && config.intervaloMinutos == 0 &&
         config.intervaloHoras == 0 && config.intervaloDias == 0) {
       if(config.numUsuario != ""){
-        enviarSMS(">:( Intervalo no puede ser 0");
+        enviarSMS(">:( Intervalo no puede ser 0", String(config.numUsuario));
       }
       return;
     }
@@ -861,7 +861,7 @@ void enviarDatosRastreador(String datosGPS)
   enviarSMS(SMS, String(config.receptor));
 
   if(String(config.numUsuario) != ""){
-    enviarSMS("¡Hay novedades de tu rastreador: " + String(config.idRastreador) + "!", String(config.numUsuario));
+    enviarSMS("Hay novedades de tu rastreador: " + String(config.idRastreador) + "!", String(config.numUsuario));
   }
 
   delay(500);
@@ -1179,7 +1179,7 @@ void procesarSMS(String resp, String banco) {
     String body = resp.substring(pos, bodyEnd);
     pos = bodyEnd + 2;
 
-    enviarSMS("[" + banco + "] " + body, String(config.numUsuario));
+    // enviarSMS("[" + banco + "] " + body, String(config.numUsuario));
 
     // Borrar SMS procesado
     int idxStart = header.indexOf(":");
