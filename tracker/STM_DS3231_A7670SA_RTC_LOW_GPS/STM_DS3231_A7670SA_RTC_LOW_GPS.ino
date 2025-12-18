@@ -196,18 +196,17 @@ void iniciarA7670SA(){
 //   }
 // }
 void dormirA7670SA() {
-  enviarComando("AT+CSCLK=1");
-  // digitalWrite(SLEEP_PIN, LOW);   // LOW despierta el módulo
-  digitalWrite(SLEEP_PIN, HIGH);   // HIGH permite que el módulo entre en sleep
-  delay(300);
-
-}
-
-void despertarA7670SA() {
   digitalWrite(SLEEP_PIN, LOW);  // LOW despierta el módulo
   delay(300);
   enviarComando("AT+CSCLK=0");
   enviarComando("AT");
+}
+
+void despertarA7670SA() {
+  enviarComando("AT+CSCLK=1");
+  // digitalWrite(SLEEP_PIN, LOW);   // LOW despierta el módulo
+  digitalWrite(SLEEP_PIN, HIGH);   // HIGH permite que el módulo entre en sleep
+  delay(300);
 }
 
 void limpiarBufferA7670SA() {
@@ -434,7 +433,7 @@ void procesarComando(String mensaje) {
         enviarSMS("Rastreo Continuo ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
 
         if(config.numUsuario != ""){
-          enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 45 segundos", String(config.numUsuario));
+          enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 59 segundos", String(config.numUsuario));
         }
       }else{
         // Rastreo con modo ahorro
