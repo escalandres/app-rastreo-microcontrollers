@@ -426,7 +426,7 @@ void procesarComando(String mensaje) {
     if (comando.indexOf("ON") != -1) {
       // Si ya está activado el rastreo, seguir.
       if(config.rastreoActivo) return;
-      
+
       config.rastreoActivo = true;
       config.firma = 0xCAFEBABE; // Asegurar firma válida
       guardarConfigEEPROM();
@@ -652,16 +652,15 @@ void procesarComando(String mensaje) {
   
   // --- LOCATION ---
   else if (comando.indexOf("LOCATION") != -1) {
-    String ubicacion = "Ubicación obtenida!";
+    String ubicacion = "Ubicacion obtenida:";
     String datosGPS = leerYGuardarGPS();
 
     ubicacion += "\nGPS: " + datosGPS;
 
     String cellInfo = obtenerTorreCelular();
     
-    if (cellInfo.length() > 0) {
-      ubicacion += ".\nCT: " + cellInfo;
-    }
+    ubicacion += ".\nCT: " + cellInfo;
+
     if(config.numUsuario != ""){
       enviarSMS(ubicacion, String(config.numUsuario));
     }
