@@ -395,12 +395,6 @@ void loop() {
       Serial.println("Mensaje recibido en vivo: " + message);
 
       if (message.indexOf("id:") != -1) {
-//        if (enviarPostRequest(message)) {
-//          enviarMensajeRecibido("Mensaje enviado al servidor");
-//        }else{
-//          enviarMensajeRecibido("Ocurrió un error al enviar al servidor");
-//        }
-
           despertarServidor();
           delay(5000);
           const int maxRetries = 3;
@@ -476,8 +470,9 @@ void loop() {
         String response = checkServerEstatus();
         delay(500);
         enviarMensajeRecibido(response);
+      } else {
+        Serial.println("Mensaje no reconocido: " + message);
       }
       digitalWrite(LED, LOW);
     }
-  }
 }
