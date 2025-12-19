@@ -477,7 +477,7 @@ void loop() {
         delay(500);
         enviarMensajeRecibido(response);
       }
-      digitalWrite(LED, HIGH);
+      digitalWrite(LED, LOW);
     }
   }
 }
