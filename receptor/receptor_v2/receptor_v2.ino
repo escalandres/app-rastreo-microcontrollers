@@ -378,7 +378,7 @@ void loop() {
     String notif = SIM800L.readString();
     notif = cleanString(notif);
     Serial.println("Recibido: " + notif);
-
+    digitalWrite(LED, HIGH);
     if (notif.indexOf("CMTI") != -1) {
       Serial.println("Mensaje como notificacion");
       int index = validarFormatoCMTI(notif);
@@ -421,7 +421,7 @@ void loop() {
           enviarMensajeRecibido(payload);
           //delay(3000);
           //enviarMensajeRecibido("Test de envío SIM800L");
-      }else if (message.indexOf("rastreador:") != -1) {
+      }else if (message.indexOf("El rastreador:") != -1) {
           despertarServidor();
           delay(5000);
           const int maxRetries = 3;
@@ -441,7 +441,27 @@ void loop() {
           enviarMensajeRecibido("encendido: "+payload);
           //delay(3000);
           //enviarMensajeRecibido("Test de envío SIM800L");
-      } else if (message.indexOf("BORRAR*") != -1) {
+      } else if (message.indexOf("Rastreo Continuo ACTIVADO") != -1 || message.indexOf("Rastreo con Modo Ahorro ACTIVADO") != -1) {
+          despertarServidor();
+          delay(5000);
+          const int maxRetries = 3;
+          for (int i = 0; i < maxRetries; i++) {
+            if (enviarRastreoActivo(message)) {
+              enviarMensajeRecibido("Rastreador encendido. Mensaje enviado al servidor");
+              delay(2000);
+              break;
+            }else{
+              enviarMensajeRecibido("Ocurrio un error al enviar al servidor");
+            }
+            delay(10000); // espera 10 segundos antes de reintentar
+          }
+  
+          String payload = message;
+          delay(2000);
+          enviarMensajeRecibido("encendido: "+payload);
+          //delay(3000);
+          //enviarMensajeRecibido("Test de envío SIM800L");
+      }else if (message.indexOf("BORRAR*") != -1) {
         Serial.println("Solicitando borrar mensajes en buffer");
         borrarTodosMensajes();
         enviarMensajeRecibido("Mensajes eliminados");
@@ -457,6 +477,7 @@ void loop() {
         delay(500);
         enviarMensajeRecibido(response);
       }
+      digitalWrite(LED, HIGH);
     }
   }
 }
