@@ -310,7 +310,7 @@ void leerMensaje(int index) {
       }
       delay(10000); // espera 10 segundos antes de reintentar
     }
-  } else 
+  }
 }
 
 /* Recibir mensajes en vivo */
