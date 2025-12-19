@@ -475,4 +475,8 @@ void loop() {
       }
       digitalWrite(LED, LOW);
     }
+  } else {
+    digitalWrite(LED, LOW);
+  }
+  }
 }
