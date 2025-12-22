@@ -94,7 +94,7 @@ bool despertarServidor() {
   client.setCACert(rootCACertificate);
   HTTPClient http;
 
-  http.begin(client, SERVER + "/despertar-servidor");
+  http.begin(client, URL + "/despertar-servidor");
   int httpCode = http.GET();
   http.end();
 
@@ -232,7 +232,7 @@ String checkServerEstatus() {
 
   http.setTimeout(90000);
   // Construimos la URL con los parámetros necesarios
-  String urlWithParams = SERVER + "/api/tracker/test";
+  String urlWithParams = URL + "/despertar-servidor";
   http.begin(client, urlWithParams);
   http.addHeader("Authorization", "Bearer " + TOKEN);
 
