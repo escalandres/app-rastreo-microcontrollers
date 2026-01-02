@@ -950,7 +950,7 @@ String leerYGuardarGPS() {
   // Caso 2: ya hubo fix antes → conservar última coordenada válida
   // No pisar con 0.0 aunque momentáneamente satélites sea 0
 
-  return "lat:" + latitude + ",lon:" + longitude;
+  return "lat:" + latitude + ",lon:" + longitude + ",gps_fix:" + (ubicacionActualizada ? "1" : "0");
 }
 
 void corregirRTC() {
