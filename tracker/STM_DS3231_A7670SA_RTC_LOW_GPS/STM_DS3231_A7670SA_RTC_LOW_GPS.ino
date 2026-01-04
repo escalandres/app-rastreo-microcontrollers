@@ -415,7 +415,6 @@ void configurarModoAhorroEnergia() {
   LowPower.deepSleep();
 }
 
-
 void configurarRastreoContinuo(unsigned int segundos = 45) {
   // Configurar almacenamiento en memoria interna
   enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
@@ -1015,7 +1014,6 @@ bool rtcValido(DateTime t) {
 }
 
 bool obtenerHoraRed(DateTime &netTime) {
-
   String resp = enviarComandoConRetorno("AT+CCLK?", 1500);
 
   int idx = resp.indexOf("+CCLK:");
@@ -1037,14 +1035,18 @@ bool obtenerHoraRed(DateTime &netTime) {
   int mm = s.substring(12, 14).toInt();
   int ss = s.substring(15, 17).toInt();
 
-  int tz = s.substring(18).toInt(); // en cuartos de hora
+  int tz = s.substring(18).toInt(); // cuartos de hora respecto a UTC
 
   int year = 2000 + yy;
 
   DateTime localTime(year, MM, dd, hh, mm, ss);
 
-  // tz viene en cuartos de hora → convertir a segundos
-  netTime = localTime - TimeSpan((tz / 4) * 3600);
+  // tz está en cuartos de hora → convertir a segundos
+  // Ejemplo: -24 → -6 horas
+  int offsetSeconds = tz * 15 * 60;
+
+  // Para obtener UTC: localTime - offset
+  netTime = localTime - TimeSpan(offsetSeconds);
 
   return true;
 }
