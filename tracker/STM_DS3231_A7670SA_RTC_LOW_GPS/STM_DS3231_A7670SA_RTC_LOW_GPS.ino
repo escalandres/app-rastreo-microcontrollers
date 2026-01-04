@@ -331,51 +331,90 @@ int nivelSenal() {
 }
 
 void configurarModoAhorroEnergia() {
-  // ---------- WATCHDOG (solo iniciar una vez) ----------
+
+  // =====================================================
+  // 1️⃣ WATCHDOG – respaldo absoluto si el RTC falla
+  // =====================================================
   if (!IWatchdog.isEnabled()) {
 
-    unsigned long WDG_TIMEOUT_MS =
+    unsigned long intervaloMs =
       ((unsigned long)config.intervaloDias * 86400UL +
        (unsigned long)config.intervaloHoras * 3600UL +
        (unsigned long)config.intervaloMinutos * 60UL +
-       config.intervaloSegundos) * 1000UL
-      + (15UL * 60UL * 1000UL); // margen 15 min
+       (unsigned long)config.intervaloSegundos) * 1000UL;
+
+    // Margen de seguridad: +15 minutos
+    unsigned long WDG_TIMEOUT_MS = intervaloMs + (15UL * 60UL * 1000UL);
 
     IWatchdog.begin(WDG_TIMEOUT_MS);
   }
 
-  // ---------- SIM ----------
-  // Configurar almacenamiento en SIM
-  enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
 
-  // Configurar CNMI para guardar en memoria sin notificar
+  // =====================================================
+  // 2️⃣ INTENTAR CORREGIR RTC ANTES DE PROGRAMAR ALARMA
+  // =====================================================
+  if (!rtcValido(rtc.now())) {
+    corregirRTC();   // GPS → Red → nada
+  }
+
+  // ⚠️ Volver a leer después de corregir
+  DateTime now = rtc.now();
+
+  // Si sigue inválido, NO dependemos del RTC
+  bool rtcConfiable = rtcValido(now);
+
+
+  // =====================================================
+  // 3️⃣ SIM / MODEM
+  // =====================================================
+  enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
   enviarComando("AT+CNMI=2,1,0,0,0", 1000);
 
-  // ---------- Configurar para modo ahorro de energia ----------
-  // Desactivar LED
-  pinMode(STM_LED, INPUT); // Cambiar a entrada para reducir consumo
 
-  alarmFired = false; // Resetear bandera
+  // =====================================================
+  // 4️⃣ AHORRO DE ENERGÍA MCU
+  // =====================================================
+  pinMode(STM_LED, INPUT);   // LED off real
+  alarmFired = false;
 
-  // ---------- RTC ----------
-  // Configurar alarma RTC
-  configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
 
-  // Configurar A7670SA para sleep automatico en idle
+  // =====================================================
+  // 5️⃣ RTC ALARMA (solo si es confiable)
+  // =====================================================
+  if (rtcConfiable) {
+    configurarAlarma(
+      config.intervaloDias,
+      config.intervaloHoras,
+      config.intervaloMinutos,
+      config.intervaloSegundos
+    );
+  } else {
+    // RTC no confiable → el watchdog será quien despierte
+    // (no programar alarma para evitar quedar dormido)
+  }
+
+  // =====================================================
+  // 6️⃣ PERIFÉRICOS A SLEEP
+  // =====================================================
   dormirA7670SA();
+  // configureGPS(NEO8M); // si aplica
 
-  // Configurar GPS para modo bajo consumo (si es posible)
-  //configureGPS(NEO8M);
-  // Aquí podrías enviar comandos específicos al GPS si soporta modos de bajo consumo
-
-  // Configure low power
+  // =====================================================
+  // 7️⃣ DEEP SLEEP
+  // =====================================================
   LowPower.begin();
-  // Attach a wakeup interrupt on pin, calling repetitionsIncrease when the device is woken up
-  // Last parameter (LowPowerMode) should match with the low power state used
-  LowPower.attachInterruptWakeup(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING, DEEP_SLEEP_MODE); // SLEEP_MODE
-  delay(400);
+
+  LowPower.attachInterruptWakeup(
+    digitalPinToInterrupt(SQW_PIN),
+    setAlarmFired,
+    FALLING,
+    DEEP_SLEEP_MODE
+  );
+
+  delay(200);
   LowPower.deepSleep();
 }
+
 
 void configurarRastreoContinuo(unsigned int segundos = 45) {
   // Configurar almacenamiento en memoria interna
