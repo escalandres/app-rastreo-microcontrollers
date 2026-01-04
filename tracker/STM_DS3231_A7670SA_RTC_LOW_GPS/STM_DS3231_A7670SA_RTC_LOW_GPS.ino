@@ -6,6 +6,7 @@
 #include <STM32LowPower.h>
 #include <TinyGPSPlus.h>
 #include <EEPROM.h>
+#include <IWatchdog.h>
 
 /* Declaracion de variables globales */
 volatile bool alarmFired = false;
@@ -17,6 +18,9 @@ const int SLEEP_PIN = PB1;
 const int SQW_PIN = PB0;
 const int STM_LED = PC13;
 const int BATERIA = PA0;
+bool rtc_sano = false;
+bool resetPorWatchdog = false;
+
 
 /* Constantes y Variables Globales */
 struct Config {
@@ -183,18 +187,6 @@ void iniciarA7670SA(){
 
 }
 
-// void dormirA7670SA() {
-//   if (dormir) {
-//     enviarComando("AT+CSCLK=1");
-//     delay(300);
-//     digitalWrite(SLEEP_PIN, HIGH);  // HIGH permite que el módulo entre en sleep
-//   } else {
-//     digitalWrite(SLEEP_PIN, LOW);   // LOW despierta el módulo
-//     delay(300);
-//     enviarComando("AT+CSCLK=0");
-//     enviarComando("AT");
-//   }
-// }
 void dormirA7670SA() {
   digitalWrite(SLEEP_PIN, LOW);  // LOW despierta el módulo
   delay(300);
@@ -339,18 +331,33 @@ int nivelSenal() {
 }
 
 void configurarModoAhorroEnergia() {
+  // ---------- WATCHDOG (solo iniciar una vez) ----------
+  if (!IWatchdog.isEnabled()) {
+
+    unsigned long WDG_TIMEOUT_MS =
+      ((unsigned long)config.intervaloDias * 86400UL +
+       (unsigned long)config.intervaloHoras * 3600UL +
+       (unsigned long)config.intervaloMinutos * 60UL +
+       config.intervaloSegundos) * 1000UL
+      + (15UL * 60UL * 1000UL); // margen 15 min
+
+    IWatchdog.begin(WDG_TIMEOUT_MS);
+  }
+
+  // ---------- SIM ----------
   // Configurar almacenamiento en SIM
   enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
 
   // Configurar CNMI para guardar en memoria sin notificar
   enviarComando("AT+CNMI=2,1,0,0,0", 1000);
 
-  // Configurar para modo ahorro de energia
+  // ---------- Configurar para modo ahorro de energia ----------
   // Desactivar LED
   pinMode(STM_LED, INPUT); // Cambiar a entrada para reducir consumo
 
   alarmFired = false; // Resetear bandera
 
+  // ---------- RTC ----------
   // Configurar alarma RTC
   configurarAlarma(config.intervaloDias, config.intervaloHoras, config.intervaloMinutos, config.intervaloSegundos);
 
@@ -419,7 +426,7 @@ void procesarComando(String mensaje) {
     comando.trim();
     comando.toUpperCase();
 
-    // ========== COMANDOS ==========
+  // ========== COMANDOS ==========
   // enviarSMS("Procesando comando: " + comando);
   // --- RASTREAR ON/OFF ---
   if (comando.indexOf("RASTREAR") != -1) {
@@ -835,24 +842,29 @@ String obtenerTiempoRTC() {
 }
 
 String crearMensaje(String datosGPS, String cellTowerInfo, String batteryCharge){
-
+  
   //Verificar si el RTC tiene la hora y fecha correcta
-  corregirRTC();
+  if (!rtcValido(rtc.now())) {
+    // Intentar corregir desde GPS y red celular
+    corregirRTC();
+  }
 
-  DateTime now = rtc.now();
+  bool rtcEsConfiable = rtcValido(rtc.now());
+  String currentTime = "";
 
-  char buffer[20];
-  sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
-          now.year(), now.month(), now.day(),
-          now.hour(), now.minute(), now.second());
-
-  String currentTime = String(buffer);
+  if(!rtcEsConfiable){
+    // Fecha y hora no confiable, incluso despues de corregir
+    currentTime = "INVALID";
+  }else{
+    currentTime = obtenerTiempoRTC();
+  }
 
   String output = "id:" + String(config.idRastreador) + ",";
     output += "time:" + currentTime + ",";
     output += cellTowerInfo + ",";
     output += batteryCharge + ",";
     output += datosGPS;
+    output += ",rtc_fix:" + String(rtcEsConfiable ? "1" : "0");
   return output;
 }
 
@@ -953,43 +965,99 @@ String leerYGuardarGPS() {
   return "lat:" + latitude + ",lon:" + longitude + ",gps_fix:" + (ubicacionActualizada ? "1" : "0");
 }
 
+bool rtcValido(DateTime t) {
+  if (t.year() < 2023 || t.year() > 2035) return false;
+  if (t.month() < 1 || t.month() > 12) return false;
+  if (t.day() < 1 || t.day() > 31) return false;
+  if (t.hour() > 23) return false;
+  if (t.minute() > 59) return false;
+  if (t.second() > 59) return false;
+  return true;
+}
+
+bool obtenerHoraRed(DateTime &netTime) {
+
+  String resp = enviarComandoConRetorno("AT+CCLK?", 1500);
+
+  int idx = resp.indexOf("+CCLK:");
+  if (idx == -1) return false;
+
+  int q1 = resp.indexOf('"', idx);
+  int q2 = resp.indexOf('"', q1 + 1);
+  if (q1 == -1 || q2 == -1) return false;
+
+  String s = resp.substring(q1 + 1, q2);
+  // Ejemplo: 26/01/02,18:25:30-24
+
+  if (s.length() < 17) return false;
+
+  int yy = s.substring(0, 2).toInt();
+  int MM = s.substring(3, 5).toInt();
+  int dd = s.substring(6, 8).toInt();
+  int hh = s.substring(9, 11).toInt();
+  int mm = s.substring(12, 14).toInt();
+  int ss = s.substring(15, 17).toInt();
+
+  int tz = s.substring(18).toInt(); // en cuartos de hora
+
+  int year = 2000 + yy;
+
+  DateTime localTime(year, MM, dd, hh, mm, ss);
+
+  // tz viene en cuartos de hora → convertir a segundos
+  netTime = localTime - TimeSpan((tz / 4) * 3600);
+
+  return true;
+}
+
 void corregirRTC() {
-    DateTime now = rtc.now();
+  DateTime now = rtc.now();
+  DateTime newTime;
+  bool timeValida = false;
+  String fuente = "";
 
-    if (gps1.date.isValid() && gps1.time.isValid()) {
-        int gpsYear   = gps1.date.year();
-        int gpsMonth  = gps1.date.month();
-        int gpsDay    = gps1.date.day();
-        int gpsHour   = gps1.time.hour();
-        int gpsMinute = gps1.time.minute();
-        int gpsSecond = gps1.time.second();
+  // 1️⃣ GPS (fuente primaria)
+  if (gps1.date.isValid() && gps1.time.isValid()) {
+    int gpsYear   = gps1.date.year();
+    int gpsMonth  = gps1.date.month();
+    int gpsDay    = gps1.date.day();
+    int gpsHour   = gps1.time.hour();
+    int gpsMinute = gps1.time.minute();
+    int gpsSecond = gps1.time.second();
 
-        DateTime gpsTime(gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
+    newTime = DateTime(gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
+    timeValida = rtcValido(newTime);
+    fuente = "GPS";
+  }
 
-        // Diferencia en segundos
-        long diff = (long)now.unixtime() - (long)gpsTime.unixtime();
-        if (diff < 0) diff = -diff;
+  // 2️⃣ Red celular (respaldo)
+  else if (obtenerHoraRed(newTime)) {
+    timeValida = rtcValido(newTime);
+    fuente = "RED";
+  }
 
-        // Solo ajustar si la diferencia es significativa
-        if (diff > 2) {
-            rtc.adjust(gpsTime);
+  // 3️⃣ Ajustar RTC si es necesario
+  if (timeValida) {
+    // Diferencia en segundos
+    long diff = labs((long)now.unixtime() - (long)newTime.unixtime());
+    if (diff < 0) diff = -diff;
 
-            static unsigned long ultimaCorreccion = 0;
-            unsigned long tiempoActual = millis();
+    // Solo ajustar si la diferencia es significativa
+    if (diff > 2) {
+      rtc.adjust(newTime);
 
-            // Enviar SMS solo si ha pasado más de 1 hora desde la última corrección
-            if (tiempoActual - ultimaCorreccion > 3600000UL || ultimaCorreccion == 0) {
-                ultimaCorreccion = tiempoActual;
+      static unsigned long ultimaCorreccion = 0;
+      unsigned long tiempoActual = millis();
 
-                String mensaje = "RTC ajustado con hora GPS (diferencia " + String(diff) + "s)";
-                enviarSMS(mensaje);
-            }
-        }
-    }else {
-        // GPS aún no tiene hora válida
-        // (opcional) podrías forzar sincronizar con la última hora conocida
-        // enviarSMS("RTC no sincronizado: GPS sin datos válidos");
+      // Enviar SMS solo si ha pasado más de 1 hora desde la última corrección
+      if (tiempoActual - ultimaCorreccion > 3600000UL || ultimaCorreccion == 0) {
+          ultimaCorreccion = tiempoActual;
+
+          String mensaje = "RTC ajustado con hora " + fuente + " (diferencia " + String(diff) + "s)";
+          enviarSMS(mensaje);
+      }
     }
+  }
 }
 
 String obtenerTorreCelular() {
@@ -1131,6 +1199,12 @@ void setup() {
 
   digitalWrite(STM_LED, LOW);
 
+  // Detectar si el MCU reinició por Watchdog
+  if (IWatchdog.isReset()) {
+    resetPorWatchdog = true;
+    IWatchdog.clearResetFlag();
+  }
+
   if (!rtc.begin()) {        // si falla la inicializacion del modulo
     //Serial.println("Modulo RTC no encontrado !");  // muestra mensaje de error
     while (1);         // bucle infinito que detiene ejecucion del programa
@@ -1161,6 +1235,14 @@ void setup() {
   delay(5000);
 
   enviarComando("AT+CMGF=1",1000); // modo texto
+
+  // Esperar un poco a que la red registre
+  delay(2000);
+
+  if (resetPorWatchdog) {
+    corregirRTC();
+    resetPorWatchdog = false;  // ya atendido
+  }
 
   notificarEncendido();
 
@@ -1240,6 +1322,11 @@ void loop() {
   // Siempre escuchar fragmentos entrantes
   actualizarBuffer();
 
+  // Si el watchdog está activo, recargarlo para evitar reinicios
+  if (IWatchdog.isEnabled()) {
+    IWatchdog.reload();
+  }
+
   if (!config.rastreoActivo) {
     // Solo escuchar SMS
     if (smsCompletoDisponible()) {
@@ -1299,39 +1386,7 @@ void loop() {
 
     leerSMSPendientes();
 
-    // // Leer SMS pendientes desde memoria
-    // rxBuffer = "";
-    // enviarComando("AT+CPMS?", 1000);
-    // unsigned long t0 = millis();
-    // while (millis() - t0 < 1000) actualizarBuffer();
-    // enviarSMS(rxBuffer, String(config.receptor)); // imprime para ver si hay mensajes en SM o ME
-
-    // rxBuffer = "";
-    // // enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-    // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-    
-    // enviarComando("AT+CMGL=\"REC UNREAD\"", 5000);
-
-    // // unsigned long t0 = millis();
-    // t0 = millis();
-    // while (millis() - t0 < 2000) actualizarBuffer();
-
-    // if (!smsCompletoDisponible()) {
-    //   enviarSMS("Revisando ALL.", String(config.receptor));
-    //   rxBuffer = "";
-    //   // enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-    //   // enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-    //   // enviarComando("AT+CMGL=\"REC UNREAD\"", 2000);
-    //   t0 = millis();
-    //   enviarComando("AT+CMGL=\"ALL\"", 5000);
-    //   while (millis() - t0 < 2000) actualizarBuffer();
-    // }
-
-    // // Revisar si hay mensajes SMS pendientes
-    // if (smsCompletoDisponible()) {
-    //   String mensaje = obtenerSMS();
-    //   procesarComando(mensaje);
-    // }
+    corregirRTC();
 
     // Leer GPS y enviar datos
     String datosGPS = leerYGuardarGPS();
