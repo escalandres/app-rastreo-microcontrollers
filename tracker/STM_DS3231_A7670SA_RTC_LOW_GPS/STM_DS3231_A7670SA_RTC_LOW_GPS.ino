@@ -1243,7 +1243,7 @@ void setup() {
   // Detectar si el MCU reinició por Watchdog
   if (IWatchdog.isReset()) {
     resetPorWatchdog = true;
-    IWatchdog.clearResetFlag();
+    IWatchdog.clearReset();
   }
 
   if (!rtc.begin()) {        // si falla la inicializacion del modulo
