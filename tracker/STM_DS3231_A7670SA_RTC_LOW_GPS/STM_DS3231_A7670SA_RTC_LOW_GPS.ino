@@ -712,27 +712,17 @@ void procesarComando(String mensaje) {
   }
 
   else if (comando.indexOf("TIMECELL") != -1) {
-    String mensaje = "Tiempo de la red: ";
-    DateTime tiempoRed; 
-    if (obtenerHoraRed(tiempoRed)) {
-      char buffer[21];
-      sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
-              tiempoRed.year(), tiempoRed.month(), tiempoRed.day(),
-              tiempoRed.hour(), tiempoRed.minute(), tiempoRed.second());
+    String fechaHora = obtenerFechaHoraRed();
+    String mensaje;
 
-      // sprintf(buffer, "%02d/%02d %02d:%02d",
-      //   tiempoRed.day(), tiempoRed.month(),
-      //   tiempoRed.hour(), tiempoRed.minute());
-      // → "05/01 17:40"
-
-      String mensaje = "Tiempo de la red: ";
-      mensaje += buffer;
-
-      if (config.numUsuario != "") {
-          enviarSMS(mensaje, String(config.numUsuario));
-      }
+    if (fechaHora != "") {
+        mensaje = "Tiempo de la red: " + fechaHora;
     } else {
-        enviarSMS("Error: no se pudo leer hora de red", String(config.numUsuario));
+        mensaje = "Error: no se pudo leer hora de red";
+    }
+
+    if (config.numUsuario != "") {
+        enviarSMS(mensaje, String(config.numUsuario));
     }
   }
   
@@ -1036,6 +1026,58 @@ bool rtcValido(DateTime t) {
   if (t.minute() > 59) return false;
   if (t.second() > 59) return false;
   return true;
+}
+
+// Devuelve la fecha/hora de la red en formato ISO (YYYY-MM-DDTHH:MM:SS)
+// Retorna "" si hubo error al leer o parsear
+String obtenerFechaHoraRed() {
+    String resp = enviarComandoConRetorno("AT+CCLK?", 1500);
+
+    int idx = resp.indexOf("+CCLK:");
+    if (idx == -1) return "";
+
+    int q1 = resp.indexOf('"', idx);
+    int q2 = resp.indexOf('"', q1 + 1);
+    if (q1 == -1 || q2 == -1) return "";
+
+    String s = resp.substring(q1 + 1, q2);
+    // Ejemplo: 26/01/02,18:25:30-24
+
+    if (s.length() < 17) return "";
+
+    int yy = s.substring(0, 2).toInt();
+    int MM = s.substring(3, 5).toInt();
+    int dd = s.substring(6, 8).toInt();
+    int hh = s.substring(9, 11).toInt();
+    int mm = s.substring(12, 14).toInt();
+    int ss = s.substring(15, 17).toInt();
+    int tz = s.substring(18).toInt(); // cuartos de hora respecto a UTC
+
+    int year = 2000 + yy;
+
+    // Validaciones defensivas
+    if (year < 2020 || year > 2030) return "";
+    if (MM < 1 || MM > 12) return "";
+    if (dd < 1 || dd > 31) return "";
+    if (hh < 0 || hh > 23) return "";
+    if (mm < 0 || mm > 59) return "";
+    if (ss < 0 || ss > 59) return "";
+
+    DateTime localTime(year, MM, dd, hh, mm, ss);
+
+    // tz está en cuartos de hora → convertir a segundos
+    int offsetSeconds = tz * 15 * 60;
+
+    // Para obtener UTC: localTime - offset
+    DateTime netTime = localTime - TimeSpan(offsetSeconds);
+
+    // Formatear a ISO
+    char buffer[21];
+    sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
+            netTime.year(), netTime.month(), netTime.day(),
+            netTime.hour(), netTime.minute(), netTime.second());
+
+    return String(buffer);
 }
 
 bool obtenerHoraRed(DateTime &netTime) {
