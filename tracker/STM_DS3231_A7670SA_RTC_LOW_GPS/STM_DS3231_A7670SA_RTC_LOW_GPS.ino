@@ -710,6 +710,31 @@ void procesarComando(String mensaje) {
       enviarSMS(ubicacion, String(config.numUsuario));
     }
   }
+
+  else if (comando.indexOf("TIMECELL") != -1) {
+    String mensaje = "Tiempo de la red: ";
+    DateTime tiempoRed; 
+    if (obtenerHoraRed(tiempoRed)) {
+      char buffer[21];
+      sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
+              tiempoRed.year(), tiempoRed.month(), tiempoRed.day(),
+              tiempoRed.hour(), tiempoRed.minute(), tiempoRed.second());
+
+      // sprintf(buffer, "%02d/%02d %02d:%02d",
+      //   tiempoRed.day(), tiempoRed.month(),
+      //   tiempoRed.hour(), tiempoRed.minute());
+      // → "05/01 17:40"
+
+      String mensaje = "Tiempo de la red: ";
+      mensaje += buffer;
+
+      if (config.numUsuario != "") {
+          enviarSMS(mensaje, String(config.numUsuario));
+      }
+    } else {
+        enviarSMS("Error: no se pudo leer hora de red", String(config.numUsuario));
+    }
+  }
   
   // --- COMANDO NO RECONOCIDO ---
   else {
