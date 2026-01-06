@@ -624,7 +624,7 @@ void procesarComando(String mensaje) {
     comando.toUpperCase();
 
   // ========== COMANDOS ==========
-  enviarSMS("Procesando comando: " + comando);
+  // enviarSMS("Procesando comando: " + comando);
   // --- RASTREAR ON/OFF ---
   if (comando.indexOf("SET#MODO=") != -1) {
     if (comando.indexOf("AHORRO") != -1) {
@@ -849,7 +849,7 @@ void procesarComando(String mensaje) {
   
   // --- SETNUM (solo receptor) ---
   else if (comando.indexOf("SET#NUM=") != -1) {
-    enviarSMS("Comando SET#NUM recibido.");
+    // enviarSMS("Comando SET#NUM recibido.");
     String nuevoNumero = comando.substring(8);
     nuevoNumero.trim();
     
@@ -934,17 +934,17 @@ void procesarComando(String mensaje) {
 
   // --- STATUS ---
   else if (comando.indexOf("GET#STATUS") != -1) {
-    String info = "OK#STATUS:\n";
+    String info = "STATUS:\n";
     info += "ID: " + String(config.idRastreador) + ";";
     // MODO
-    // info += "MODO:";
-    // switch (config.modo) {
-    //   case MODO_OFF:      info += "OFF"; break;
-    //   case MODO_AHORRO:   info += "AHORRO"; break;
-    //   case MODO_CONTINUO: info += "CONTINUO"; break;
-    //   default:            info += "DESCONOCIDO"; break;
-    // }
-    // info += ";";
+    info += "MODO:";
+    switch (config.modo) {
+      case MODO_OFF:      info += "OFF"; break;
+      case MODO_AHORRO:   info += "AHORRO"; break;
+      case MODO_CONTINUO: info += "CONTINUO"; break;
+      default:            info += "DESCONOCIDO"; break;
+    }
+    info += ";";
     
     // TIME
     info += "TIME: " + obtenerTiempoRTC() + ";";
