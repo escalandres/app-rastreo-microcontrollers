@@ -1203,17 +1203,6 @@ void notificarEncendido()
   delay(500);
 }
 
-void debugEEPROMporSMS() {
-  String debug = "EEPROM:\n";
-  debug += "id:" + String(config.idRastreador) + ",";
-  debug += "ad:" + String(config.receptor) + ",";
-  debug += "us:" + String(config.numUsuario) + ",";
-  debug += "mod:" + String(config.modoAhorro ? "ON" : "OFF") + ",";
-  debug += "pin:" + String(config.pin);
-  debug += ",num:" + String(config.numUsuario);
-  enviarSMS(debug, "+525620577634");
-}
-
 String leerYGuardarGPS() {
   String nuevaLat = "";
   String nuevaLon = "";
