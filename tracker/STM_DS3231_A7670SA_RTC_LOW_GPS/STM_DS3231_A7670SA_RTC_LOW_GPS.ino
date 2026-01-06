@@ -117,7 +117,7 @@ void cargarConfiguracionPorDefecto() {
   memset(&config, 0, sizeof(Config)); // Limpiar toda la estructura
   config.firma = CONFIG_FIRMA;
   config.version = CONFIG_VERSION;
-  config.idRastreador = 48273619;
+  config.idRastreador = 59102473;
   strcpy(config.receptor, "+525620577634");
   config.numUsuario[0] = '\0';
   config.intervaloSegundos = 0;
@@ -1610,8 +1610,11 @@ void procesarComando(String mensaje) {
                     "(UTC+00:00):%s;", horaRed.utcISO);
 
                     
+      char rtcISO[21];
+      obtenerTiempoRTC1(rtcISO, sizeof(rtcISO));
       len += snprintf(msg + len, sizeof(msg) - len,
-                    "RTC:%s;", obtenerTiempoRTC());
+                  "RTC:%s;", rtcISO);
+                  
     } else {
       // mensaje = "Error: no se pudo leer hora de red";
       len += snprintf(msg + len, sizeof(msg) - len,
