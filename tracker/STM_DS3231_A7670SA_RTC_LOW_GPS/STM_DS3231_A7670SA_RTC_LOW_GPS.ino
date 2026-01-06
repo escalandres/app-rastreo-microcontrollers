@@ -1596,13 +1596,8 @@ void procesarComando(String mensaje) {
     size_t len = 0;
 
     HoraRedISO horaRed = obtenerHoraRedISO();
-    // String horaRTC = obtenerTiempoRTC();
-    // String mensaje;
 
     if (strlen(horaRed.localISO) > 0) {
-      // mensaje = "Tiempo de la red: " + horaRed.localISO;
-      // mensaje += " (LOCAL)\n" + horaRed.utcISO + " (UTC+00:00)";
-      // mensaje += "\nRTC: " + horaRTC;
       // Encabezado
       len += snprintf(msg + len, sizeof(msg) - len,
                     "Tiempo de la red:\n");
