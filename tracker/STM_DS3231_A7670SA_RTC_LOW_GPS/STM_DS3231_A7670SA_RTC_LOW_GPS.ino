@@ -689,7 +689,7 @@ void sincronizarRTCconRed(int margenSegundos = 60) {
   if (diff > margenSegundos) {
       rtc.adjust(horaRed.utc);
       if(strlen(config.numUsuario) > 0){
-        enviarSMS("RTC sincronizado con red. Diferencia era de " + String(diff) + " segundos.", String(config.numUsuario));
+        enviarSMS("RTC sincronizado con red. Diferencia era de " + String(diff) + " segundos. Nueva hora: " + obtenerTiempoRTC(), String(config.numUsuario));
       }
   } else {
     // RTC ya está sincronizado dentro del margen
@@ -1614,7 +1614,7 @@ void procesarComando(String mensaje) {
       obtenerTiempoRTC1(rtcISO, sizeof(rtcISO));
       len += snprintf(msg + len, sizeof(msg) - len,
                   "RTC:%s;", rtcISO);
-                  
+
     } else {
       // mensaje = "Error: no se pudo leer hora de red";
       len += snprintf(msg + len, sizeof(msg) - len,
