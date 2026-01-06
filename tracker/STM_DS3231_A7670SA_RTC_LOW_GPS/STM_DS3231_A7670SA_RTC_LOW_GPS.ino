@@ -628,7 +628,7 @@ void sincronizarRTCconRed(int margenSegundos = 60) {
 
   if (diff > margenSegundos) {
       rtc.adjust(horaRed.utc);
-      if(config.numUsuario != ""){
+      if(strlen(config.numUsuario) > 0){
         enviarSMS("RTC sincronizado con red. Diferencia era de " + String(diff) + " segundos.", String(config.numUsuario));
       }
   } else {
@@ -1139,7 +1139,7 @@ void procesarComando(String mensaje) {
     pinIngresado.trim();
     // Validar PIN
     if (pinIngresado != config.pin) {
-      if(config.numUsuario != ""){
+      if(strlen(config.numUsuario) > 0){
         enviarSMS(">:( PIN incorrecto.", String(config.numUsuario));
       }
       return;
@@ -1151,7 +1151,7 @@ void procesarComando(String mensaje) {
     comando.toUpperCase();
 
   // ========== COMANDOS ==========
-  // enviarSMS("Procesando comando: " + comando);
+  enviarSMS("Procesando comando: " + comando);
   // --- RASTREAR ON/OFF ---
   if (comando.indexOf("SET#MODO=") != -1) {
     if (comando.indexOf("AHORRO") != -1) {
@@ -1205,7 +1205,7 @@ void procesarComando(String mensaje) {
 
       enviarSMS("Rastreo Continuo ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
 
-      if(config.numUsuario != ""){
+      if(strlen(config.numUsuario) > 0){
         enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 59 segundos", String(config.numUsuario));
       }
 
@@ -1216,7 +1216,7 @@ void procesarComando(String mensaje) {
     else if (comando.indexOf("OFF") != -1) {
       // Si ya está desactivado el rastreo, seguir.
       if(estadoSistema.modoActual == MODO_OFF) {
-        if(config.numUsuario != ""){
+        if(strlen(config.numUsuario) > 0){
           enviarSMS("-_- Rastreo ya estaba DESACTIVADO.", String(config.numUsuario));
         }
       }
@@ -1229,7 +1229,7 @@ void procesarComando(String mensaje) {
       enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
       guardarConfigEEPROM();
       enviarSMS("Rastreo DESACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
-      if(config.numUsuario != ""){
+      if(strlen(config.numUsuario) > 0){
         enviarSMS("-_- Rastreo DESACTIVADO.", String(config.numUsuario));
       }
     }
@@ -1248,7 +1248,7 @@ void procesarComando(String mensaje) {
   //       configurarRastreoContinuo(59); // Cada 59 segundos
   //       enviarSMS("Rastreo Continuo ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
 
-  //       if(config.numUsuario != ""){
+  //       if(strlen(config.numUsuario) > 0){
   //         enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 59 segundos", String(config.numUsuario));
   //       }
   //     }else{
@@ -1258,7 +1258,7 @@ void procesarComando(String mensaje) {
   //                 String(config.intervaloMinutos) + "M" +
   //                 String(config.intervaloSegundos) + "S";
   //       enviarSMS("Rastreo con Modo Ahorro ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC() + ". INT: " + intervalo, String(config.receptor));
-  //       if(config.numUsuario != ""){
+  //       if(strlen(config.numUsuario) > 0){
   //         enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, String(config.numUsuario));
   //       }
   //       configurarModoAhorroEnergia();
@@ -1275,7 +1275,7 @@ void procesarComando(String mensaje) {
   //     enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
   //     guardarConfigEEPROM();
   //     enviarSMS("Rastreo DESACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
-  //     if(config.numUsuario != ""){
+  //     if(strlen(config.numUsuario) > 0){
   //       enviarSMS("-_- Rastreo DESACTIVADO.", String(config.numUsuario));
   //     }
   //   }
@@ -1294,7 +1294,7 @@ void procesarComando(String mensaje) {
   //     // Desactivar modo ahorro
   //     config.modoAhorro = false;
   //   } else {
-  //     if(config.numUsuario != ""){
+  //     if(strlen(config.numUsuario) > 0){
   //       enviarSMS("Use: MODOAHORRO=ON o OFF");
   //     }
   //     return;
@@ -1307,7 +1307,7 @@ void procesarComando(String mensaje) {
   //   msg += config.modoAhorro ? "ON" : "OFF";
   //   msg += ". Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC();
   //   // enviarSMS(msg, String(config.receptor));
-  //   if(config.numUsuario != ""){
+  //   if(strlen(config.numUsuario) > 0){
   //     enviarSMS(msg, String(config.numUsuario));
   //   }
   // }
@@ -1372,7 +1372,7 @@ void procesarComando(String mensaje) {
     }
     
     if (!formatoValido) {
-      if(config.numUsuario != ""){
+      if(strlen(config.numUsuario) > 0){
         enviarSMS(">:( Formato inválido. Use: 5M, 1H30M, 1D2H", String(config.numUsuario));
       }
       return;
@@ -1381,7 +1381,7 @@ void procesarComando(String mensaje) {
     // Validar que no sea todo cero
     if (config.intervaloSegundos == 0 && config.intervaloMinutos == 0 &&
         config.intervaloHoras == 0 && config.intervaloDias == 0) {
-      if(config.numUsuario != ""){
+      if(strlen(config.numUsuario) > 0){
         enviarSMS(">:( Intervalo no puede ser 0", String(config.numUsuario));
       }
       return;
@@ -1395,7 +1395,7 @@ void procesarComando(String mensaje) {
     if (config.intervaloHoras > 0) resumen += String(config.intervaloHoras) + "H ";
     if (config.intervaloMinutos > 0) resumen += String(config.intervaloMinutos) + "M ";
     if (config.intervaloSegundos > 0) resumen += String(config.intervaloSegundos) + "S";
-    if(config.numUsuario != ""){
+    if(strlen(config.numUsuario) > 0){
       enviarSMS(";-) " + resumen, String(config.numUsuario));
     }
   }
@@ -1408,7 +1408,7 @@ void procesarComando(String mensaje) {
     
     // Validar formato
     if (!nuevoNumero.startsWith("+") || nuevoNumero.length() < 11) {
-      if(config.numUsuario != ""){
+      if(strlen(config.numUsuario) > 0){
         enviarSMS(">:( Formato: +52XXXXXXXXXX", String(config.numUsuario));
       }
       return;
@@ -1425,7 +1425,7 @@ void procesarComando(String mensaje) {
     
     int digitos = nuevoNumero.length() - 1;
     if (!valido || digitos < 10 || digitos > 15) {
-      if(config.numUsuario != ""){
+      if(strlen(config.numUsuario) > 0){
         enviarSMS(">:( Número inválido (10-15 dígitos)", String(config.numUsuario));
       }
       return;
@@ -1437,7 +1437,7 @@ void procesarComando(String mensaje) {
     guardarConfigEEPROM();
     
     delay(500);
-    if(config.numUsuario != ""){
+    if(strlen(config.numUsuario) > 0){
       enviarSMS(";) Numero guardado: " + nuevoNumero, String(config.numUsuario));
     }
   }
@@ -1466,7 +1466,7 @@ void procesarComando(String mensaje) {
       String(config.receptor)
     );
 
-    if(config.numUsuario != ""){
+    if(strlen(config.numUsuario) > 0){
       enviarSMS(
         "RTC ACTUALIZADO\n"
         "Hora: " + obtenerTiempoRTC(),
@@ -1505,7 +1505,7 @@ void procesarComando(String mensaje) {
 
     // Encabezado
     len += snprintf(msg + len, sizeof(msg) - len,
-                    "OK#CONFIG\n");
+                    "CONFIG\n");
 
     // ID
     len += snprintf(msg + len, sizeof(msg) - len,
@@ -1550,33 +1550,43 @@ void procesarComando(String mensaje) {
 
   // --- STATUS ---
   else if (comando.indexOf("GET#STATUS") != -1) {
-    String info = "STATUS:\n";
-    info += "ID: " + String(config.idRastreador) + ";";
+    char msg[160];
+    size_t len = 0;
+    // Encabezado
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "STATUS\n");
+
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "ID:%lu;", (unsigned long)config.idRastreador);
+  
     // MODO
-    info += "MODO:";
+    const char* modoStr;
     switch (config.modo) {
-      case MODO_OFF:      info += "OFF"; break;
-      case MODO_AHORRO:   info += "AHORRO"; break;
-      case MODO_CONTINUO: info += "CONTINUO"; break;
-      default:            info += "DESCONOCIDO"; break;
+      case MODO_OFF:      modoStr = "OFF"; break;
+      case MODO_AHORRO:   modoStr = "AHORRO"; break;
+      case MODO_CONTINUO: modoStr = "CONTINUO"; break;
+      default:            modoStr = "DESCONOCIDO"; break;
     }
-    info += ";";
+
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "MODO:%s;", modoStr);
     
     // TIME
-    info += "TIME: " + obtenerTiempoRTC() + ";";
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "TIME:%s;", obtenerTiempoRTC());
 
     // GPS
     // String datosGPS = leerYGuardarGPS();
     // info += "GPS: " + datosGPS + ";";
 
     // BATTERY
-    String batteryCharge = "";
-    batteryCharge = obtenerVoltajeBateria();
-    
-    info += batteryCharge + "%;";
-    if(config.numUsuario != ""){
-      info.toUpperCase();
-      enviarSMS(info, String(config.numUsuario));
+    // String batteryCharge = "";
+    // batteryCharge = obtenerVoltajeBateria();
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "%s%%;", obtenerVoltajeBateria().toUpperCase().c_str());
+    // Enviar SMS
+    if(strlen(config.numUsuario) > 0){
+      enviarSMS(msg, String(config.numUsuario));
     }
   }
   
@@ -1614,22 +1624,38 @@ void procesarComando(String mensaje) {
 
 
   else if (comando.indexOf("GET#TIMECELL") != -1) {
-    // String fechaHoraLocal = obtenerFechaHoraRedISO("LOCAL");
-    // String fechaHoraUTC = obtenerFechaHoraRedISO("UTC");
-    HoraRedISO horaRed = obtenerHoraRedISO();
-    String horaRTC = obtenerTiempoRTC();
-    String mensaje;
+    char msg[150];
+    size_t len = 0;
 
-    if (horaRed.localISO != "") {
-      mensaje = "Tiempo de la red: " + horaRed.localISO;
-      mensaje += " (LOCAL)\n" + horaRed.utcISO + " (UTC+00:00)";
-      mensaje += "\nRTC: " + horaRTC;
+    HoraRedISO horaRed = obtenerHoraRedISO();
+    // String horaRTC = obtenerTiempoRTC();
+    // String mensaje;
+
+    if (strlen(horaRed.localISO) > 0) {
+      // mensaje = "Tiempo de la red: " + horaRed.localISO;
+      // mensaje += " (LOCAL)\n" + horaRed.utcISO + " (UTC+00:00)";
+      // mensaje += "\nRTC: " + horaRTC;
+      // Encabezado
+      len += snprintf(msg + len, sizeof(msg) - len,
+                    "Tiempo de la red:\n");
+
+      len += snprintf(msg + len, sizeof(msg) - len,
+                    "LOCAL:%s;", horaRed.localISO);
+                    
+      len += snprintf(msg + len, sizeof(msg) - len,
+                    "(UTC+00:00):%s;", horaRed.utcISO);
+
+                    
+      len += snprintf(msg + len, sizeof(msg) - len,
+                    "RTC:%s;", obtenerTiempoRTC());
     } else {
-      mensaje = "Error: no se pudo leer hora de red";
+      // mensaje = "Error: no se pudo leer hora de red";
+      len += snprintf(msg + len, sizeof(msg) - len,
+                    "Error: no se pudo leer hora de red.");
     }
 
-    if (config.numUsuario != "") {
-      enviarSMS(mensaje, String(config.numUsuario));
+    if (strlen(config.numUsuario) > 0) {
+      enviarSMS(msg, String(config.numUsuario));
     }
   }
 
@@ -1637,13 +1663,13 @@ void procesarComando(String mensaje) {
     String batteryCharge = obtenerVoltajeBateria();
     batteryCharge.toUpperCase();
     batteryCharge += "%";
-    if(config.numUsuario != ""){
+    if(strlen(config.numUsuario) > 0){
       enviarSMS(batteryCharge, String(config.numUsuario));
     }
   }
 
   else if (comando.indexOf("RESET") != -1) {
-    if(config.numUsuario != ""){
+    if(strlen(config.numUsuario) > 0){
       enviarSMS("!_! Reiniciando y reseteando configuración a valores de fábrica.", String(config.numUsuario));
     }
 
@@ -1652,7 +1678,7 @@ void procesarComando(String mensaje) {
   
   // --- COMANDO NO RECONOCIDO ---
   else {
-    if(config.numUsuario != ""){
+    if(strlen(config.numUsuario) > 0){
       enviarSMS(">:( Comando desconocido: " + comando, String(config.numUsuario));
     }
   }
