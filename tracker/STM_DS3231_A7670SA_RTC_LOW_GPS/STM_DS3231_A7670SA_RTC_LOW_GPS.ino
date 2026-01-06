@@ -988,7 +988,7 @@ void procesarComando(String mensaje) {
 
     if (horaRed.localISO != "") {
       mensaje = "Tiempo de la red: " + horaRed.localISO;
-      mensaje += " (LOCAL)\n" + horaRed.utcISO + " (UTC+00)";
+      mensaje += " (LOCAL)\n" + horaRed.utcISO + " (UTC+00:00)";
       mensaje += "\nRTC: " + horaRTC;
     } else {
       mensaje = "Error: no se pudo leer hora de red";
