@@ -230,13 +230,13 @@ float leerVoltaje(int pin) {
 // }
 
 int calcularNivelBateria(float v) {
-  if (v >= 4.20) return 100;
+  if (v >= 4.10) return 100;
   else if (v >= 3.70) {
-      // entre 4.20 y 3.70 V → 100% a 50%
-      return map(v * 100, 370, 420, 50, 100);
-  } else if (v >= 3.40) {
-      // entre 3.70 y 3.40 V → 50% a 10%
-      return map(v * 100, 340, 370, 10, 50);
+      // entre 4.10 y 3.70 V → 100% a 50%
+      return map(v * 100, 370, 410, 50, 100);
+  } else if (v >= 3.30) {
+      // entre 3.70 y 3.30 V → 50% a 10%
+      return map(v * 100, 330, 370, 10, 50);
   } else {
       return 0;
   }
@@ -788,35 +788,6 @@ void enviarDatosRastreador(String datosGPS)
   digitalWrite(STM_LED,HIGH);
 
 }
-
-// void notificarEncendido()
-// {
-//   digitalWrite(STM_LED, HIGH);
-//   delay(200);
-//   digitalWrite(STM_LED, LOW);
-//   delay(200);
-//   digitalWrite(STM_LED, HIGH);
-//   delay(200);
-//   digitalWrite(STM_LED, LOW);
-//   delay(200);
-//   digitalWrite(STM_LED, HIGH);
-//   delay(200);
-//   digitalWrite(STM_LED, LOW);
-
-//   // String currentTime = obtenerTiempoRTC();
-//   // HoraRedISO horaRed = obtenerFechaHoraRedISO("LOCAL");
-//   HoraRedISO horaRed = obtenerHoraRedISO();
-
-//   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
-//   SMS += " esta encendido. Hora red: " + horaRed.localISO + ".";
-//   enviarSMS(SMS, String(config.receptor));
-
-//   if(String(config.numUsuario) != ""){
-//     enviarSMS(SMS, String(config.numUsuario));
-//   }
-
-//   delay(500);
-// }
 
 void notificarEncendido() {
   // Parpadeo de LED (sin cambios)
