@@ -598,7 +598,7 @@ void configurarRastreoContinuo(uint16_t intervaloSegundos = 45) {
 
   // ---------- Limpiar estado previo ----------
   detachInterrupt(digitalPinToInterrupt(SQW_PIN));
-  limpiarAlarmasRTC();
+  desactivarAlarmaRTC();
 
   // ---------- Configuración del módem ----------
   enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000); // Usar memoria interna del módem
@@ -1032,7 +1032,7 @@ void procesarComando(String mensaje) {
 
   else if (comando.indexOf("SET#RTC=") != -1) {
     if (comando.indexOf("SYNC") != -1) {
-      bool corregido = corregirRTC();
+      corregirRTC();
       estadoSistema.rtcValido = rtcValido(rtc.now());
       if (estadoSistema.rtcValido) {
         enviarSMS(
@@ -1053,46 +1053,54 @@ void procesarComando(String mensaje) {
   
   // --- Config ---
   else if (comando.indexOf("GET#CONFIG") != -1) {
-    String info = "OK#CONFIG\n";
+
+    char msg[160];
+    size_t len = 0;
+
+    // Encabezado
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "OK#CONFIG\n");
 
     // ID
-    info += "ID:" + String(config.idRastreador) + ";";
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "ID:%lu;", (unsigned long)config.idRastreador);
 
-    // Numero receptor
-    info += "NUM:" + String(config.receptor) + ";";
+    // Número receptor
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "NUM:%s;", config.receptor);
 
     // MODO
-    info += "MODO:";
+    const char* modoStr;
     switch (config.modo) {
-      case MODO_OFF:      info += "OFF"; break;
-      case MODO_AHORRO:   info += "AHORRO"; break;
-      case MODO_CONTINUO: info += "CONTINUO"; break;
-      default:            info += "DESCONOCIDO"; break;
+      case MODO_OFF:      modoStr = "OFF"; break;
+      case MODO_AHORRO:   modoStr = "AHORRO"; break;
+      case MODO_CONTINUO: modoStr = "CONTINUO"; break;
+      default:            modoStr = "DESCONOCIDO"; break;
     }
-    info += ";";
 
-    // INTERVALO
-    info += "INTERVALO:";
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "MODO:%s;", modoStr);
 
-    info += String(config.intervaloDias) + "D ";
-    info += String(config.intervaloHoras) + "H ";
-    info += String(config.intervaloMinutos) + "M ";
-    info += String(config.intervaloSegundos) + "S;";
+    // INTERVALO (siempre completo)
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "INT:%uD %uH %uM %uS;",
+                    config.intervaloDias,
+                    config.intervaloHoras,
+                    config.intervaloMinutos,
+                    config.intervaloSegundos);
 
-    // Numero de usuario
-    info += "NUM:";
+    // Número de usuario
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "USER:%s;",
+                    (strlen(config.numUsuario) > 0) ?
+                    config.numUsuario : "NO_CONFIG");
+
+    // Enviar SMS
     if (strlen(config.numUsuario) > 0) {
-      info += String(config.numUsuario);
-    } else {
-      info += "NO_CONFIG";
-    }
-    info += ";";
-
-    // Enviar respuesta
-    if (strlen(config.numUsuario) > 0) {
-      enviarSMS(info, String(config.numUsuario));
+      enviarSMS(msg, config.numUsuario);
     }
   }
+
 
   // --- STATUS ---
   else if (comando.indexOf("GET#STATUS") != -1) {
@@ -1128,19 +1136,36 @@ void procesarComando(String mensaje) {
   
   // --- LOCATION ---
   else if (comando.indexOf("GET#LOCATION") != -1) {
-    String ubicacion = "Ubicacion obtenida:";
-    String datosGPS = leerYGuardarGPS();
 
-    ubicacion += "\nGPS: " + datosGPS;
+    char msg[150];
+    size_t len = 0;
 
-    String cellInfo = obtenerTorreCelular();
-    
-    ubicacion += ".\nCT: " + cellInfo;
+    // Encabezado corto
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "LOC\n");
 
-    if(config.numUsuario != ""){
-      enviarSMS(ubicacion, String(config.numUsuario));
+    // GPS (formato compacto)
+    char gpsData[50];
+    leerYGuardarGPS(gpsData, sizeof(gpsData));
+    // Ej: "19.123456,-99.123456" → 21 chars
+
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "%s\n", gpsData);
+
+    // Torre celular (formato compacto)
+    char cellInfo[60];
+    obtenerTorreCelular(cellInfo, sizeof(cellInfo));
+    // Ej: "334,20,585,24891158" → 19 chars
+
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "%s", cellInfo);
+
+    // Enviar SMS
+    if (strlen(config.numUsuario) > 0) {
+      enviarSMS(msg, config.numUsuario);
     }
   }
+
 
   else if (comando.indexOf("GET#TIMECELL") != -1) {
     // String fechaHoraLocal = obtenerFechaHoraRedISO("LOCAL");
