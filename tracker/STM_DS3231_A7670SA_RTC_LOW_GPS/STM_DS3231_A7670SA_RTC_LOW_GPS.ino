@@ -469,74 +469,51 @@ HoraRedISO obtenerHoraRedISO(int fallbackTZQuarters = -24) {
 void configurarModoAhorroEnergia() {
 
   // =====================================================
-  // 1️⃣ WATCHDOG – respaldo absoluto si el RTC falla
+  // 1️⃣ VALIDAR RTC (fuente principal de tiempo)
   // =====================================================
-  if (!IWatchdog.isEnabled()) {
-
-    unsigned long intervaloMs =
-      ((unsigned long)config.intervaloDias * 86400UL +
-       (unsigned long)config.intervaloHoras * 3600UL +
-       (unsigned long)config.intervaloMinutos * 60UL +
-       (unsigned long)config.intervaloSegundos) * 1000UL;
-
-    // Margen de seguridad: +15 minutos
-    unsigned long WDG_TIMEOUT_MS = intervaloMs + (15UL * 60UL * 1000UL);
-
-    IWatchdog.begin(WDG_TIMEOUT_MS);
-  }
-
-
-  // =====================================================
-  // 2️⃣ INTENTAR CORREGIR RTC ANTES DE PROGRAMAR ALARMA
-  // =====================================================
-  if (!rtcValido(rtc.now())) {
-    corregirRTC();   // GPS → Red → nada
-  }
-
-  // ⚠️ Volver a leer después de corregir
   DateTime now = rtc.now();
 
-  // Si sigue inválido, NO dependemos del RTC
-  bool rtcConfiable = rtcValido(now);
+  if (!rtcValido(now)) {
+    corregirRTC();           // GPS → Red → fallback
+    now = rtc.now();         // Releer después de intentar corregir
+  }
 
+  if (!rtcValido(now)) {
+    // RTC irrecuperable → NO dormir
+    entrarModoSeguro();      // Mantener modem activo y escuchar comandos
+    return;
+  }
 
   // =====================================================
-  // 3️⃣ SIM / MODEM
+  // 2️⃣ CONFIGURAR RTC ALARMA
+  // =====================================================
+  configurarAlarma(
+    config.intervaloDias,
+    config.intervaloHoras,
+    config.intervaloMinutos,
+    config.intervaloSegundos
+  );
+
+  // =====================================================
+  // 3️⃣ CONFIGURAR MODEM PARA DESPERTAR POR SMS (si aplica)
   // =====================================================
   enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
   enviarComando("AT+CNMI=2,1,0,0,0", 1000);
 
-
   // =====================================================
-  // 4️⃣ AHORRO DE ENERGÍA MCU
+  // 4️⃣ PREPARAR MCU PARA BAJO CONSUMO
   // =====================================================
-  pinMode(STM_LED, INPUT);   // LED off real
+  pinMode(STM_LED, INPUT);   // Apagar LED físicamente
   alarmFired = false;
 
-
   // =====================================================
-  // 5️⃣ RTC ALARMA (solo si es confiable)
-  // =====================================================
-  if (rtcConfiable) {
-    configurarAlarma(
-      config.intervaloDias,
-      config.intervaloHoras,
-      config.intervaloMinutos,
-      config.intervaloSegundos
-    );
-  } else {
-    // RTC no confiable → el watchdog será quien despierte
-    // (no programar alarma para evitar quedar dormido)
-  }
-
-  // =====================================================
-  // 6️⃣ PERIFÉRICOS A SLEEP
+  // 5️⃣ DORMIR PERIFÉRICOS
   // =====================================================
   dormirA7670SA();
-  // configureGPS(NEO8M); // si aplica
+  // dormirGPS(); // si aplica
 
   // =====================================================
-  // 7️⃣ DEEP SLEEP
+  // 6️⃣ ENTRAR EN DEEP SLEEP (RTC = fuente de wake-up)
   // =====================================================
   LowPower.begin();
 
@@ -547,9 +524,10 @@ void configurarModoAhorroEnergia() {
     DEEP_SLEEP_MODE
   );
 
-  delay(200);
+  delay(200);  // margen para que todo se estabilice
   LowPower.deepSleep();
 }
+
 
 void configurarRastreoContinuo(unsigned int segundos = 45) {
   // Configurar almacenamiento en memoria interna
@@ -629,7 +607,7 @@ void procesarComando(String mensaje) {
   if (comando.indexOf("SET#MODO=") != -1) {
     if (comando.indexOf("AHORRO") != -1) {
       // Si ya está activado el rastreo, seguir.
-      if(config.modo == MODO_CONTINUO) return;
+      if(config.modo == MODO_AHORRO) return;
 
       config.modo = MODO_AHORRO;
       config.firma = 0xCAFEBABE; // Asegurar firma válida
@@ -1002,8 +980,10 @@ void procesarComando(String mensaje) {
 
   else if (comando.indexOf("GET#BATERIA") != -1) {
     String batteryCharge = obtenerVoltajeBateria();
+    batteryCharge.toUpperCase();
+    batteryCharge += "%";
     if(config.numUsuario != ""){
-      enviarSMS("Nivel de bateria: " + batteryCharge, String(config.numUsuario));
+      enviarSMS(batteryCharge, String(config.numUsuario));
     }
   }
 
