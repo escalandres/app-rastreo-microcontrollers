@@ -52,21 +52,6 @@ struct EstadoSistema {
   unsigned long ultimoEventoMs;
 };
 
-// struct Config {
-//   uint32_t firma;           // ← debe ser 0xCAFEBABE
-//   int idRastreador;         // ID unico del rastreador
-//   char receptor[16];           // Numero de telefono del receptoristrador
-//   char numUsuario[16];      // Numero de usuario que recibe los SMS;
-//   int intervaloSegundos;    // Intervalo de envio de datos en segundos
-//   int intervaloMinutos;     // Intervalo de envio de datos en minutos
-//   int intervaloHoras;       // Intervalo de envio de datos en horas
-//   int intervaloDias;        // Intervalo de envio de datos en dias
-//   bool modoAhorro;          // Modo ahorro de energia (true/false) 
-//   char pin[8];              // PIN para aceptar comandos SMS
-//   bool configurado;         // Indica si el rastreador ha sido configurado
-//   bool rastreoActivo;       // Indica si el rastreo está activo o no
-// };
-
 struct Config {
   uint32_t firma;
   uint8_t version;
@@ -308,7 +293,6 @@ void iniciarA7670SA() {
   enviarComando("AT+CMGF=1", 1000);
 }
 
-
 void dormirA7670SA() {
   digitalWrite(SLEEP_PIN, LOW);  // LOW despierta el módulo
   delay(300);
@@ -370,6 +354,13 @@ String _readSerial(unsigned long timeout = 5000) {
   return resp;
 }
 
+void actualizarBuffer() {
+    while (A7670SA.available()) {
+        char c = A7670SA.read();
+        rxBuffer += c;
+    }
+}
+
 void flushA7670SA() {
     unsigned long startTime = millis();
     while (A7670SA.available()) {
@@ -428,6 +419,8 @@ int nivelSenal() {
 
     return resp.substring(startIdx, endIdx).toInt();
 }
+
+// ---------- Funciones de hora de red ----------
 
 HoraRedISO obtenerHoraRedISO(int fallbackTZQuarters = -24) {
   HoraRedISO out = { DateTime((uint32_t)0), DateTime((uint32_t)0), "", "", false };
@@ -620,7 +613,6 @@ void configurarRastreoContinuo(uint16_t intervaloSegundos = 45) {
   );
 }
 
-
 void sincronizarRTCconRed(int margenSegundos = 60) {
   HoraRedISO horaRed = obtenerHoraRedISO();
   if (horaRed.ok == false) {
@@ -665,6 +657,462 @@ bool configurarRTCDesdeString(String fechaHora) {
   return true;
 }
 
+// ---------- Funciones del rastreador ----------
+
+String obtenerTiempoRTC() {
+    DateTime now = rtc.now();
+
+    char buffer[20];
+    sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
+          now.year(), now.month(), now.day(),
+          now.hour(), now.minute(), now.second());
+
+    return String(buffer);
+}
+
+String crearMensaje(String datosGPS, String cellTowerInfo, String batteryCharge){
+  
+  //Verificar si el RTC tiene la hora y fecha correcta
+  if (!rtcValido(rtc.now())) {
+    // Intentar corregir desde GPS y red celular
+    corregirRTC();
+  }
+
+  bool rtcEsConfiable = rtcValido(rtc.now());
+  String currentTime = "";
+
+  if(!rtcEsConfiable){
+    // Fecha y hora no confiable, incluso despues de corregir
+    currentTime = "INVALID";
+  }else{
+    currentTime = obtenerTiempoRTC();
+  }
+
+  String output = "id:" + String(config.idRastreador) + ",";
+    output += "time:" + currentTime + ",";
+    output += cellTowerInfo + ",";
+    output += batteryCharge + ",";
+    output += datosGPS;
+    output += ",rtc_fix:" + String(rtcEsConfiable ? "1" : "0");
+  return output;
+}
+
+void enviarDatosRastreador(String datosGPS)
+{
+  digitalWrite(STM_LED, LOW);
+
+  String cellTowerInfo = "";
+  cellTowerInfo = obtenerTorreCelular();
+
+  String batteryCharge = "";
+  batteryCharge = obtenerVoltajeBateria();
+
+  String SMS = crearMensaje(datosGPS, cellTowerInfo, batteryCharge);
+  enviarSMS(SMS, String(config.receptor));
+
+  if(String(config.numUsuario) != ""){
+    enviarSMS("Hay novedades de tu rastreador: " + String(config.idRastreador) + "!", String(config.numUsuario));
+  }
+
+  delay(500);
+  digitalWrite(STM_LED,HIGH);
+
+}
+
+void notificarEncendido()
+{
+  digitalWrite(STM_LED, HIGH);
+  delay(200);
+  digitalWrite(STM_LED, LOW);
+  delay(200);
+  digitalWrite(STM_LED, HIGH);
+  delay(200);
+  digitalWrite(STM_LED, LOW);
+  delay(200);
+  digitalWrite(STM_LED, HIGH);
+  delay(200);
+  digitalWrite(STM_LED, LOW);
+
+  // String currentTime = obtenerTiempoRTC();
+  // HoraRedISO horaRed = obtenerFechaHoraRedISO("LOCAL");
+  HoraRedISO horaRed = obtenerHoraRedISO();
+
+  String SMS = "El rastreador: " + String(config.idRastreador) + ",";
+  SMS += " esta encendido. Hora red: " + horaRed.localISO + ".";
+  enviarSMS(SMS, String(config.receptor));
+
+  if(String(config.numUsuario) != ""){
+    enviarSMS(SMS, String(config.numUsuario));
+  }
+
+  delay(500);
+}
+
+String leerYGuardarGPS() {
+  String nuevaLat = "";
+  String nuevaLon = "";
+  bool ubicacionActualizada = false;
+  unsigned long startTime = millis();
+  int intentos = 0;
+
+  while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) {
+      while (NEO8M.available()) {
+          char c = NEO8M.read();
+          gps1.encode(c);
+
+          if (gps1.location.isUpdated() && gps1.location.isValid() && gps1.satellites.value() > 0) {
+              nuevaLat = String(gps1.location.lat(), 6);
+              nuevaLon = String(gps1.location.lng(), 6);
+
+              latitude = nuevaLat;
+              longitude = nuevaLon;
+              ubicacionActualizada = true;
+              break;
+          }
+      }
+      delay(50);
+      intentos++;
+  }
+
+  // Caso 1: nunca hubo fix → mandar 0.0
+  if (!ubicacionActualizada && (latitude == "" || longitude == "")) {
+      latitude = "0.0";
+      longitude = "0.0";
+  }
+  // Caso 2: ya hubo fix antes → conservar última coordenada válida
+  // No pisar con 0.0 aunque momentáneamente satélites sea 0
+
+  return "lat:" + latitude + ",lon:" + longitude + ",gps_fix:" + (ubicacionActualizada ? "1" : "0");
+}
+
+bool rtcValido(DateTime t) {
+  if (t.year() < 2023 || t.year() > 2035) return false;
+  if (t.month() < 1 || t.month() > 12) return false;
+  if (t.day() < 1 || t.day() > 31) return false;
+  if (t.hour() > 23) return false;
+  if (t.minute() > 59) return false;
+  if (t.second() > 59) return false;
+  return true;
+}
+
+bool obtenerHoraRed(DateTime &netTime) {
+  String resp = enviarComandoConRetorno("AT+CCLK?", 1500);
+
+  int idx = resp.indexOf("+CCLK:");
+  if (idx == -1) return false;
+
+  int q1 = resp.indexOf('"', idx);
+  int q2 = resp.indexOf('"', q1 + 1);
+  if (q1 == -1 || q2 == -1) return false;
+
+  String s = resp.substring(q1 + 1, q2);
+  // Ejemplo: 26/01/02,18:25:30-24
+
+  if (s.length() < 17) return false;
+
+  int yy = s.substring(0, 2).toInt();
+  int MM = s.substring(3, 5).toInt();
+  int dd = s.substring(6, 8).toInt();
+  int hh = s.substring(9, 11).toInt();
+  int mm = s.substring(12, 14).toInt();
+  int ss = s.substring(15, 17).toInt();
+
+  int tz = s.substring(18).toInt(); // cuartos de hora respecto a UTC
+
+  int year = 2000 + yy;
+
+  DateTime localTime(year, MM, dd, hh, mm, ss);
+
+  // tz está en cuartos de hora → convertir a segundos
+  // Ejemplo: -24 → -6 horas
+  int offsetSeconds = tz * 15 * 60;
+
+  // Para obtener UTC: localTime - offset
+  netTime = localTime - TimeSpan(offsetSeconds);
+
+  return true;
+}
+
+void corregirRTC() {
+    DateTime now = rtc.now();
+    DateTime newTime;
+    bool timeValida = false;
+    String fuente = "";
+
+    // 1️⃣ GPS (fuente primaria)
+    if (gps1.date.isValid() && gps1.time.isValid()) {
+        int gpsYear   = gps1.date.year();
+        int gpsMonth  = gps1.date.month();
+        int gpsDay    = gps1.date.day();
+        int gpsHour   = gps1.time.hour();
+        int gpsMinute = gps1.time.minute();
+        int gpsSecond = gps1.time.second();
+
+        newTime = DateTime(gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
+        timeValida = rtcValido(newTime);
+        fuente = "GPS";
+
+        // Ajustar RTC si es necesario (igual que antes)
+        if (timeValida) {
+            long diff = labs((long)now.unixtime() - (long)newTime.unixtime());
+            if (diff > 2) {
+                rtc.adjust(newTime);
+
+                static unsigned long ultimaCorreccion = 0;
+                unsigned long tiempoActual = millis();
+
+                if (tiempoActual - ultimaCorreccion > 3600000UL || ultimaCorreccion == 0) {
+                    ultimaCorreccion = tiempoActual;
+                    String mensaje = "RTC ajustado con hora " + fuente + " (diferencia " + String(diff) + "s)";
+                    if(String(config.numUsuario) != ""){
+                      enviarSMS(mensaje, config.numUsuario);
+                    }
+                }
+            }
+        }
+    }
+
+    // 2️⃣ Red celular (respaldo)
+    else {
+        // Aquí ya no usamos obtenerHoraRed directamente,
+        // sino la función sincronizarRTCconRed con margen de 60s
+        sincronizarRTCconRed(60);  
+        // Nota: sincronizarRTCconRed ya hace la comparación y ajuste,
+    }
+}
+
+String obtenerTorreCelular() {
+    String lac = "";
+    String cellId = "";
+    String mcc = "";
+    String mnc = "";
+    String red = "";
+
+    // Solicitar información de la red con A7670SA
+    flushA7670SA();
+
+    enviarComando("AT+CPSI?",2000);
+    String cpsiResponse = leerRespuestaA7670SA();
+
+    // Extraer datos de la respuesta de AT+CPSI?
+    int startIndex = cpsiResponse.indexOf("CPSI:");
+
+    if (startIndex != -1) {
+        startIndex += 6; // Mover el índice después de "CPSI: "
+
+        // Verificar si es LTE o GSM
+        if (cpsiResponse.startsWith("LTE", startIndex)) {
+            red = "lte";
+            startIndex += 4; // Mover el índice después de "LTE,"
+        } else if (cpsiResponse.startsWith("GSM", startIndex)) {
+            red = "gsm";
+            startIndex += 4; // Mover el índice después de "GSM,"
+        } else {
+            return "{}"; // Si no es ni GSM ni LTE, devolver JSON vacío
+        }
+
+        // Extraer MCC-MNC correctamente
+        int mccMncStart = cpsiResponse.indexOf(",", startIndex) + 1;
+        int mccMncEnd = cpsiResponse.indexOf(",", mccMncStart);
+        String mccMncRaw = cpsiResponse.substring(mccMncStart, mccMncEnd);
+
+        // Separar MCC y MNC
+        int separatorIndex = mccMncRaw.indexOf("-");
+        if (separatorIndex != -1) {
+            mcc = mccMncRaw.substring(0, separatorIndex);  // MCC
+            mnc = mccMncRaw.substring(separatorIndex + 1); // MNC
+        }
+
+        // Extraer LAC
+        int lacStart = mccMncEnd + 1;
+        int lacEnd = cpsiResponse.indexOf(",", lacStart);
+        lac = cpsiResponse.substring(lacStart, lacEnd);
+
+        // Extraer Cell ID
+        int cellIdStart = lacEnd + 1;
+        int cellIdEnd = cpsiResponse.indexOf(",", cellIdStart);
+        cellId = cpsiResponse.substring(cellIdStart, cellIdEnd);
+    }
+
+    // Convertir de Hex a Decimal
+    lac = hexToDec(lac);
+
+    String json = "red:" + red + ",";
+    json += "mcc:" + mcc + ",";
+    json += "mnc:" + mnc + ",";
+    json += "lac:" + lac + ",";
+    json += "cid:" + cellId;
+    //enviarSMS(json);
+    return json;
+}
+
+String hexToDec(String hexStr) {
+  long decVal = strtol(hexStr.c_str(), NULL, 16);
+  return String(decVal);
+}
+
+void aplicarModo(ModoOperacion modo) {
+  switch (modo) {
+
+    case MODO_AHORRO:
+      configurarModoAhorroEnergia();
+      break;
+
+    case MODO_CONTINUO:
+      configurarRastreoContinuo(45);
+      break;
+
+    case MODO_OFF:
+    default:
+      enviarComando("AT+CNMI=1,2,0,0,0");
+      break;
+  }
+}
+
+// Procesar todos los SMS en la respuesta
+
+void procesarSMS(String resp, String banco) {
+  int pos = 0;
+  while ((pos = resp.indexOf("+CMGL:", pos)) != -1) {
+    int fin = resp.indexOf("\r\n", pos);
+    if (fin == -1) break;
+    String header = resp.substring(pos, fin);
+    pos = fin + 2;
+
+    int bodyEnd = resp.indexOf("\r\n", pos);
+    if (bodyEnd == -1) break;
+    String body = resp.substring(pos, bodyEnd);
+    pos = bodyEnd + 2;
+
+    // enviarSMS("[" + banco + "] " + body, String(config.numUsuario));
+
+    // Borrar SMS procesado
+    int idxStart = header.indexOf(":");
+    int idxEnd = header.indexOf(",");
+    if (idxStart != -1 && idxEnd != -1) {
+      int smsIndex = header.substring(idxStart + 1, idxEnd).toInt();
+      enviarComando(("AT+CMGD=" + String(smsIndex)).c_str(), 1000);
+    }
+
+    // Procesar comando en cuerpo del SMS
+    procesarComando(body);
+  }
+}
+
+void leerSMSPendientes() {
+  limpiarBufferA7670SA();
+  rxBuffer = "";
+
+  // 1. Leer en ME
+  enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+  String respME = enviarComandoConRetorno("AT+CMGL=\"REC UNREAD\"", 7000);
+  // enviarSMS("ME: " + respME, String(config.numUsuario));
+  if (respME.indexOf("+CMGL:") != -1) {
+    procesarSMS(respME, "ME");
+  } else {
+    respME = enviarComandoConRetorno("AT+CMGL=\"ALL\"", 7000);
+    // enviarSMS("MEAL: " + respME, String(config.numUsuario));
+    if (respME.indexOf("+CMGL:") != -1) {
+      procesarSMS(respME, "ME");
+    }
+  }
+
+  // 2. Leer en SM
+  enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
+  String respSM = enviarComandoConRetorno("AT+CMGL=\"REC UNREAD\"", 7000);
+  // enviarSMS("SM: " + respSM, String(config.numUsuario));
+  if (respSM.indexOf("+CMGL:") != -1) {
+    procesarSMS(respSM, "SM");
+  } else {
+    respSM = enviarComandoConRetorno("AT+CMGL=\"ALL\"", 7000);
+    // enviarSMS("SMAL: " + respSM, String(config.numUsuario));
+    if (respSM.indexOf("+CMGL:") != -1) {
+      procesarSMS(respSM, "SM");
+    }
+  }
+}
+
+bool smsCompletoDisponible() {
+  // Normalizar saltos de línea
+  rxBuffer.replace("\r\n", "\n");
+
+  // Recepción en vivo (CNMI con +CMT:)
+  int idxCMT = rxBuffer.indexOf("+CMT:");
+  if (idxCMT != -1) {
+    int firstNL = rxBuffer.indexOf("\n", idxCMT);
+    if (firstNL == -1) return false;
+
+    // Verifica que haya texto después del encabezado
+    if (rxBuffer.length() > firstNL + 1) {
+      return true;
+    }
+  }
+
+  // Lectura desde memoria (CMGL o CMGR)
+  int idxMem = rxBuffer.indexOf("+CMGL:");
+  if (idxMem == -1) idxMem = rxBuffer.indexOf("+CMGR:");
+  if (idxMem != -1) {
+    int firstNL = rxBuffer.indexOf("\n", idxMem);
+    if (firstNL == -1) return false;
+
+    if (rxBuffer.length() > firstNL + 1) {
+      return true;
+    }
+  }
+
+  // Mensajes inesperados (debug defensivo)
+  rxBuffer.trim();
+  if (rxBuffer != "" &&
+      rxBuffer.indexOf("+CNMI") == -1 &&
+      rxBuffer.indexOf("AT+CPMS") == -1 &&
+      rxBuffer.indexOf("OK") == -1) {
+    String mensaje = "rxBuffer: " + rxBuffer;
+    if (mensaje.length() > 160) {
+      mensaje = mensaje.substring(0, 160);
+    }
+    enviarSMS(mensaje, String(config.numUsuario));
+  }
+
+  return false;
+}
+
+String obtenerSMS() {
+  // Normalizar saltos de línea
+  rxBuffer.replace("\r\n", "\n");
+
+  // Buscar encabezado +CMT
+  int idx = rxBuffer.indexOf("+CMT:");
+  if (idx != -1) {
+    int start = rxBuffer.indexOf("\n", idx) + 1;
+    int end   = rxBuffer.indexOf("\n", start);
+    if (end == -1) end = rxBuffer.length();
+
+    String sms = rxBuffer.substring(start, end);
+    sms.trim();
+
+    // Limpiar lo consumido
+    rxBuffer = rxBuffer.substring(end);
+    return sms;
+  }
+
+  // Buscar encabezado +CMGL o +CMGR
+  idx = rxBuffer.indexOf("+CMGL:");
+  if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
+  if (idx != -1) {
+    int start = rxBuffer.indexOf("\n", idx) + 1;
+    int end   = rxBuffer.indexOf("\n", start);
+    if (end == -1) end = rxBuffer.length();
+
+    String sms = rxBuffer.substring(start, end);
+    sms.trim();
+
+    // Limpiar lo consumido
+    rxBuffer = rxBuffer.substring(end);
+    return sms;
+  }
+
+  return "";
+}
 
 void procesarComando(String mensaje) {
     mensaje.trim();
@@ -1048,9 +1496,7 @@ void procesarComando(String mensaje) {
     }
   }
 
-
   // ------ Obtener valores ------
-  
   // --- Config ---
   else if (comando.indexOf("GET#CONFIG") != -1) {
 
@@ -1212,406 +1658,8 @@ void procesarComando(String mensaje) {
   }
 }
 
-void actualizarBuffer() {
-    while (A7670SA.available()) {
-        char c = A7670SA.read();
-        rxBuffer += c;
-    }
-}
-
-bool smsCompletoDisponible() {
-  // Normalizar saltos de línea
-  rxBuffer.replace("\r\n", "\n");
-
-  // Recepción en vivo (CNMI con +CMT:)
-  int idxCMT = rxBuffer.indexOf("+CMT:");
-  if (idxCMT != -1) {
-    int firstNL = rxBuffer.indexOf("\n", idxCMT);
-    if (firstNL == -1) return false;
-
-    // Verifica que haya texto después del encabezado
-    if (rxBuffer.length() > firstNL + 1) {
-      return true;
-    }
-  }
-
-  // Lectura desde memoria (CMGL o CMGR)
-  int idxMem = rxBuffer.indexOf("+CMGL:");
-  if (idxMem == -1) idxMem = rxBuffer.indexOf("+CMGR:");
-  if (idxMem != -1) {
-    int firstNL = rxBuffer.indexOf("\n", idxMem);
-    if (firstNL == -1) return false;
-
-    if (rxBuffer.length() > firstNL + 1) {
-      return true;
-    }
-  }
-
-  // Mensajes inesperados (debug defensivo)
-  rxBuffer.trim();
-  if (rxBuffer != "" &&
-      rxBuffer.indexOf("+CNMI") == -1 &&
-      rxBuffer.indexOf("AT+CPMS") == -1 &&
-      rxBuffer.indexOf("OK") == -1) {
-    String mensaje = "rxBuffer: " + rxBuffer;
-    if (mensaje.length() > 160) {
-      mensaje = mensaje.substring(0, 160);
-    }
-    enviarSMS(mensaje, String(config.numUsuario));
-  }
-
-  return false;
-}
-
-String obtenerSMS() {
-  // Normalizar saltos de línea
-  rxBuffer.replace("\r\n", "\n");
-
-  // Buscar encabezado +CMT
-  int idx = rxBuffer.indexOf("+CMT:");
-  if (idx != -1) {
-    int start = rxBuffer.indexOf("\n", idx) + 1;
-    int end   = rxBuffer.indexOf("\n", start);
-    if (end == -1) end = rxBuffer.length();
-
-    String sms = rxBuffer.substring(start, end);
-    sms.trim();
-
-    // Limpiar lo consumido
-    rxBuffer = rxBuffer.substring(end);
-    return sms;
-  }
-
-  // Buscar encabezado +CMGL o +CMGR
-  idx = rxBuffer.indexOf("+CMGL:");
-  if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
-  if (idx != -1) {
-    int start = rxBuffer.indexOf("\n", idx) + 1;
-    int end   = rxBuffer.indexOf("\n", start);
-    if (end == -1) end = rxBuffer.length();
-
-    String sms = rxBuffer.substring(start, end);
-    sms.trim();
-
-    // Limpiar lo consumido
-    rxBuffer = rxBuffer.substring(end);
-    return sms;
-  }
-
-  return "";
-}
-
-// ---------- Funciones del rastreador ----------
-
-String obtenerTiempoRTC() {
-    DateTime now = rtc.now();
-
-    char buffer[20];
-    sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
-          now.year(), now.month(), now.day(),
-          now.hour(), now.minute(), now.second());
-
-    return String(buffer);
-}
-
-String crearMensaje(String datosGPS, String cellTowerInfo, String batteryCharge){
-  
-  //Verificar si el RTC tiene la hora y fecha correcta
-  if (!rtcValido(rtc.now())) {
-    // Intentar corregir desde GPS y red celular
-    corregirRTC();
-  }
-
-  bool rtcEsConfiable = rtcValido(rtc.now());
-  String currentTime = "";
-
-  if(!rtcEsConfiable){
-    // Fecha y hora no confiable, incluso despues de corregir
-    currentTime = "INVALID";
-  }else{
-    currentTime = obtenerTiempoRTC();
-  }
-
-  String output = "id:" + String(config.idRastreador) + ",";
-    output += "time:" + currentTime + ",";
-    output += cellTowerInfo + ",";
-    output += batteryCharge + ",";
-    output += datosGPS;
-    output += ",rtc_fix:" + String(rtcEsConfiable ? "1" : "0");
-  return output;
-}
-
-void enviarDatosRastreador(String datosGPS)
-{
-  digitalWrite(STM_LED, LOW);
-
-  String cellTowerInfo = "";
-  cellTowerInfo = obtenerTorreCelular();
-
-  String batteryCharge = "";
-  batteryCharge = obtenerVoltajeBateria();
-
-  String SMS = crearMensaje(datosGPS, cellTowerInfo, batteryCharge);
-  enviarSMS(SMS, String(config.receptor));
-
-  if(String(config.numUsuario) != ""){
-    enviarSMS("Hay novedades de tu rastreador: " + String(config.idRastreador) + "!", String(config.numUsuario));
-  }
-
-  delay(500);
-  digitalWrite(STM_LED,HIGH);
-
-}
-
-void notificarEncendido()
-{
-  digitalWrite(STM_LED, HIGH);
-  delay(200);
-  digitalWrite(STM_LED, LOW);
-  delay(200);
-  digitalWrite(STM_LED, HIGH);
-  delay(200);
-  digitalWrite(STM_LED, LOW);
-  delay(200);
-  digitalWrite(STM_LED, HIGH);
-  delay(200);
-  digitalWrite(STM_LED, LOW);
-
-  // String currentTime = obtenerTiempoRTC();
-  // HoraRedISO horaRed = obtenerFechaHoraRedISO("LOCAL");
-  HoraRedISO horaRed = obtenerHoraRedISO();
-
-  String SMS = "El rastreador: " + String(config.idRastreador) + ",";
-  SMS += " esta encendido. Hora red: " + horaRed.localISO + ".";
-  enviarSMS(SMS, String(config.receptor));
-
-  if(String(config.numUsuario) != ""){
-    enviarSMS(SMS, String(config.numUsuario));
-  }
-
-  delay(500);
-}
-
-String leerYGuardarGPS() {
-  String nuevaLat = "";
-  String nuevaLon = "";
-  bool ubicacionActualizada = false;
-  unsigned long startTime = millis();
-  int intentos = 0;
-
-  while ((millis() - startTime) < 10000 && intentos < 30 && !ubicacionActualizada) {
-      while (NEO8M.available()) {
-          char c = NEO8M.read();
-          gps1.encode(c);
-
-          if (gps1.location.isUpdated() && gps1.location.isValid() && gps1.satellites.value() > 0) {
-              nuevaLat = String(gps1.location.lat(), 6);
-              nuevaLon = String(gps1.location.lng(), 6);
-
-              latitude = nuevaLat;
-              longitude = nuevaLon;
-              ubicacionActualizada = true;
-              break;
-          }
-      }
-      delay(50);
-      intentos++;
-  }
-
-  // Caso 1: nunca hubo fix → mandar 0.0
-  if (!ubicacionActualizada && (latitude == "" || longitude == "")) {
-      latitude = "0.0";
-      longitude = "0.0";
-  }
-  // Caso 2: ya hubo fix antes → conservar última coordenada válida
-  // No pisar con 0.0 aunque momentáneamente satélites sea 0
-
-  return "lat:" + latitude + ",lon:" + longitude + ",gps_fix:" + (ubicacionActualizada ? "1" : "0");
-}
-
-bool rtcValido(DateTime t) {
-  if (t.year() < 2023 || t.year() > 2035) return false;
-  if (t.month() < 1 || t.month() > 12) return false;
-  if (t.day() < 1 || t.day() > 31) return false;
-  if (t.hour() > 23) return false;
-  if (t.minute() > 59) return false;
-  if (t.second() > 59) return false;
-  return true;
-}
-
-bool obtenerHoraRed(DateTime &netTime) {
-  String resp = enviarComandoConRetorno("AT+CCLK?", 1500);
-
-  int idx = resp.indexOf("+CCLK:");
-  if (idx == -1) return false;
-
-  int q1 = resp.indexOf('"', idx);
-  int q2 = resp.indexOf('"', q1 + 1);
-  if (q1 == -1 || q2 == -1) return false;
-
-  String s = resp.substring(q1 + 1, q2);
-  // Ejemplo: 26/01/02,18:25:30-24
-
-  if (s.length() < 17) return false;
-
-  int yy = s.substring(0, 2).toInt();
-  int MM = s.substring(3, 5).toInt();
-  int dd = s.substring(6, 8).toInt();
-  int hh = s.substring(9, 11).toInt();
-  int mm = s.substring(12, 14).toInt();
-  int ss = s.substring(15, 17).toInt();
-
-  int tz = s.substring(18).toInt(); // cuartos de hora respecto a UTC
-
-  int year = 2000 + yy;
-
-  DateTime localTime(year, MM, dd, hh, mm, ss);
-
-  // tz está en cuartos de hora → convertir a segundos
-  // Ejemplo: -24 → -6 horas
-  int offsetSeconds = tz * 15 * 60;
-
-  // Para obtener UTC: localTime - offset
-  netTime = localTime - TimeSpan(offsetSeconds);
-
-  return true;
-}
-
-void corregirRTC() {
-    DateTime now = rtc.now();
-    DateTime newTime;
-    bool timeValida = false;
-    String fuente = "";
-
-    // 1️⃣ GPS (fuente primaria)
-    if (gps1.date.isValid() && gps1.time.isValid()) {
-        int gpsYear   = gps1.date.year();
-        int gpsMonth  = gps1.date.month();
-        int gpsDay    = gps1.date.day();
-        int gpsHour   = gps1.time.hour();
-        int gpsMinute = gps1.time.minute();
-        int gpsSecond = gps1.time.second();
-
-        newTime = DateTime(gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
-        timeValida = rtcValido(newTime);
-        fuente = "GPS";
-
-        // Ajustar RTC si es necesario (igual que antes)
-        if (timeValida) {
-            long diff = labs((long)now.unixtime() - (long)newTime.unixtime());
-            if (diff > 2) {
-                rtc.adjust(newTime);
-
-                static unsigned long ultimaCorreccion = 0;
-                unsigned long tiempoActual = millis();
-
-                if (tiempoActual - ultimaCorreccion > 3600000UL || ultimaCorreccion == 0) {
-                    ultimaCorreccion = tiempoActual;
-                    String mensaje = "RTC ajustado con hora " + fuente + " (diferencia " + String(diff) + "s)";
-                    if(String(config.numUsuario) != ""){
-                      enviarSMS(mensaje, config.numUsuario);
-                    }
-                }
-            }
-        }
-    }
-
-    // 2️⃣ Red celular (respaldo)
-    else {
-        // Aquí ya no usamos obtenerHoraRed directamente,
-        // sino la función sincronizarRTCconRed con margen de 60s
-        sincronizarRTCconRed(60);  
-        // Nota: sincronizarRTCconRed ya hace la comparación y ajuste,
-    }
-}
-
-String obtenerTorreCelular() {
-    String lac = "";
-    String cellId = "";
-    String mcc = "";
-    String mnc = "";
-    String red = "";
-
-    // Solicitar información de la red con A7670SA
-    flushA7670SA();
-
-    enviarComando("AT+CPSI?",2000);
-    String cpsiResponse = leerRespuestaA7670SA();
-
-    // Extraer datos de la respuesta de AT+CPSI?
-    int startIndex = cpsiResponse.indexOf("CPSI:");
-
-    if (startIndex != -1) {
-        startIndex += 6; // Mover el índice después de "CPSI: "
-
-        // Verificar si es LTE o GSM
-        if (cpsiResponse.startsWith("LTE", startIndex)) {
-            red = "lte";
-            startIndex += 4; // Mover el índice después de "LTE,"
-        } else if (cpsiResponse.startsWith("GSM", startIndex)) {
-            red = "gsm";
-            startIndex += 4; // Mover el índice después de "GSM,"
-        } else {
-            return "{}"; // Si no es ni GSM ni LTE, devolver JSON vacío
-        }
-
-        // Extraer MCC-MNC correctamente
-        int mccMncStart = cpsiResponse.indexOf(",", startIndex) + 1;
-        int mccMncEnd = cpsiResponse.indexOf(",", mccMncStart);
-        String mccMncRaw = cpsiResponse.substring(mccMncStart, mccMncEnd);
-
-        // Separar MCC y MNC
-        int separatorIndex = mccMncRaw.indexOf("-");
-        if (separatorIndex != -1) {
-            mcc = mccMncRaw.substring(0, separatorIndex);  // MCC
-            mnc = mccMncRaw.substring(separatorIndex + 1); // MNC
-        }
-
-        // Extraer LAC
-        int lacStart = mccMncEnd + 1;
-        int lacEnd = cpsiResponse.indexOf(",", lacStart);
-        lac = cpsiResponse.substring(lacStart, lacEnd);
-
-        // Extraer Cell ID
-        int cellIdStart = lacEnd + 1;
-        int cellIdEnd = cpsiResponse.indexOf(",", cellIdStart);
-        cellId = cpsiResponse.substring(cellIdStart, cellIdEnd);
-    }
-
-    // Convertir de Hex a Decimal
-    lac = hexToDec(lac);
-
-    String json = "red:" + red + ",";
-    json += "mcc:" + mcc + ",";
-    json += "mnc:" + mnc + ",";
-    json += "lac:" + lac + ",";
-    json += "cid:" + cellId;
-    //enviarSMS(json);
-    return json;
-}
-
-String hexToDec(String hexStr) {
-  long decVal = strtol(hexStr.c_str(), NULL, 16);
-  return String(decVal);
-}
-
-void aplicarModo(ModoOperacion modo) {
-  switch (modo) {
-
-    case MODO_AHORRO:
-      configurarModoAhorroEnergia();
-      break;
-
-    case MODO_CONTINUO:
-      configurarRastreoContinuo(45);
-      break;
-
-    case MODO_OFF:
-    default:
-      enviarComando("AT+CNMI=1,2,0,0,0");
-      break;
-  }
-}
+// ================================
+// Setup y Loop
 
 void setup() {
 
@@ -1699,67 +1747,6 @@ void setup() {
   }
 
   digitalWrite(STM_LED, HIGH);
-}
-
-void procesarSMS(String resp, String banco) {
-  int pos = 0;
-  while ((pos = resp.indexOf("+CMGL:", pos)) != -1) {
-    int fin = resp.indexOf("\r\n", pos);
-    if (fin == -1) break;
-    String header = resp.substring(pos, fin);
-    pos = fin + 2;
-
-    int bodyEnd = resp.indexOf("\r\n", pos);
-    if (bodyEnd == -1) break;
-    String body = resp.substring(pos, bodyEnd);
-    pos = bodyEnd + 2;
-
-    // enviarSMS("[" + banco + "] " + body, String(config.numUsuario));
-
-    // Borrar SMS procesado
-    int idxStart = header.indexOf(":");
-    int idxEnd = header.indexOf(",");
-    if (idxStart != -1 && idxEnd != -1) {
-      int smsIndex = header.substring(idxStart + 1, idxEnd).toInt();
-      enviarComando(("AT+CMGD=" + String(smsIndex)).c_str(), 1000);
-    }
-
-    // Procesar comando en cuerpo del SMS
-    procesarComando(body);
-  }
-}
-
-void leerSMSPendientes() {
-  limpiarBufferA7670SA();
-  rxBuffer = "";
-
-  // 1. Leer en ME
-  enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-  String respME = enviarComandoConRetorno("AT+CMGL=\"REC UNREAD\"", 7000);
-  // enviarSMS("ME: " + respME, String(config.numUsuario));
-  if (respME.indexOf("+CMGL:") != -1) {
-    procesarSMS(respME, "ME");
-  } else {
-    respME = enviarComandoConRetorno("AT+CMGL=\"ALL\"", 7000);
-    // enviarSMS("MEAL: " + respME, String(config.numUsuario));
-    if (respME.indexOf("+CMGL:") != -1) {
-      procesarSMS(respME, "ME");
-    }
-  }
-
-  // 2. Leer en SM
-  enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
-  String respSM = enviarComandoConRetorno("AT+CMGL=\"REC UNREAD\"", 7000);
-  // enviarSMS("SM: " + respSM, String(config.numUsuario));
-  if (respSM.indexOf("+CMGL:") != -1) {
-    procesarSMS(respSM, "SM");
-  } else {
-    respSM = enviarComandoConRetorno("AT+CMGL=\"ALL\"", 7000);
-    // enviarSMS("SMAL: " + respSM, String(config.numUsuario));
-    if (respSM.indexOf("+CMGL:") != -1) {
-      procesarSMS(respSM, "SM");
-    }
-  }
 }
 
 void loop() {
