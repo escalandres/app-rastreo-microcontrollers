@@ -789,34 +789,75 @@ void enviarDatosRastreador(String datosGPS)
 
 }
 
-void notificarEncendido()
-{
-  digitalWrite(STM_LED, HIGH);
-  delay(200);
-  digitalWrite(STM_LED, LOW);
-  delay(200);
-  digitalWrite(STM_LED, HIGH);
-  delay(200);
-  digitalWrite(STM_LED, LOW);
-  delay(200);
-  digitalWrite(STM_LED, HIGH);
-  delay(200);
-  digitalWrite(STM_LED, LOW);
+// void notificarEncendido()
+// {
+//   digitalWrite(STM_LED, HIGH);
+//   delay(200);
+//   digitalWrite(STM_LED, LOW);
+//   delay(200);
+//   digitalWrite(STM_LED, HIGH);
+//   delay(200);
+//   digitalWrite(STM_LED, LOW);
+//   delay(200);
+//   digitalWrite(STM_LED, HIGH);
+//   delay(200);
+//   digitalWrite(STM_LED, LOW);
 
-  // String currentTime = obtenerTiempoRTC();
-  // HoraRedISO horaRed = obtenerFechaHoraRedISO("LOCAL");
+//   // String currentTime = obtenerTiempoRTC();
+//   // HoraRedISO horaRed = obtenerFechaHoraRedISO("LOCAL");
+//   HoraRedISO horaRed = obtenerHoraRedISO();
+
+//   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
+//   SMS += " esta encendido. Hora red: " + horaRed.localISO + ".";
+//   enviarSMS(SMS, String(config.receptor));
+
+//   if(String(config.numUsuario) != ""){
+//     enviarSMS(SMS, String(config.numUsuario));
+//   }
+
+//   delay(500);
+// }
+
+void notificarEncendido() {
+  // Parpadeo de LED (sin cambios)
+  for (uint8_t i = 0; i < 3; i++) {
+    digitalWrite(STM_LED, HIGH);
+    delay(200);
+    digitalWrite(STM_LED, LOW);
+    delay(200);
+  }
+
+  char msg[150];
+  size_t len = 0;
+
   HoraRedISO horaRed = obtenerHoraRedISO();
 
-  String SMS = "El rastreador: " + String(config.idRastreador) + ",";
-  SMS += " esta encendido. Hora red: " + horaRed.localISO + ".";
-  enviarSMS(SMS, String(config.receptor));
+  // Encabezado
+  len += snprintf(msg + len, sizeof(msg) - len,
+                  "Rastreador:%lu ENCENDIDO;",
+                  config.idRastreador);
 
-  if(String(config.numUsuario) != ""){
-    enviarSMS(SMS, String(config.numUsuario));
+  // Hora
+  if (horaRed.ok) {
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "HoraRed:%s;",
+                    horaRed.localISO.c_str());
+  } else {
+    len += snprintf(msg + len, sizeof(msg) - len,
+                    "HoraRed:NO_DISP;");
+  }
+
+  // Enviar al receptor principal
+  enviarSMS(msg, String(config.receptor));
+
+  // Enviar al usuario si existe
+  if (strlen(config.numUsuario) > 0) {
+    enviarSMS(msg, String(config.numUsuario));
   }
 
   delay(500);
 }
+
 
 String leerYGuardarGPS() {
   String nuevaLat = "";
