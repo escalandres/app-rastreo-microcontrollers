@@ -378,40 +378,32 @@ void enviarSMS(String SMS, String number = config.receptor)
 }
 
 bool estaRegistradoEnRed() {
-  enviarComando("AT+CREG?", 1000);
-  unsigned long start = millis();
-  while (millis() - start < 2000) {
-    if (A7670SA.available()) {
-      String linea = A7670SA.readStringUntil('\n');
-      linea.trim();
-      if (linea.startsWith("+CREG:")) {
-        if (linea.indexOf(",1") != -1 || linea.indexOf(",5") != -1) {
-          return true;
-        } else {
-          return false;
-        }
-      }
-      // ignorar URCs como *ATREADY, *ISIMAID
+    String resp = enviarComandoConRetorno("AT+CREG?", 2000);
+    resp.trim();
+
+    // Buscar la línea con +CREG:
+    int idx = resp.indexOf("+CREG:");
+    if (idx == -1) return false;
+
+    // Si contiene ,1 (registrado en red local) o ,5 (roaming)
+    if (resp.indexOf(",1", idx) != -1 || resp.indexOf(",5", idx) != -1) {
+        return true;
     }
-  }
-  return false; // no hubo respuesta válida
+    return false;
 }
 
 int nivelSenal() {
-  enviarComando("AT+CSQ", 1000);
-  unsigned long start = millis();
-  while (millis() - start < 2000) {
-    if (A7670SA.available()) {
-      String linea = A7670SA.readStringUntil('\n');
-      linea.trim();
-      if (linea.startsWith("+CSQ:")) {
-        int startIdx = linea.indexOf(":") + 1;
-        int endIdx = linea.indexOf(",", startIdx);
-        return linea.substring(startIdx, endIdx).toInt();
-      }
-    }
-  }
-  return -1; // no válido
+    String resp = enviarComandoConRetorno("AT+CSQ", 2000);
+    resp.trim();
+
+    int idx = resp.indexOf("+CSQ:");
+    if (idx == -1) return -1;
+
+    int startIdx = resp.indexOf(":", idx) + 1;
+    int endIdx   = resp.indexOf(",", startIdx);
+    if (startIdx == 0 || endIdx == -1) return -1;
+
+    return resp.substring(startIdx, endIdx).toInt();
 }
 
 HoraRedISO obtenerHoraRedISO(int fallbackTZQuarters = -24) {
@@ -1489,9 +1481,9 @@ void setup() {
 
   sincronizarRTCconRed(60); // margen de 60 segundos
 
-  if(config.rastreoActivo && config.modoAhorro){
+  if(config.modo == MODO_AHORRO){
     configurarModoAhorroEnergia();
-  }else if(config.rastreoActivo && !config.modoAhorro){
+  }else if(config.modo == MODO_CONTINUO){
     configurarRastreoContinuo(45); // Cada 45 segundos
   }else{
     enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
@@ -1570,7 +1562,7 @@ void loop() {
     IWatchdog.reload();
   }
 
-  if (!config.rastreoActivo) {
+  if (config.modo == MODO_OFF) {
     // Solo escuchar SMS
     if (smsCompletoDisponible()) {
       encenderLED();
@@ -1583,7 +1575,7 @@ void loop() {
     unsigned long t0 = millis();
     while (millis() - t0 < 2000) actualizarBuffer();
   }
-  else if (config.rastreoActivo && !config.modoAhorro) {
+  else if (config.modo == MODO_CONTINUO) {
     // Rastreo continuo: usar RTC o millis para intervalos
     // Primero revisar SMS pendientes
     if (smsCompletoDisponible()) {
@@ -1602,7 +1594,7 @@ void loop() {
       apagarLED();
     }
   }
-  else if (config.rastreoActivo && config.modoAhorro && alarmFired) {
+  else if (config.modo == MODO_AHORRO && alarmFired) {
     // Rastreo con modo ahorro
     alarmFired = false; // reset bandera
     // limpiar flags de alarma
