@@ -1583,7 +1583,7 @@ void procesarComando(String mensaje) {
     // String batteryCharge = "";
     // batteryCharge = obtenerVoltajeBateria();
     len += snprintf(msg + len, sizeof(msg) - len,
-                    "%s%%;", obtenerVoltajeBateria().toUpperCase().c_str());
+                    "%s%%;", obtenerVoltajeBateria().c_str());
     // Enviar SMS
     if(strlen(config.numUsuario) > 0){
       enviarSMS(msg, String(config.numUsuario));
@@ -1623,7 +1623,7 @@ void procesarComando(String mensaje) {
     // String horaRTC = obtenerTiempoRTC();
     // String mensaje;
 
-    if (strlen(horaRed.localISO) > 0) {
+    if (strlen(horaRed.localISO.c_str()) > 0) {
       // mensaje = "Tiempo de la red: " + horaRed.localISO;
       // mensaje += " (LOCAL)\n" + horaRed.utcISO + " (UTC+00:00)";
       // mensaje += "\nRTC: " + horaRTC;
