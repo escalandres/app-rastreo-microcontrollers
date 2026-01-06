@@ -1565,20 +1565,24 @@ void procesarComando(String mensaje) {
   // --- LOCATION ---
   else if (comando.indexOf("GET#LOCATION") != -1) {
 
-    char msg[150];
-    size_t len = 0;
+    // char msg[150];
+    // size_t len = 0;
 
-    // Encabezado corto
-    len += snprintf(msg + len, sizeof(msg) - len,
-                    "LOC\n");
+    // // Encabezado corto
+    // len += snprintf(msg + len, sizeof(msg) - len,
+    //                 "LOC\n");
 
-    // GPS (formato compacto)
-    len += snprintf(msg + len, sizeof(msg) - len,
-                    "%s\n", leerYGuardarGPS());
+    // // GPS (formato compacto)
+    // len += snprintf(msg + len, sizeof(msg) - len,
+    //                 "%s\n", leerYGuardarGPS());
 
-    // Torre celular (formato compacto)
-    len += snprintf(msg + len, sizeof(msg) - len,
-                    "%s", obtenerTorreCelular());
+    // // Torre celular (formato compacto)
+    // len += snprintf(msg + len, sizeof(msg) - len,
+    //                 "%s", obtenerTorreCelular());
+
+    String msg = "LOC\n";
+    msg += "GPS:" + leerYGuardarGPS() + "\n";
+    msg += "CELL:" + obtenerTorreCelular();
 
     // Enviar SMS
     if (strlen(config.numUsuario) > 0) {
