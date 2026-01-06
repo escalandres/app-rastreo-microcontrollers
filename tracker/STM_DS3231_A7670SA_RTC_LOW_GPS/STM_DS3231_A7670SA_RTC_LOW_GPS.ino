@@ -1291,6 +1291,11 @@ String obtenerVoltajeBateria() {
 }
 
 /* Configuración de puertos */
+void inicializarModemHora() {
+    enviarComando("AT+CTZU=1"); // habilita actualización automática
+    enviarComando("AT+CTZR=1"); // habilita notificación de cambios
+}
+
 
 void setup() {
   // Inicializar puertos seriales
@@ -1353,6 +1358,8 @@ void setup() {
   }
 
   notificarEncendido();
+
+  inicializarModemHora();
 
   if(config.rastreoActivo && config.modoAhorro){
     configurarModoAhorroEnergia();
