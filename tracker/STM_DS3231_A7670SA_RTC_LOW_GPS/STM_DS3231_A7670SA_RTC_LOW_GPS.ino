@@ -1591,20 +1591,12 @@ void procesarComando(String mensaje) {
                     "LOC\n");
 
     // GPS (formato compacto)
-    char gpsData[50];
-    leerYGuardarGPS(gpsData, sizeof(gpsData));
-    // Ej: "19.123456,-99.123456" → 21 chars
-
     len += snprintf(msg + len, sizeof(msg) - len,
-                    "%s\n", gpsData);
+                    "%s\n", leerYGuardarGPS());
 
     // Torre celular (formato compacto)
-    char cellInfo[60];
-    obtenerTorreCelular(cellInfo, sizeof(cellInfo));
-    // Ej: "334,20,585,24891158" → 19 chars
-
     len += snprintf(msg + len, sizeof(msg) - len,
-                    "%s", cellInfo);
+                    "%s", obtenerTorreCelular());
 
     // Enviar SMS
     if (strlen(config.numUsuario) > 0) {
