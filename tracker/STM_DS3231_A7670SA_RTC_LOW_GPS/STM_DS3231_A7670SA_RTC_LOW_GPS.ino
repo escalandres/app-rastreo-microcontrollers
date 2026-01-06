@@ -1151,7 +1151,7 @@ void procesarComando(String mensaje) {
     comando.toUpperCase();
 
   // ========== COMANDOS ==========
-  enviarSMS("Procesando comando: " + comando);
+  // enviarSMS("Procesando comando: " + comando);
   // --- RASTREAR ON/OFF ---
   if (comando.indexOf("SET#MODO=") != -1) {
     if (comando.indexOf("AHORRO") != -1) {
@@ -1511,10 +1511,6 @@ void procesarComando(String mensaje) {
     len += snprintf(msg + len, sizeof(msg) - len,
                     "ID:%lu;", (unsigned long)config.idRastreador);
 
-    // Número receptor
-    len += snprintf(msg + len, sizeof(msg) - len,
-                    "NUM:%s;", config.receptor);
-
     // MODO
     const char* modoStr;
     switch (config.modo) {
@@ -1537,7 +1533,7 @@ void procesarComando(String mensaje) {
 
     // Número de usuario
     len += snprintf(msg + len, sizeof(msg) - len,
-                    "USER:%s;",
+                    "NUM:%s;",
                     (strlen(config.numUsuario) > 0) ?
                     config.numUsuario : "NO_CONFIG");
 
