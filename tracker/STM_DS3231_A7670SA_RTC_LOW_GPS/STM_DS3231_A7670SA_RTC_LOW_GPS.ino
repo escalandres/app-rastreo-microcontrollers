@@ -373,8 +373,9 @@ HoraRedISO obtenerHoraRedISO(int fallbackTZQuarters = -24) {
   DateTime localTime(year, MM, dd, hh, mm, ss);
 
   // UTC = local - (tzEffective * 15 min)
-  int offsetSeconds = tzEffective * 15 * 60;
-  DateTime utcTime = localTime - TimeSpan(offsetSeconds);
+  // int offsetSeconds = tzEffective * 15 * 60;
+  // DateTime utcTime = localTime - TimeSpan(offsetSeconds);
+  DateTime utcTime = localTime + TimeSpan(6 * 3600);
 
   char bufLocal[21];
   char bufUTC[21];
