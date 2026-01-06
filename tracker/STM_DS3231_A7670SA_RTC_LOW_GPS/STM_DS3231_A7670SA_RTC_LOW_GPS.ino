@@ -21,27 +21,48 @@ const int BATERIA = PA0;
 bool rtc_sano = false;
 bool resetPorWatchdog = false;
 
-
 /* Constantes y Variables Globales */
 struct HoraRedISO {
-    String localISO;
-    String utcISO;
-    bool ok;
+  DateTime local;
+  DateTime utc;
+  String localISO;
+  String utcISO;
+  bool ok;
 };
+
+enum ModoOperacion : uint8_t {
+  MODO_OFF = 0,
+  MODO_AHORRO = 1,
+  MODO_CONTINUO = 2
+};
+
+// struct Config {
+//   uint32_t firma;           // ← debe ser 0xCAFEBABE
+//   int idRastreador;         // ID unico del rastreador
+//   char receptor[16];           // Numero de telefono del receptoristrador
+//   char numUsuario[16];      // Numero de usuario que recibe los SMS;
+//   int intervaloSegundos;    // Intervalo de envio de datos en segundos
+//   int intervaloMinutos;     // Intervalo de envio de datos en minutos
+//   int intervaloHoras;       // Intervalo de envio de datos en horas
+//   int intervaloDias;        // Intervalo de envio de datos en dias
+//   bool modoAhorro;          // Modo ahorro de energia (true/false) 
+//   char pin[8];              // PIN para aceptar comandos SMS
+//   bool configurado;         // Indica si el rastreador ha sido configurado
+//   bool rastreoActivo;       // Indica si el rastreo está activo o no
+// };
 
 struct Config {
   uint32_t firma;           // ← debe ser 0xCAFEBABE
-  int idRastreador;         // ID unico del rastreador
+  uint16_t idRastreador;         // ID unico del rastreador
   char receptor[16];           // Numero de telefono del receptoristrador
   char numUsuario[16];      // Numero de usuario que recibe los SMS;
-  int intervaloSegundos;    // Intervalo de envio de datos en segundos
-  int intervaloMinutos;     // Intervalo de envio de datos en minutos
-  int intervaloHoras;       // Intervalo de envio de datos en horas
-  int intervaloDias;        // Intervalo de envio de datos en dias
-  bool modoAhorro;          // Modo ahorro de energia (true/false) 
+  uint16_t intervaloSegundos;    // Intervalo de envio de datos en segundos
+  uint16_t intervaloMinutos;     // Intervalo de envio de datos en minutos
+  uint16_t intervaloHoras;       // Intervalo de envio de datos en horas
+  uint16_t intervaloDias;        // Intervalo de envio de datos en dias
+  ModoOperacion modo;          // OFF / AHORRO / CONTINUO
   char pin[8];              // PIN para aceptar comandos SMS
   bool configurado;         // Indica si el rastreador ha sido configurado
-  bool rastreoActivo;       // Indica si el rastreo está activo o no
 };
 
 Config config;
@@ -147,6 +168,80 @@ void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos
   alarmFired = false;
 }
 
+// -------- Funciones de Bateria --------
+float leerVoltaje(int pin) {
+  const float R1 = 51000.0;
+  const float R2 = 20000.0;
+  const float Vref = 3.3;
+  const float factorDivisor = (R1 + R2) / R2;  // ≈ 3.55
+
+  // --- Lectura "dummy" obligatoria con divisores de alta impedancia ---
+  analogRead(pin);  
+  delayMicroseconds(200);  // pequeño delay para estabilizar
+
+  // --- Promediar varias lecturas ---
+  float suma = 0;
+  for (int i = 0; i < 10; i++) {
+    suma += analogRead(pin);
+    delay(5);  // con divisores altos no conviene muestrear demasiado rápido
+  }
+
+  float lecturaADC = suma / 10.0;
+
+  // Convertir a voltaje
+  float voltajeADC = (lecturaADC / 4095.0) * Vref;
+  float voltajeBateria = voltajeADC * factorDivisor;
+
+  return voltajeBateria;
+}
+
+// int calcularNivelBateria(float v) {
+//   if (v >= 4.15) return 100;
+//   else if (v >= 4.12) return 98;
+//   else if (v >= 4.10) return 95;
+//   else if (v >= 4.07) return 92;
+//   else if (v >= 4.04) return 90;
+//   else if (v >= 4.00) return 85;
+//   else if (v >= 3.96) return 80;
+//   else if (v >= 3.92) return 75;
+//   else if (v >= 3.88) return 70;
+//   else if (v >= 3.84) return 65;
+//   else if (v >= 3.80) return 60;
+//   else if (v >= 3.76) return 55;
+//   else if (v >= 3.72) return 50;
+//   else if (v >= 3.68) return 45;
+//   else if (v >= 3.64) return 40;
+//   else if (v >= 3.60) return 35;
+//   else if (v >= 3.55) return 25;
+//   else if (v >= 3.50) return 15;
+//   else if (v >= 3.45) return 10;
+//   else if (v >= 3.40) return 5;
+//   else if (v >= 3.35) return 3;
+//   else if (v >= 3.30) return 1;
+//   else return 0;
+// }
+
+int calcularNivelBateria(float v) {
+  if (v >= 4.20) return 100;
+  else if (v >= 3.70) {
+      // entre 4.20 y 3.70 V → 100% a 50%
+      return map(v * 100, 370, 420, 50, 100);
+  } else if (v >= 3.40) {
+      // entre 3.70 y 3.40 V → 50% a 10%
+      return map(v * 100, 340, 370, 10, 50);
+  } else {
+      return 0;
+  }
+}
+
+String obtenerVoltajeBateria() {
+  float voltaje = leerVoltaje(BATERIA);
+  // enviarSMS("Voltaje: " + String(voltaje));
+  int nivelBateria = calcularNivelBateria(voltaje);
+  String sms = "bat:" + String(nivelBateria);
+  return sms;
+}
+
 // ---------- Funciones del A7670SA ----------
 
 void enviarComando(const char* comando, int espera = 1000) {
@@ -176,22 +271,6 @@ String enviarComandoConRetorno(const char* comando, unsigned long timeout = 1000
 
   return resp;
 }
-
-// void iniciarA7670SA(){
-//   //digitalWrite(LEFT_LED, HIGH);
-//   // Probar comunicación AT
-//   enviarComando("AT", 500);
-
-//   // Establecer modo LTE (opcional)
-//   enviarComando("AT+CNMP=2", 1000);
-
-//   // Confirmar nivel de señal y registro otra vez
-//   enviarComando("AT+CSQ", 500);
-//   enviarComando("AT+CREG?", 1000);
-
-//   enviarComando("AT+CMGF=1",1000); // modo texto
-
-// }
 
 void iniciarA7670SA() {
   enviarComando("AT", 500); // Probar comunicación AT
@@ -278,21 +357,6 @@ void flushA7670SA() {
     }
 }
 
-void enviarMensaje(String mensaje, String number) {
-
-  enviarComando("AT+CMGF=1",500);
-
-  enviarComando(("AT+CMGS=\"" + number + "\"").c_str(), 2000); //Mobile phone number to send message
-
-  A7670SA.println(mensaje);
-  delay(500);
-  A7670SA.println((char)26);// ASCII code of CTRL+Z
-  delay(500);
-  _buffer = _readSerial();
-
-  delay(1000);
-}
-
 void enviarSMS(String SMS, String number = config.receptor)
 {
   // Limpiar buffer antes de enviar
@@ -333,8 +397,25 @@ bool estaRegistradoEnRed() {
   return false; // no hubo respuesta válida
 }
 
+int nivelSenal() {
+  enviarComando("AT+CSQ", 1000);
+  unsigned long start = millis();
+  while (millis() - start < 2000) {
+    if (A7670SA.available()) {
+      String linea = A7670SA.readStringUntil('\n');
+      linea.trim();
+      if (linea.startsWith("+CSQ:")) {
+        int startIdx = linea.indexOf(":") + 1;
+        int endIdx = linea.indexOf(",", startIdx);
+        return linea.substring(startIdx, endIdx).toInt();
+      }
+    }
+  }
+  return -1; // no válido
+}
+
 HoraRedISO obtenerHoraRedISO(int fallbackTZQuarters = -24) {
-  HoraRedISO out = {"", "", false};
+  HoraRed out = { DateTime((uint32_t)0), DateTime((uint32_t)0), "", "", false };
 
   String resp = enviarComandoConRetorno("AT+CCLK?", 2000);
 
@@ -386,90 +467,12 @@ HoraRedISO obtenerHoraRedISO(int fallbackTZQuarters = -24) {
           utcTime.year(), utcTime.month(), utcTime.day(),
           utcTime.hour(), utcTime.minute(), utcTime.second());
 
+  out.local = localTime;
+  out.utc = utcTime;
   out.localISO = String(bufLocal);
   out.utcISO = String(bufUTC);
   out.ok = true;
   return out;
-}
-
-// Retorna fecha/hora de red en ISO.
-// Modo: "UTC" o "LOCAL".
-// Si tz del módem es 0, aplica defaultTZQuarters (CDMX: -24).
-// String obtenerFechaHoraRedISO(const char* modo = "UTC", int defaultTZQuarters = -24) {
-//     String resp = enviarComandoConRetorno("AT+CCLK?", 2000);
-
-//     int idx = resp.indexOf("+CCLK:");
-//     if (idx == -1) return "";
-
-//     int q1 = resp.indexOf('"', idx);
-//     int q2 = resp.indexOf('"', q1 + 1);
-//     if (q1 == -1 || q2 == -1) return "";
-
-//     String s = resp.substring(q1 + 1, q2);
-//     if (s.length() < 17) return "";
-
-//     int yy = s.substring(0, 2).toInt();
-//     int MM = s.substring(3, 5).toInt();
-//     int dd = s.substring(6, 8).toInt();
-//     int hh = s.substring(9, 11).toInt();
-//     int mm = s.substring(12, 14).toInt();
-//     int ss = s.substring(15, 17).toInt();
-
-//     // tz en cuartos de hora
-//     int tz = 0;
-//     if (s.length() >= 19) {
-//         tz = s.substring(18).toInt();
-//     }
-//     // Fallback para CDMX si tz es 0
-//     int tzEffective = (tz == 0 ? defaultTZQuarters : tz);
-
-//     int year = 2000 + yy;
-
-//     // Validaciones
-//     if (year < 2020 || year > 2035) return "";
-//     if (MM < 1 || MM > 12) return "";
-//     if (dd < 1 || dd > 31) return "";
-//     if (hh < 0 || hh > 23) return "";
-//     if (mm < 0 || mm > 59) return "";
-//     if (ss < 0 || ss > 59) return "";
-
-//     DateTime localTime(year, MM, dd, hh, mm, ss);
-//     int offsetSeconds = tzEffective * 15 * 60;
-
-//     DateTime outTime;
-//     if (strcmp(modo, "UTC") == 0) {
-//         // UTC = local - offset
-//         outTime = localTime - TimeSpan(offsetSeconds);
-//     } else {
-//         // LOCAL = tal cual
-//         outTime = localTime;
-//     }
-
-//     char buffer[21];
-//     sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
-//             outTime.year(), outTime.month(), outTime.day(),
-//             outTime.hour(), outTime.minute(), outTime.second());
-
-//     return String(buffer);
-// }
-
-
-
-int nivelSenal() {
-  enviarComando("AT+CSQ", 1000);
-  unsigned long start = millis();
-  while (millis() - start < 2000) {
-    if (A7670SA.available()) {
-      String linea = A7670SA.readStringUntil('\n');
-      linea.trim();
-      if (linea.startsWith("+CSQ:")) {
-        int startIdx = linea.indexOf(":") + 1;
-        int endIdx = linea.indexOf(",", startIdx);
-        return linea.substring(startIdx, endIdx).toInt();
-      }
-    }
-  }
-  return -1; // no válido
 }
 
 void configurarModoAhorroEnergia() {
@@ -570,6 +573,29 @@ void configurarRastreoContinuo(unsigned int segundos = 45) {
   attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
 }
 
+void sincronizarRTCconRed(int margenSegundos = 60) {
+  HoraRedISO horaRed = obtenerHoraRedISO();
+  if (horaRed.ok == false) {
+      Serial.println("Error: no se pudo obtener hora de la red");
+      return;
+  }
+
+  DateTime horaRTC = rtc.now();
+
+  // Diferencia en segundos
+  long diff = horaRTC.unixtime() - horaRed.utc.unixtime();
+  if (diff < 0) diff = -diff; // valor absoluto
+
+  if (diff > margenSegundos) {
+      rtc.adjust(horaRed.utc);
+      if(config.numUsuario != ""){
+        enviarSMS("RTC sincronizado con red. Diferencia era de " + String(diff) + " segundos.", String(config.numUsuario));
+      }
+  } else {
+    // RTC ya está sincronizado dentro del margen
+  }
+}
+
 void procesarComando(String mensaje) {
     mensaje.trim();
     mensaje.toUpperCase(); // Para evitar problemas con mayúsculas/minúsculas
@@ -609,40 +635,52 @@ void procesarComando(String mensaje) {
   // ========== COMANDOS ==========
   // enviarSMS("Procesando comando: " + comando);
   // --- RASTREAR ON/OFF ---
-  if (comando.indexOf("RASTREAR") != -1) {
-    if (comando.indexOf("ON") != -1) {
+  if (comando.indexOf("SET#MODO=") != -1) {
+    if (comando.indexOf("AHORRO") != -1) {
       // Si ya está activado el rastreo, seguir.
-      if(config.rastreoActivo) return;
+      if(config.modo == MODO_CONTINUO) return;
 
-      config.rastreoActivo = true;
+      config.modo = MODO_AHORRO;
       config.firma = 0xCAFEBABE; // Asegurar firma válida
       guardarConfigEEPROM();
-      if(!config.modoAhorro){
-        // Rastreo sin modo ahorro
-        configurarRastreoContinuo(59); // Cada 59 segundos
-        enviarSMS("Rastreo Continuo ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
-
-        if(config.numUsuario != ""){
-          enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 59 segundos", String(config.numUsuario));
-        }
-      }else{
-        // Rastreo con modo ahorro
-        String intervalo = String(config.intervaloDias) + "D" +
-                  String(config.intervaloHoras) + "H" +
-                  String(config.intervaloMinutos) + "M" +
-                  String(config.intervaloSegundos) + "S";
-        enviarSMS("Rastreo con Modo Ahorro ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC() + ". INT: " + intervalo, String(config.receptor));
-        if(config.numUsuario != ""){
-          enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, String(config.numUsuario));
-        }
-        configurarModoAhorroEnergia();
+      // Rastreo con modo ahorro
+      String intervalo = String(config.intervaloDias) + "D" +
+                String(config.intervaloHoras) + "H" +
+                String(config.intervaloMinutos) + "M" +
+                String(config.intervaloSegundos) + "S";
+      enviarSMS("Rastreo con Modo Ahorro ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC() + ". INT: " + intervalo, String(config.receptor));
+      if(config.numUsuario != ""){
+        enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, String(config.numUsuario));
       }
-    } else if (comando.indexOf("OFF") != -1) {
-      // Si ya está desactivado el rastreo, seguir.
-      if(!config.rastreoActivo) return;
+      configurarModoAhorroEnergia();
+    } 
 
-      config.rastreoActivo = false;
-      config.modoAhorro = false;
+    else if(comando.indexOf("CONTINUO") != -1) {
+      // Si ya está activado el rastreo, seguir.
+      if (config.modo == MODO_CONTINUO) return;
+
+      config.modo = MODO_CONTINUO;
+      config.firma = 0xCAFEBABE; // Asegurar firma válida
+      guardarConfigEEPROM();
+
+      // Rastreo sin modo ahorro
+      configurarRastreoContinuo(59); // Cada 59 segundos
+      enviarSMS("Rastreo Continuo ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
+
+      if(config.numUsuario != ""){
+        enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 59 segundos", String(config.numUsuario));
+      }
+    }
+    
+    else if (comando.indexOf("OFF") != -1) {
+      // Si ya está desactivado el rastreo, seguir.
+      if(config.modo == MODO_OFF) {
+        if(config.numUsuario != ""){
+          enviarSMS("-_- Rastreo ya estaba DESACTIVADO.", String(config.numUsuario));
+        }
+      }
+
+      config.modo = MODO_OFF;
       config.firma = 0xCAFEBABE;
       // Leer mensajes desde la memoria interna
       enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
@@ -654,40 +692,86 @@ void procesarComando(String mensaje) {
       }
     }
   }
+
+  // else if (comando.indexOf("RASTREAR") != -1) {
+  //   if (comando.indexOf("ON") != -1) {
+  //     // Si ya está activado el rastreo, seguir.
+  //     if(config.rastreoActivo) return;
+
+  //     config.rastreoActivo = true;
+  //     config.firma = 0xCAFEBABE; // Asegurar firma válida
+  //     guardarConfigEEPROM();
+  //     if(!config.modoAhorro){
+  //       // Rastreo sin modo ahorro
+  //       configurarRastreoContinuo(59); // Cada 59 segundos
+  //       enviarSMS("Rastreo Continuo ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
+
+  //       if(config.numUsuario != ""){
+  //         enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 59 segundos", String(config.numUsuario));
+  //       }
+  //     }else{
+  //       // Rastreo con modo ahorro
+  //       String intervalo = String(config.intervaloDias) + "D" +
+  //                 String(config.intervaloHoras) + "H" +
+  //                 String(config.intervaloMinutos) + "M" +
+  //                 String(config.intervaloSegundos) + "S";
+  //       enviarSMS("Rastreo con Modo Ahorro ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC() + ". INT: " + intervalo, String(config.receptor));
+  //       if(config.numUsuario != ""){
+  //         enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, String(config.numUsuario));
+  //       }
+  //       configurarModoAhorroEnergia();
+  //     }
+  //   } else if (comando.indexOf("OFF") != -1) {
+  //     // Si ya está desactivado el rastreo, seguir.
+  //     if(!config.rastreoActivo) return;
+
+  //     config.rastreoActivo = false;
+  //     config.modoAhorro = false;
+  //     config.firma = 0xCAFEBABE;
+  //     // Leer mensajes desde la memoria interna
+  //     enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+  //     enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
+  //     guardarConfigEEPROM();
+  //     enviarSMS("Rastreo DESACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
+  //     if(config.numUsuario != ""){
+  //       enviarSMS("-_- Rastreo DESACTIVADO.", String(config.numUsuario));
+  //     }
+  //   }
+  // }
   
-  // --- MODO AHORRO ---
-  else if (comando.indexOf("MODOAHORRO=") != -1) {
-    if (comando.indexOf("ON") != -1) {
-      // Si ya está activado el modo ahorro, seguir.
-      if(config.modoAhorro) return;
-      // Activar modo ahorro
-      config.modoAhorro = true;
-    } else if (comando.indexOf("OFF") != -1) {
-      // Si ya está desactivado el modo ahorro, seguir.
-      if(!config.modoAhorro) return;
-      // Desactivar modo ahorro
-      config.modoAhorro = false;
-    } else {
-      if(config.numUsuario != ""){
-        enviarSMS("Use: MODOAHORRO=ON o OFF");
-      }
-      return;
-    }
+  // // --- MODO AHORRO ---
+  // else if (comando.indexOf("MODOAHORRO=") != -1) {
+  //   if (comando.indexOf("ON") != -1) {
+  //     // Si ya está activado el modo ahorro, seguir.
+  //     if(config.modoAhorro) return;
+  //     // Activar modo ahorro
+  //     config.modoAhorro = true;
+  //   } else if (comando.indexOf("OFF") != -1) {
+  //     // Si ya está desactivado el modo ahorro, seguir.
+  //     if(!config.modoAhorro) return;
+  //     // Desactivar modo ahorro
+  //     config.modoAhorro = false;
+  //   } else {
+  //     if(config.numUsuario != ""){
+  //       enviarSMS("Use: MODOAHORRO=ON o OFF");
+  //     }
+  //     return;
+  //   }
     
-    config.firma = 0xCAFEBABE;
-    guardarConfigEEPROM();
+  //   config.firma = 0xCAFEBABE;
+  //   guardarConfigEEPROM();
     
-    String msg = "Modo ahorro: ";
-    msg += config.modoAhorro ? "ON" : "OFF";
-    msg += ". Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC();
-    // enviarSMS(msg, String(config.receptor));
-    if(config.numUsuario != ""){
-      enviarSMS(msg, String(config.numUsuario));
-    }
-  }
+  //   String msg = "Modo ahorro: ";
+  //   msg += config.modoAhorro ? "ON" : "OFF";
+  //   msg += ". Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC();
+  //   // enviarSMS(msg, String(config.receptor));
+  //   if(config.numUsuario != ""){
+  //     enviarSMS(msg, String(config.numUsuario));
+  //   }
+  // }
   
   // --- INTERVALO ---
-  else if (comando.indexOf("INTERVALO=") != -1) {
+  else if (comando.indexOf("SET#INTERVALO=") != -1) {
     String valor = comando.substring(10);
     valor.trim();
     
@@ -773,7 +857,7 @@ void procesarComando(String mensaje) {
   }
   
   // --- SETNUM (solo receptor) ---
-  else if (comando.indexOf("SETNUM=") != -1) {
+  else if (comando.indexOf("SET#NUM=") != -1) {
     String nuevoNumero = comando.substring(7);
     nuevoNumero.trim();
     
@@ -813,32 +897,83 @@ void procesarComando(String mensaje) {
     }
   }
   
+  // --- Config ---
+  else if (comando.indexOf("GET#CONFIG") != -1) {
+    String info = "OK#CONFIG\n";
+
+    // ID
+    info += "ID:" + String(config.idRastreador) + ";";
+
+    // Numero receptor
+    info += "NUM:" + String(config.receptor) + ";";
+
+    // MODO
+    info += "MODO:";
+    switch (config.modo) {
+      case MODO_OFF:      info += "OFF"; break;
+      case MODO_AHORRO:   info += "AHORRO"; break;
+      case MODO_CONTINUO: info += "CONTINUO"; break;
+      default:            info += "DESCONOCIDO"; break;
+    }
+    info += ";";
+
+    // INTERVALO
+    info += "INTERVALO:";
+
+    info += String(config.intervaloDias) + "D ";
+    info += String(config.intervaloHoras) + "H ";
+    info += String(config.intervaloMinutos) + "M ";
+    info += String(config.intervaloSegundos) + "S;";
+
+    // Numero de usuario
+    info += "NUM:";
+    if (strlen(config.numUsuario) > 0) {
+      info += String(config.numUsuario);
+    } else {
+      info += "NO_CONFIG";
+    }
+    info += ";";
+
+    // Enviar respuesta
+    if (strlen(config.numUsuario) > 0) {
+      enviarSMS(info, String(config.numUsuario));
+    }
+  }
+
   // --- STATUS ---
-  else if (comando.indexOf("STATUS") != -1) {
-    String info = "STATUS:\n";
+  else if (comando.indexOf("GET#STATUS") != -1) {
+    String info = "OK#STATUS:\n";
     info += "ID: " + String(config.idRastreador) + ";";
-    info += "RASTREO: " + String(config.rastreoActivo ? "ON" : "OFF") + ";";
-    info += "MODOAHORRO: " + String(config.modoAhorro ? "ON" : "OFF") + ";";
-    info += "INTERVALO: ";
-
-    if (config.intervaloDias > 0) info += String(config.intervaloDias) + "D ";
-    if (config.intervaloHoras > 0) info += String(config.intervaloHoras) + "H ";
-    if (config.intervaloMinutos > 0) info += String(config.intervaloMinutos) + "M ";
-    if (config.intervaloSegundos > 0) info += String(config.intervaloSegundos) + "S";
+    // MODO
+    info += "MODO:";
+    switch (config.modo) {
+      case MODO_OFF:      info += "OFF"; break;
+      case MODO_AHORRO:   info += "AHORRO"; break;
+      case MODO_CONTINUO: info += "CONTINUO"; break;
+      default:            info += "DESCONOCIDO"; break;
+    }
+    info += ";";
     
-    info += ";#NUM: " + String(strlen(config.numUsuario) > 0 ? String(config.numUsuario) + ";" : "No configurado;");
+    // TIME
+    info += "TIME: " + obtenerTiempoRTC() + ";";
 
+    // GPS
+    String datosGPS = leerYGuardarGPS();
+    info += "GPS: " + datosGPS + ";";
+
+    // BATTERY
     String batteryCharge = "";
     batteryCharge = obtenerVoltajeBateria();
     
-    info += batteryCharge + ";";
+    info += batteryCharge + "%;";
     if(config.numUsuario != ""){
+      info.toUpperCase();
       enviarSMS(info, String(config.numUsuario));
     }
   }
   
   // --- LOCATION ---
-  else if (comando.indexOf("LOCATION") != -1) {
+  else if (comando.indexOf("GET#LOCATION") != -1) {
     String ubicacion = "Ubicacion obtenida:";
     String datosGPS = leerYGuardarGPS();
 
@@ -853,22 +988,39 @@ void procesarComando(String mensaje) {
     }
   }
 
-  else if (comando.indexOf("TIMECELL") != -1) {
+  else if (comando.indexOf("GET#TIMECELL") != -1) {
     // String fechaHoraLocal = obtenerFechaHoraRedISO("LOCAL");
     // String fechaHoraUTC = obtenerFechaHoraRedISO("UTC");
     HoraRedISO horaRed = obtenerHoraRedISO();
+    String horaRTC = obtenerTiempoRTC();
     String mensaje;
 
     if (horaRed.localISO != "") {
       mensaje = "Tiempo de la red: " + horaRed.localISO;
-      mensaje += " (LOCAL)\n" + horaRed.utcISO + " (UTC)";
+      mensaje += " (LOCAL)\n" + horaRed.utcISO + " (UTC+00)";
+      mensaje += "\nRTC: " + horaRTC;
     } else {
       mensaje = "Error: no se pudo leer hora de red";
     }
 
     if (config.numUsuario != "") {
-        enviarSMS(mensaje, String(config.numUsuario));
+      enviarSMS(mensaje, String(config.numUsuario));
+    }
   }
+
+  else if (comando.indexOf("GET#BATERIA") != -1) {
+    String batteryCharge = obtenerVoltajeBateria();
+    if(config.numUsuario != ""){
+      enviarSMS("Nivel de bateria: " + batteryCharge, String(config.numUsuario));
+    }
+  }
+
+  else if (comando.indexOf("RESET") != -1) {
+    if(config.numUsuario != ""){
+      enviarSMS("!_! Reiniciando y reseteando configuración a valores de fábrica.", String(config.numUsuario));
+    }
+
+    resetearEEPROM();
   }
   
   // --- COMANDO NO RECONOCIDO ---
@@ -885,50 +1037,6 @@ void actualizarBuffer() {
         rxBuffer += c;
     }
 }
-
-// bool smsCompletoDisponible() {
-//   // Para recepción en vivo
-//   if (rxBuffer.indexOf("+CMT:") != -1) {
-//     // Debe tener encabezado +CMT
-//     int idx = rxBuffer.indexOf("+CMT:");
-//     if (idx == -1) return false;
-
-//     // Debe tener al menos dos saltos de línea después
-//     int firstNL  = rxBuffer.indexOf("\n", idx);
-//     if (firstNL == -1) return false;
-
-//     int secondNL = rxBuffer.indexOf("\n", firstNL + 1);
-//     if (secondNL == -1) return false;
-
-//     return true; // ya llegó encabezado + texto
-//   }
-//   // Para lectura por memoria (cuando hay sleep/PSM)
-//   if (rxBuffer.indexOf("+CMGL:") != -1 || rxBuffer.indexOf("+CMGR:") != -1) {
-//       enviarSMS("Para lectura por memoria", String(config.receptor));
-//       // Busca al menos un salto después del encabezado
-//       int idx = rxBuffer.indexOf("+CMGL:");
-//       if (idx == -1) idx = rxBuffer.indexOf("+CMGR:");
-//       int firstNL = rxBuffer.indexOf("\n", idx);
-//       if (firstNL == -1) return false;
-
-//       // Todo lo que sigue hasta el próximo encabezado o FIN es el mensaje
-//       return true;
-//   }
-//   rxBuffer.trim();
-//   if (rxBuffer != "" &&
-//     rxBuffer.indexOf("+CNMI") == -1 &&
-//     rxBuffer.indexOf("AT+CPMS") == -1 &&
-//     rxBuffer.indexOf("OK") == -1) {
-    
-//     String mensaje = "rxBuffer: " + rxBuffer;
-//     if (mensaje.length() > 160) {
-//       mensaje = mensaje.substring(0, 160); // truncar para SMS
-//     }
-//     enviarSMS(mensaje, String(config.numUsuario));
-//   }
-
-//   return false;
-// }
 
 bool smsCompletoDisponible() {
   // Normalizar saltos de línea
@@ -973,20 +1081,6 @@ bool smsCompletoDisponible() {
 
   return false;
 }
-
-// String obtenerSMS() {
-//     int idx = rxBuffer.indexOf("+CMT:");
-//     int start = rxBuffer.indexOf("\n", idx) + 1;
-//     int end   = rxBuffer.indexOf("\n", start);
-
-//     String sms = rxBuffer.substring(start, end);
-//     sms.trim();
-
-//     // Limpiar lo consumido
-//     rxBuffer = rxBuffer.substring(end);
-
-//     return sms;
-// }
 
 String obtenerSMS() {
   // Normalizar saltos de línea
@@ -1102,13 +1196,12 @@ void notificarEncendido()
   delay(200);
   digitalWrite(STM_LED, LOW);
 
-  String currentTime = obtenerTiempoRTC();
+  // String currentTime = obtenerTiempoRTC();
   // HoraRedISO horaRed = obtenerFechaHoraRedISO("LOCAL");
   HoraRedISO horaRed = obtenerHoraRedISO();
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
-  SMS += " esta encendido. Tiempo: " + currentTime + ".";
-  SMS += " Hora red: " + horaRed.localISO + ".";
+  SMS += " esta encendido. Hora red: " + horaRed.localISO + ".";
   enviarSMS(SMS, String(config.receptor));
 
   if(String(config.numUsuario) != ""){
@@ -1215,53 +1308,51 @@ bool obtenerHoraRed(DateTime &netTime) {
 }
 
 void corregirRTC() {
-  DateTime now = rtc.now();
-  DateTime newTime;
-  bool timeValida = false;
-  String fuente = "";
+    DateTime now = rtc.now();
+    DateTime newTime;
+    bool timeValida = false;
+    String fuente = "";
 
-  // 1️⃣ GPS (fuente primaria)
-  if (gps1.date.isValid() && gps1.time.isValid()) {
-    int gpsYear   = gps1.date.year();
-    int gpsMonth  = gps1.date.month();
-    int gpsDay    = gps1.date.day();
-    int gpsHour   = gps1.time.hour();
-    int gpsMinute = gps1.time.minute();
-    int gpsSecond = gps1.time.second();
+    // 1️⃣ GPS (fuente primaria)
+    if (gps1.date.isValid() && gps1.time.isValid()) {
+        int gpsYear   = gps1.date.year();
+        int gpsMonth  = gps1.date.month();
+        int gpsDay    = gps1.date.day();
+        int gpsHour   = gps1.time.hour();
+        int gpsMinute = gps1.time.minute();
+        int gpsSecond = gps1.time.second();
 
-    newTime = DateTime(gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
-    timeValida = rtcValido(newTime);
-    fuente = "GPS";
-  }
+        newTime = DateTime(gpsYear, gpsMonth, gpsDay, gpsHour, gpsMinute, gpsSecond);
+        timeValida = rtcValido(newTime);
+        fuente = "GPS";
 
-  // 2️⃣ Red celular (respaldo)
-  else if (obtenerHoraRed(newTime)) {
-    timeValida = rtcValido(newTime);
-    fuente = "RED";
-  }
+        // Ajustar RTC si es necesario (igual que antes)
+        if (timeValida) {
+            long diff = labs((long)now.unixtime() - (long)newTime.unixtime());
+            if (diff > 2) {
+                rtc.adjust(newTime);
 
-  // 3️⃣ Ajustar RTC si es necesario
-  if (timeValida) {
-    // Diferencia en segundos
-    long diff = labs((long)now.unixtime() - (long)newTime.unixtime());
-    if (diff < 0) diff = -diff;
+                static unsigned long ultimaCorreccion = 0;
+                unsigned long tiempoActual = millis();
 
-    // Solo ajustar si la diferencia es significativa
-    if (diff > 2) {
-      rtc.adjust(newTime);
-
-      static unsigned long ultimaCorreccion = 0;
-      unsigned long tiempoActual = millis();
-
-      // Enviar SMS solo si ha pasado más de 1 hora desde la última corrección
-      if (tiempoActual - ultimaCorreccion > 3600000UL || ultimaCorreccion == 0) {
-          ultimaCorreccion = tiempoActual;
-
-          String mensaje = "RTC ajustado con hora " + fuente + " (diferencia " + String(diff) + "s)";
-          enviarSMS(mensaje);
-      }
+                if (tiempoActual - ultimaCorreccion > 3600000UL || ultimaCorreccion == 0) {
+                    ultimaCorreccion = tiempoActual;
+                    String mensaje = "RTC ajustado con hora " + fuente + " (diferencia " + String(diff) + "s)";
+                    if(String(config.numUsuario) != ""){
+                      enviarSMS(mensaje, config.numUsuario);
+                    }
+                }
+            }
+        }
     }
-  }
+
+    // 2️⃣ Red celular (respaldo)
+    else {
+        // Aquí ya no usamos obtenerHoraRed directamente,
+        // sino la función sincronizarRTCconRed con margen de 60s
+        sincronizarRTCconRed(60);  
+        // Nota: sincronizarRTCconRed ya hace la comparación y ajuste,
+    }
 }
 
 String obtenerTorreCelular() {
@@ -1334,57 +1425,6 @@ String hexToDec(String hexStr) {
   return String(decVal);
 }
 
-float leerVoltaje(int pin) {
-  const float R1 = 51000.0;
-  const float R2 = 20000.0;
-  const float Vref = 3.3;
-  const float factorDivisor = (R1 + R2) / R2;  // ≈ 3.55
-
-  // --- Lectura "dummy" obligatoria con divisores de alta impedancia ---
-  analogRead(pin);  
-  delayMicroseconds(200);  // pequeño delay para estabilizar
-
-  // --- Promediar varias lecturas ---
-  float suma = 0;
-  for (int i = 0; i < 10; i++) {
-    suma += analogRead(pin);
-    delay(5);  // con divisores altos no conviene muestrear demasiado rápido
-  }
-
-  float lecturaADC = suma / 10.0;
-
-  // Convertir a voltaje
-  float voltajeADC = (lecturaADC / 4095.0) * Vref;
-  float voltajeBateria = voltajeADC * factorDivisor;
-
-  return voltajeBateria;
-}
-
-int calcularNivelBateria(float v) {
-  if (v >= 4.10) return 100;
-  else if (v >= 4.05) return 95;
-  else if (v >= 4.00) return 90;
-  else if (v >= 3.95) return 85;
-  else if (v >= 3.90) return 80;
-  else if (v >= 3.85) return 75;
-  else if (v >= 3.80) return 70;
-  else if (v >= 3.75) return 65;
-  else if (v >= 3.70) return 55;
-  else if (v >= 3.65) return 45;
-  else if (v >= 3.60) return 35;
-  else if (v >= 3.50) return 20;
-  else if (v >= 3.40) return 10;
-  else return 0;
-}
-
-String obtenerVoltajeBateria() {
-  float voltaje = leerVoltaje(BATERIA);
-  // enviarSMS("Voltaje: " + String(voltaje));
-  int nivelBateria = calcularNivelBateria(voltaje);
-  String sms = "bat:" + String(nivelBateria);
-  return sms;
-}
-
 void setup() {
   // Inicializar puertos seriales
   Wire.begin();
@@ -1446,6 +1486,8 @@ void setup() {
   }
 
   notificarEncendido();
+
+  sincronizarRTCconRed(60); // margen de 60 segundos
 
   if(config.rastreoActivo && config.modoAhorro){
     configurarModoAhorroEnergia();
@@ -1592,6 +1634,8 @@ void loop() {
     // Leer GPS y enviar datos
     String datosGPS = leerYGuardarGPS();
     enviarDatosRastreador(datosGPS);
+
+    corregirRTC();
 
     apagarLED();
     alarmFired = false;
