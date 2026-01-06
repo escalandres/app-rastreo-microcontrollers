@@ -171,21 +171,35 @@ String enviarComandoConRetorno(const char* comando, unsigned long timeout = 1000
   return resp;
 }
 
-void iniciarA7670SA(){
-  //digitalWrite(LEFT_LED, HIGH);
-  // Probar comunicación AT
-  enviarComando("AT", 500);
+// void iniciarA7670SA(){
+//   //digitalWrite(LEFT_LED, HIGH);
+//   // Probar comunicación AT
+//   enviarComando("AT", 500);
 
-  // Establecer modo LTE (opcional)
-  enviarComando("AT+CNMP=2", 1000);
+//   // Establecer modo LTE (opcional)
+//   enviarComando("AT+CNMP=2", 1000);
 
+//   // Confirmar nivel de señal y registro otra vez
+//   enviarComando("AT+CSQ", 500);
+//   enviarComando("AT+CREG?", 1000);
+
+//   enviarComando("AT+CMGF=1",1000); // modo texto
+
+// }
+
+void iniciarA7670SA() {
+  enviarComando("AT", 500); // Probar comunicación AT
+
+  enviarComando("AT+CTZU=1", 500); // ⚠️ ANTES de registrarse
+  enviarComando("AT+CTZR=1", 500); // opcional (debug)
+
+  enviarComando("AT+CNMP=2", 1000); // Establecer modo LTE
   // Confirmar nivel de señal y registro otra vez
   enviarComando("AT+CSQ", 500);
   enviarComando("AT+CREG?", 1000);
-
-  enviarComando("AT+CMGF=1",1000); // modo texto
-
+  enviarComando("AT+CMGF=1", 1000);
 }
+
 
 void dormirA7670SA() {
   digitalWrite(SLEEP_PIN, LOW);  // LOW despierta el módulo
@@ -958,9 +972,11 @@ void notificarEncendido()
   digitalWrite(STM_LED, LOW);
 
   String currentTime = obtenerTiempoRTC();
+  String horaRed = obtenerFechaHoraRed();
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
   SMS += " esta encendido. Tiempo: " + currentTime + ".";
+  SMS += " Hora red: " + horaRed + ".";
   enviarSMS(SMS, String(config.receptor));
 
   if(String(config.numUsuario) != ""){
@@ -1358,8 +1374,6 @@ void setup() {
   }
 
   notificarEncendido();
-
-  inicializarModemHora();
 
   if(config.rastreoActivo && config.modoAhorro){
     configurarModoAhorroEnergia();
