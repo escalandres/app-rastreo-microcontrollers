@@ -119,10 +119,9 @@ void cargarConfiguracionPorDefecto() {
   config.intervaloMinutos = 5;
   config.intervaloHoras = 0;
   config.intervaloDias = 0;
-  config.modoAhorro = false;
   strcpy(config.pin, "589649");
   config.configurado = false;  // Marcar como configurado
-  config.rastreoActivo = false;
+  config.modo = MODO_OFF;
   
   guardarConfigEEPROM();
 }
@@ -1012,7 +1011,7 @@ void procesarComando(String mensaje) {
       enviarSMS("!_! Reiniciando y reseteando configuración a valores de fábrica.", String(config.numUsuario));
     }
 
-    resetearEEPROM();
+    cargarConfiguracionPorDefecto();
   }
   
   // --- COMANDO NO RECONOCIDO ---
