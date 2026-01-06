@@ -327,6 +327,65 @@ bool estaRegistradoEnRed() {
   return false; // no hubo respuesta válida
 }
 
+String obtenerFechaHoraRedISO(const char* modo = "UTC", int defaultTZQuarters = -24) {
+    String resp = enviarComandoConRetorno("AT+CCLK?", 2000);
+
+    int idx = resp.indexOf("+CCLK:");
+    if (idx == -1) return "";
+
+    int q1 = resp.indexOf('"', idx);
+    int q2 = resp.indexOf('"', q1 + 1);
+    if (q1 == -1 || q2 == -1) return "";
+
+    String s = resp.substring(q1 + 1, q2);
+    if (s.length() < 17) return "";
+
+    int yy = s.substring(0, 2).toInt();
+    int MM = s.substring(3, 5).toInt();
+    int dd = s.substring(6, 8).toInt();
+    int hh = s.substring(9, 11).toInt();
+    int mm = s.substring(12, 14).toInt();
+    int ss = s.substring(15, 17).toInt();
+
+    // tz en cuartos de hora
+    int tz = 0;
+    if (s.length() >= 19) {
+        tz = s.substring(18).toInt();
+    }
+    // Fallback para CDMX si tz es 0
+    int tzEffective = (tz == 0 ? defaultTZQuarters : tz);
+
+    int year = 2000 + yy;
+
+    // Validaciones
+    if (year < 2020 || year > 2035) return "";
+    if (MM < 1 || MM > 12) return "";
+    if (dd < 1 || dd > 31) return "";
+    if (hh < 0 || hh > 23) return "";
+    if (mm < 0 || mm > 59) return "";
+    if (ss < 0 || ss > 59) return "";
+
+    DateTime localTime(year, MM, dd, hh, mm, ss);
+    int offsetSeconds = tzEffective * 15 * 60;
+
+    DateTime outTime;
+    if (strcmp(modo, "UTC") == 0) {
+        // UTC = local - offset
+        outTime = localTime - TimeSpan(offsetSeconds);
+    } else {
+        // LOCAL = tal cual
+        outTime = localTime;
+    }
+
+    char buffer[21];
+    sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
+            outTime.year(), outTime.month(), outTime.day(),
+            outTime.hour(), outTime.minute(), outTime.second());
+
+    return String(buffer);
+}
+
+
 int nivelSenal() {
   enviarComando("AT+CSQ", 1000);
   unsigned long start = millis();
@@ -1045,68 +1104,6 @@ bool rtcValido(DateTime t) {
   if (t.second() > 59) return false;
   return true;
 }
-
-// Devuelve la fecha/hora de la red en formato ISO (YYYY-MM-DDTHH:MM:SS)
-// Retorna "" si hubo error al leer o parsear
-String obtenerFechaHoraRedISO(const char* modo = "UTC", int defaultTZQuarters = -24) {
-    String resp = enviarComandoConRetorno("AT+CCLK?", 2000);
-
-    int idx = resp.indexOf("+CCLK:");
-    if (idx == -1) return "";
-
-    int q1 = resp.indexOf('"', idx);
-    int q2 = resp.indexOf('"', q1 + 1);
-    if (q1 == -1 || q2 == -1) return "";
-
-    String s = resp.substring(q1 + 1, q2);
-    if (s.length() < 17) return "";
-
-    int yy = s.substring(0, 2).toInt();
-    int MM = s.substring(3, 5).toInt();
-    int dd = s.substring(6, 8).toInt();
-    int hh = s.substring(9, 11).toInt();
-    int mm = s.substring(12, 14).toInt();
-    int ss = s.substring(15, 17).toInt();
-
-    // tz en cuartos de hora
-    int tz = 0;
-    if (s.length() >= 19) {
-        tz = s.substring(18).toInt();
-    }
-    // Fallback para CDMX si tz es 0
-    int tzEffective = (tz == 0 ? defaultTZQuarters : tz);
-
-    int year = 2000 + yy;
-
-    // Validaciones
-    if (year < 2020 || year > 2035) return "";
-    if (MM < 1 || MM > 12) return "";
-    if (dd < 1 || dd > 31) return "";
-    if (hh < 0 || hh > 23) return "";
-    if (mm < 0 || mm > 59) return "";
-    if (ss < 0 || ss > 59) return "";
-
-    DateTime localTime(year, MM, dd, hh, mm, ss);
-    int offsetSeconds = tzEffective * 15 * 60;
-
-    DateTime outTime;
-    if (strcmp(modo, "UTC") == 0) {
-        // UTC = local - offset
-        outTime = localTime - TimeSpan(offsetSeconds);
-    } else {
-        // LOCAL = tal cual
-        outTime = localTime;
-    }
-
-    char buffer[21];
-    sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
-            outTime.year(), outTime.month(), outTime.day(),
-            outTime.hour(), outTime.minute(), outTime.second());
-
-    return String(buffer);
-}
-
-
 
 bool obtenerHoraRed(DateTime &netTime) {
   String resp = enviarComandoConRetorno("AT+CCLK?", 1500);
