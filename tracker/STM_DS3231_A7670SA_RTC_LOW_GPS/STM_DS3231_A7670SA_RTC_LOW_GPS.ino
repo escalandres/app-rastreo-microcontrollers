@@ -763,7 +763,7 @@ void procesarComando(String mensaje) {
   
   // --- INTERVALO ---
   else if (comando.indexOf("SET#INTERVALO=") != -1) {
-    String valor = comando.substring(10);
+    String valor = comando.substring(14);
     valor.trim();
     
     if (valor.length() == 0) {
@@ -937,21 +937,21 @@ void procesarComando(String mensaje) {
     String info = "OK#STATUS:\n";
     info += "ID: " + String(config.idRastreador) + ";";
     // MODO
-    info += "MODO:";
-    switch (config.modo) {
-      case MODO_OFF:      info += "OFF"; break;
-      case MODO_AHORRO:   info += "AHORRO"; break;
-      case MODO_CONTINUO: info += "CONTINUO"; break;
-      default:            info += "DESCONOCIDO"; break;
-    }
-    info += ";";
+    // info += "MODO:";
+    // switch (config.modo) {
+    //   case MODO_OFF:      info += "OFF"; break;
+    //   case MODO_AHORRO:   info += "AHORRO"; break;
+    //   case MODO_CONTINUO: info += "CONTINUO"; break;
+    //   default:            info += "DESCONOCIDO"; break;
+    // }
+    // info += ";";
     
     // TIME
     info += "TIME: " + obtenerTiempoRTC() + ";";
 
     // GPS
-    String datosGPS = leerYGuardarGPS();
-    info += "GPS: " + datosGPS + ";";
+    // String datosGPS = leerYGuardarGPS();
+    // info += "GPS: " + datosGPS + ";";
 
     // BATTERY
     String batteryCharge = "";
