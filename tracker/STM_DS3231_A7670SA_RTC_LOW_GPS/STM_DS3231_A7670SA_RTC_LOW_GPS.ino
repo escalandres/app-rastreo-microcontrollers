@@ -841,7 +841,7 @@ void notificarEncendido() {
   if (horaRed.ok) {
     len += snprintf(msg + len, sizeof(msg) - len,
                     "HoraRed:%s;",
-                    horaRed.localISO.c_str());
+                    horaRed.localISO);
   } else {
     len += snprintf(msg + len, sizeof(msg) - len,
                     "HoraRed:NO_DISP;");
@@ -1624,7 +1624,7 @@ void procesarComando(String mensaje) {
     // String horaRTC = obtenerTiempoRTC();
     // String mensaje;
 
-    if (strlen(horaRed.localISO.c_str()) > 0) {
+    if (strlen(horaRed.localISO) > 0) {
       // mensaje = "Tiempo de la red: " + horaRed.localISO;
       // mensaje += " (LOCAL)\n" + horaRed.utcISO + " (UTC+00:00)";
       // mensaje += "\nRTC: " + horaRTC;
