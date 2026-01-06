@@ -298,7 +298,7 @@ void leerMensaje(int index) {
       }
       delay(10000); // espera 10 segundos antes de reintentar
     }
-  } else if (message.indexOf("Rastreo Continuo ACTIVADO") != -1 || message.indexOf("Rastreo con Modo Ahorro ACTIVADO") != -1) {
+  } else if (message.indexOf("Rastreo Continuo ACTIVADO") != -1 || message.indexOf("Rastreo Modo Ahorro ACTIVADO") != -1) {
     despertarServidor();
     delay(5000);
     const int maxRetries = 3;
@@ -435,7 +435,7 @@ void loop() {
           enviarMensajeRecibido("encendido: "+payload);
           //delay(3000);
           //enviarMensajeRecibido("Test de envío SIM800L");
-      } else if (message.indexOf("Rastreo Continuo ACTIVADO") != -1 || message.indexOf("Rastreo con Modo Ahorro ACTIVADO") != -1) {
+      } else if (message.indexOf("Rastreo Continuo ACTIVADO") != -1 || message.indexOf("Rastreo Modo Ahorro ACTIVADO") != -1) {
           despertarServidor();
           delay(5000);
           const int maxRetries = 3;
