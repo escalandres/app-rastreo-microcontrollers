@@ -53,7 +53,7 @@ enum ModoOperacion : uint8_t {
 
 struct Config {
   uint32_t firma;           // ← debe ser 0xCAFEBABE
-  uint16_t idRastreador;         // ID unico del rastreador
+  uint32_t idRastreador;         // ID unico del rastreador
   char receptor[16];           // Numero de telefono del receptoristrador
   char numUsuario[16];      // Numero de usuario que recibe los SMS;
   uint16_t intervaloSegundos;    // Intervalo de envio de datos en segundos
@@ -624,7 +624,7 @@ void procesarComando(String mensaje) {
     comando.toUpperCase();
 
   // ========== COMANDOS ==========
-  // enviarSMS("Procesando comando: " + comando);
+  enviarSMS("Procesando comando: " + comando);
   // --- RASTREAR ON/OFF ---
   if (comando.indexOf("SET#MODO=") != -1) {
     if (comando.indexOf("AHORRO") != -1) {
