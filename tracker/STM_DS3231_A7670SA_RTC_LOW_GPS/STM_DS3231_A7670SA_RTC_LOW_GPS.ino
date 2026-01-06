@@ -23,6 +23,12 @@ bool resetPorWatchdog = false;
 
 
 /* Constantes y Variables Globales */
+struct HoraRedISO {
+    String localISO;
+    String utcISO;
+    bool ok;
+};
+
 struct Config {
   uint32_t firma;           // ← debe ser 0xCAFEBABE
   int idRastreador;         // ID unico del rastreador
@@ -327,63 +333,125 @@ bool estaRegistradoEnRed() {
   return false; // no hubo respuesta válida
 }
 
-String obtenerFechaHoraRedISO(const char* modo = "UTC", int defaultTZQuarters = -24) {
-    String resp = enviarComandoConRetorno("AT+CCLK?", 2000);
+HoraRedISO obtenerHoraRedISO(int fallbackTZQuarters = -24) {
+  HoraRedISO out = {"", "", false};
 
-    int idx = resp.indexOf("+CCLK:");
-    if (idx == -1) return "";
+  String resp = enviarComandoConRetorno("AT+CCLK?", 2000);
 
-    int q1 = resp.indexOf('"', idx);
-    int q2 = resp.indexOf('"', q1 + 1);
-    if (q1 == -1 || q2 == -1) return "";
+  int idx = resp.indexOf("+CCLK:");
+  if (idx == -1) return out;
 
-    String s = resp.substring(q1 + 1, q2);
-    if (s.length() < 17) return "";
+  int q1 = resp.indexOf('"', idx);
+  int q2 = resp.indexOf('"', q1 + 1);
+  if (q1 == -1 || q2 == -1) return out;
 
-    int yy = s.substring(0, 2).toInt();
-    int MM = s.substring(3, 5).toInt();
-    int dd = s.substring(6, 8).toInt();
-    int hh = s.substring(9, 11).toInt();
-    int mm = s.substring(12, 14).toInt();
-    int ss = s.substring(15, 17).toInt();
+  String s = resp.substring(q1 + 1, q2); // Ej: "26/01/05,19:01:42-24"
+  if (s.length() < 19) return out;
 
-    // tz en cuartos de hora
-    int tz = 0;
-    if (s.length() >= 19) {
-        tz = s.substring(18).toInt();
-    }
-    // Fallback para CDMX si tz es 0
-    int tzEffective = (tz == 0 ? defaultTZQuarters : tz);
+  // Parse estricto de campos
+  int yy = s.substring(0, 2).toInt();
+  int MM = s.substring(3, 5).toInt();
+  int dd = s.substring(6, 8).toInt();
+  int hh = s.substring(9, 11).toInt();
+  int mm = s.substring(12, 14).toInt();
+  int ss = s.substring(15, 17).toInt();
 
-    int year = 2000 + yy;
+  // tz puede incluir signo; cuartos de hora
+  int tz = s.substring(18).toInt(); // ej: -24
+  int tzEffective = (tz == 0 ? fallbackTZQuarters : tz);
 
-    // Validaciones
-    if (year < 2020 || year > 2035) return "";
-    if (MM < 1 || MM > 12) return "";
-    if (dd < 1 || dd > 31) return "";
-    if (hh < 0 || hh > 23) return "";
-    if (mm < 0 || mm > 59) return "";
-    if (ss < 0 || ss > 59) return "";
+  int year = 2000 + yy;
 
-    DateTime localTime(year, MM, dd, hh, mm, ss);
-    int offsetSeconds = tzEffective * 15 * 60;
+  // Validaciones
+  if (year < 2020 || year > 2035) return out;
+  if (MM < 1 || MM > 12) return out;
+  if (dd < 1 || dd > 31) return out;
+  if (hh < 0 || hh > 23) return out;
+  if (mm < 0 || mm > 59) return out;
+  if (ss < 0 || ss > 59) return out;
 
-    DateTime outTime;
-    if (strcmp(modo, "UTC") == 0) {
-        // UTC = local - offset
-        outTime = localTime - TimeSpan(offsetSeconds);
-    } else {
-        // LOCAL = tal cual
-        outTime = localTime;
-    }
+  DateTime localTime(year, MM, dd, hh, mm, ss);
 
-    char buffer[21];
-    sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
-            outTime.year(), outTime.month(), outTime.day(),
-            outTime.hour(), outTime.minute(), outTime.second());
+  // UTC = local - (tzEffective * 15 min)
+  int offsetSeconds = tzEffective * 15 * 60;
+  DateTime utcTime = localTime - TimeSpan(offsetSeconds);
 
-    return String(buffer);
+  char bufLocal[21];
+  char bufUTC[21];
+  sprintf(bufLocal, "%04d-%02d-%02dT%02d:%02d:%02d",
+          localTime.year(), localTime.month(), localTime.day(),
+          localTime.hour(), localTime.minute(), localTime.second());
+  sprintf(bufUTC, "%04d-%02d-%02dT%02d:%02d:%02d",
+          utcTime.year(), utcTime.month(), utcTime.day(),
+          utcTime.hour(), utcTime.minute(), utcTime.second());
+
+  out.localISO = String(bufLocal);
+  out.utcISO = String(bufUTC);
+  out.ok = true;
+  return out;
 }
+
+// Retorna fecha/hora de red en ISO.
+// Modo: "UTC" o "LOCAL".
+// Si tz del módem es 0, aplica defaultTZQuarters (CDMX: -24).
+// String obtenerFechaHoraRedISO(const char* modo = "UTC", int defaultTZQuarters = -24) {
+//     String resp = enviarComandoConRetorno("AT+CCLK?", 2000);
+
+//     int idx = resp.indexOf("+CCLK:");
+//     if (idx == -1) return "";
+
+//     int q1 = resp.indexOf('"', idx);
+//     int q2 = resp.indexOf('"', q1 + 1);
+//     if (q1 == -1 || q2 == -1) return "";
+
+//     String s = resp.substring(q1 + 1, q2);
+//     if (s.length() < 17) return "";
+
+//     int yy = s.substring(0, 2).toInt();
+//     int MM = s.substring(3, 5).toInt();
+//     int dd = s.substring(6, 8).toInt();
+//     int hh = s.substring(9, 11).toInt();
+//     int mm = s.substring(12, 14).toInt();
+//     int ss = s.substring(15, 17).toInt();
+
+//     // tz en cuartos de hora
+//     int tz = 0;
+//     if (s.length() >= 19) {
+//         tz = s.substring(18).toInt();
+//     }
+//     // Fallback para CDMX si tz es 0
+//     int tzEffective = (tz == 0 ? defaultTZQuarters : tz);
+
+//     int year = 2000 + yy;
+
+//     // Validaciones
+//     if (year < 2020 || year > 2035) return "";
+//     if (MM < 1 || MM > 12) return "";
+//     if (dd < 1 || dd > 31) return "";
+//     if (hh < 0 || hh > 23) return "";
+//     if (mm < 0 || mm > 59) return "";
+//     if (ss < 0 || ss > 59) return "";
+
+//     DateTime localTime(year, MM, dd, hh, mm, ss);
+//     int offsetSeconds = tzEffective * 15 * 60;
+
+//     DateTime outTime;
+//     if (strcmp(modo, "UTC") == 0) {
+//         // UTC = local - offset
+//         outTime = localTime - TimeSpan(offsetSeconds);
+//     } else {
+//         // LOCAL = tal cual
+//         outTime = localTime;
+//     }
+
+//     char buffer[21];
+//     sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
+//             outTime.year(), outTime.month(), outTime.day(),
+//             outTime.hour(), outTime.minute(), outTime.second());
+
+//     return String(buffer);
+// }
+
 
 
 int nivelSenal() {
@@ -785,13 +853,14 @@ void procesarComando(String mensaje) {
   }
 
   else if (comando.indexOf("TIMECELL") != -1) {
-    String fechaHoraLocal = obtenerFechaHoraRedISO("LOCAL");
-    String fechaHoraUTC = obtenerFechaHoraRedISO("UTC");
+    // String fechaHoraLocal = obtenerFechaHoraRedISO("LOCAL");
+    // String fechaHoraUTC = obtenerFechaHoraRedISO("UTC");
+    HoraRedISO horaRed = obtenerHoraRedISO();
     String mensaje;
 
-    if (fechaHoraLocal != "") {
-      mensaje = "Tiempo de la red: " + fechaHoraLocal;
-      mensaje += " (LOCAL)\n" + fechaHoraUTC + " (UTC)";
+    if (horaRed.localISO != "") {
+      mensaje = "Tiempo de la red: " + horaRed.localISO;
+      mensaje += " (LOCAL)\n" + horaRed.utcISO + " (UTC)";
     } else {
       mensaje = "Error: no se pudo leer hora de red";
     }
@@ -1033,11 +1102,11 @@ void notificarEncendido()
   digitalWrite(STM_LED, LOW);
 
   String currentTime = obtenerTiempoRTC();
-  String horaRed = obtenerFechaHoraRedISO("LOCAL");
+  HoraRedISO horaRed = obtenerFechaHoraRedISO("LOCAL");
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
   SMS += " esta encendido. Tiempo: " + currentTime + ".";
-  SMS += " Hora red: " + horaRed + ".";
+  SMS += " Hora red: " + horaRed.localISO + ".";
   enviarSMS(SMS, String(config.receptor));
 
   if(String(config.numUsuario) != ""){
