@@ -20,6 +20,8 @@ const int STM_LED = PC13;
 const int BATERIA = PA0;
 bool rtc_sano = false;
 bool resetPorWatchdog = false;
+#define CONFIG_FIRMA 0xCAFEBABE
+#define CONFIG_VERSION 1
 
 /* Constantes y Variables Globales */
 struct HoraRedISO {
@@ -30,10 +32,24 @@ struct HoraRedISO {
   bool ok;
 };
 
-enum ModoOperacion : uint8_t {
-  MODO_OFF = 0,
-  MODO_AHORRO = 1,
-  MODO_CONTINUO = 2
+enum ModoOperacion {
+  MODO_OFF = 0,        // Rastreo apagado, solo escucha comandos
+  MODO_CONTINUO = 1,   // Rastreo activo sin ahorro
+  MODO_AHORRO = 2,     // Rastreo con sleep + RTC
+  MODO_SEGURO = 3      // Estado forzado por error (RTC inválido, etc.)
+};
+
+struct EstadoSistema {
+  ModoOperacion modoActual;
+
+  bool rtcValido;
+  bool alarmaProgramada;
+  bool despertarPorRTC;
+
+  bool modemListo;
+  bool gpsListo;
+
+  unsigned long ultimoEventoMs;
 };
 
 // struct Config {
@@ -52,7 +68,8 @@ enum ModoOperacion : uint8_t {
 // };
 
 struct Config {
-  uint32_t firma;           // ← debe ser 0xCAFEBABE
+  uint32_t firma;
+  uint8_t version;
   uint32_t idRastreador;         // ID unico del rastreador
   char receptor[16];           // Numero de telefono del receptoristrador
   char numUsuario[16];      // Numero de usuario que recibe los SMS;
@@ -66,6 +83,8 @@ struct Config {
 };
 
 Config config;
+
+EstadoSistema estadoSistema;
 // Dirección en EEPROM para guardar la configuración
 const uint16_t CONFIG_ADDRESS = 0;
 
@@ -101,26 +120,27 @@ bool leerConfigEEPROM() {
   Config tempConfig;
   EEPROM.get(CONFIG_ADDRESS, tempConfig);
   
-  // Verificar si la configuración es válida
-  if (tempConfig.firma == 0xCAFEBABE && tempConfig.configurado) {
-    config = tempConfig;
-    return true;
-  }
-  return false;
+  if (tempConfig.firma != CONFIG_FIRMA) return false;
+  if (tempConfig.version != CONFIG_VERSION) return false;
+  if (!tempConfig.configurado) return false;
+  config = tempConfig;
+  return true;
 }
 
 /* Función para cargar valores por defecto */
 void cargarConfiguracionPorDefecto() {
-  config.firma = 0xCAFEBABE;
+  memset(&config, 0, sizeof(Config)); // Limpiar toda la estructura
+  config.firma = CONFIG_FIRMA;
+  config.version = CONFIG_VERSION;
   config.idRastreador = 48273619;
   strcpy(config.receptor, "+525620577634");
-  strcpy(config.numUsuario, "");
+  config.numUsuario[0] = '\0';
   config.intervaloSegundos = 0;
   config.intervaloMinutos = 5;
   config.intervaloHoras = 0;
   config.intervaloDias = 0;
   strcpy(config.pin, "589649");
-  config.configurado = false;  // Marcar como configurado
+  config.configurado = true;
   config.modo = MODO_OFF;
   
   guardarConfigEEPROM();
@@ -141,12 +161,16 @@ void setAlarmFired() {
   alarmFired = true;
 }
 
-void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos = 0) {
-  // Limpiar alarmas anteriores
+void desactivarAlarmaRTC(){
   rtc.clearAlarm(1);
   rtc.clearAlarm(2);
   rtc.disableAlarm(1);
   rtc.disableAlarm(2);
+}
+
+void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos = 0) {
+  // Limpiar alarmas anteriores
+  desactivarAlarmaRTC();
 
   // SQW en modo alarma (no onda cuadrada)
   rtc.writeSqwPinMode(DS3231_OFF);
@@ -466,6 +490,44 @@ HoraRedISO obtenerHoraRedISO(int fallbackTZQuarters = -24) {
   return out;
 }
 
+void prepararModemModoSeguro() {
+  enviarComando("AT", 1000);
+  enviarComando("AT+CMGF=1", 1000);              // SMS texto
+  enviarComando("AT+CPMS=\"SM\",\"SM\",\"SM\"", 1000);
+  enviarComando("AT+CNMI=2,1,0,0,0", 1000);      // SMS en vivo
+}
+
+void notificarModoSeguro() {
+  String msg =
+    "⚠️ MODO SEGURO ACTIVADO\n"
+    "Rastreador: " + String(config.idRastreador) + "\n"
+    "Motivo: RTC INVALIDO\n"
+    "Estado: Rastreo desactivado, esperando comandos\n"
+    "Time: " + obtenerTiempoRTC();
+
+  enviarSMS(msg, String(config.receptor));
+
+  if (strlen(config.numUsuario) > 0) {
+    enviarSMS(msg, String(config.numUsuario));
+  }
+}
+
+void entrarModoSeguro() {
+
+  // 1️⃣ Marcar estado
+  config.modo = MODO_OFF;
+  guardarConfigEEPROM();
+
+  // 2️⃣ Preparar modem
+  prepararModemModoSeguro();
+
+  // 3️⃣ Avisar al usuario
+  notificarModoSeguro();
+
+  // 4️⃣ Limpiar alarma RTC
+  desactivarAlarmaRTC();
+}
+
 void configurarModoAhorroEnergia() {
 
   // =====================================================
@@ -528,19 +590,36 @@ void configurarModoAhorroEnergia() {
   LowPower.deepSleep();
 }
 
+void configurarRastreoContinuo(uint16_t intervaloSegundos = 45) {
 
-void configurarRastreoContinuo(unsigned int segundos = 45) {
-  // Configurar almacenamiento en memoria interna
-  enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
+  // ---------- Validaciones ----------
+  if (intervaloSegundos < 10) intervaloSegundos = 10;
+  if (intervaloSegundos > 3600) intervaloSegundos = 3600;
 
-  // CNMI para SMS en vivo
-  enviarComando("AT+CNMI=1,2,0,0,0");
-  // RTC alarma cada X segundos
-  configurarAlarma(0,0,0,segundos);
+  // ---------- Limpiar estado previo ----------
+  detachInterrupt(digitalPinToInterrupt(SQW_PIN));
+  limpiarAlarmasRTC();
 
-  // Activar interrupción en FALLING
-  attachInterrupt(digitalPinToInterrupt(SQW_PIN), setAlarmFired, FALLING);
+  // ---------- Configuración del módem ----------
+  enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000); // Usar memoria interna del módem
+  enviarComando("AT+CNMI=1,2,0,0,0");    // Notificaciones SMS en vivo
+
+  // ---------- Configurar RTC ----------
+  configurarAlarma(
+    0,  // días
+    0,  // horas
+    0,  // minutos
+    intervaloSegundos
+  );
+
+  // ---------- Interrupción RTC ----------
+  attachInterrupt(
+    digitalPinToInterrupt(SQW_PIN),
+    setAlarmFired,
+    FALLING
+  );
 }
+
 
 void sincronizarRTCconRed(int margenSegundos = 60) {
   HoraRedISO horaRed = obtenerHoraRedISO();
@@ -564,6 +643,28 @@ void sincronizarRTCconRed(int margenSegundos = 60) {
     // RTC ya está sincronizado dentro del margen
   }
 }
+
+bool configurarRTCDesdeString(String fechaHora) {
+
+  if (fechaHora.length() < 19) return false;
+
+  int year   = fechaHora.substring(0, 4).toInt();
+  int month  = fechaHora.substring(5, 7).toInt();
+  int day    = fechaHora.substring(8,10).toInt();
+  int hour   = fechaHora.substring(11,13).toInt();
+  int minute = fechaHora.substring(14,16).toInt();
+  int second = fechaHora.substring(17,19).toInt();
+
+  // Validaciones basicas
+  if (year < 2020 || year > 2100) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+  if (hour > 23 || minute > 59 || second > 59) return false;
+
+  rtc.adjust(DateTime(year, month, day, hour, minute, second));
+  return true;
+}
+
 
 void procesarComando(String mensaje) {
     mensaje.trim();
@@ -607,49 +708,73 @@ void procesarComando(String mensaje) {
   if (comando.indexOf("SET#MODO=") != -1) {
     if (comando.indexOf("AHORRO") != -1) {
       // Si ya está activado el rastreo, seguir.
-      if(config.modo == MODO_AHORRO) return;
+      if(estadoSistema.modoActual == MODO_AHORRO) return;
+
+      if(!estadoSistema.rtcValido) {
+        // RTC inválido → modo seguro
+        entrarModoSeguro();
+        return;
+      }
 
       config.modo = MODO_AHORRO;
       config.firma = 0xCAFEBABE; // Asegurar firma válida
       guardarConfigEEPROM();
+
       // Rastreo con modo ahorro
       String intervalo = String(config.intervaloDias) + "D" +
                 String(config.intervaloHoras) + "H" +
                 String(config.intervaloMinutos) + "M" +
                 String(config.intervaloSegundos) + "S";
-      enviarSMS("Rastreo con Modo Ahorro ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC() + ". INT: " + intervalo, String(config.receptor));
-      if(config.numUsuario != ""){
-        enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, String(config.numUsuario));
+      enviarSMS(
+        "Rastreo Modo Ahorro ACTIVADO\nID: " + String(config.idRastreador) +
+        "\nINT: " + intervalo +
+        "\nTIME: " + obtenerTiempoRTC(),
+        String(config.receptor)
+      );
+      if (strlen(config.numUsuario) > 0) {
+        enviarSMS(
+          "^_^ Modo Ahorro ACTIVADO\nIntervalo: " + intervalo,
+          String(config.numUsuario)
+        );
       }
-      configurarModoAhorroEnergia();
+
+      estadoSistema.modoActual = MODO_AHORRO;
+      aplicarModo(MODO_AHORRO);
     } 
 
     else if(comando.indexOf("CONTINUO") != -1) {
       // Si ya está activado el rastreo, seguir.
-      if (config.modo == MODO_CONTINUO) return;
+      if (estadoSistema.modoActual == MODO_CONTINUO) return;
+
+      if (!estadoSistema.rtcValido) {
+        entrarModoSeguro();
+        return;
+      }
 
       config.modo = MODO_CONTINUO;
       config.firma = 0xCAFEBABE; // Asegurar firma válida
       guardarConfigEEPROM();
 
-      // Rastreo sin modo ahorro
-      configurarRastreoContinuo(59); // Cada 59 segundos
       enviarSMS("Rastreo Continuo ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
 
       if(config.numUsuario != ""){
         enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 59 segundos", String(config.numUsuario));
       }
+
+      estadoSistema.modoActual = MODO_CONTINUO;
+      aplicarModo(MODO_CONTINUO);
     }
     
     else if (comando.indexOf("OFF") != -1) {
       // Si ya está desactivado el rastreo, seguir.
-      if(config.modo == MODO_OFF) {
+      if(estadoSistema.modoActual == MODO_OFF) {
         if(config.numUsuario != ""){
           enviarSMS("-_- Rastreo ya estaba DESACTIVADO.", String(config.numUsuario));
         }
       }
 
       config.modo = MODO_OFF;
+      estadoSistema.modoActual = MODO_OFF;
       config.firma = 0xCAFEBABE;
       // Leer mensajes desde la memoria interna
       enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
@@ -738,6 +863,8 @@ void procesarComando(String mensaje) {
   //     enviarSMS(msg, String(config.numUsuario));
   //   }
   // }
+
+  // ------ Configurar valores ------
   
   // --- INTERVALO ---
   else if (comando.indexOf("SET#INTERVALO=") != -1) {
@@ -825,7 +952,7 @@ void procesarComando(String mensaje) {
     }
   }
   
-  // --- SETNUM (solo receptor) ---
+  // --- SETNUM (solo notificaciones) ---
   else if (comando.indexOf("SET#NUM=") != -1) {
     // enviarSMS("Comando SET#NUM recibido.");
     String nuevoNumero = comando.substring(8);
@@ -866,6 +993,63 @@ void procesarComando(String mensaje) {
       enviarSMS(";) Numero guardado: " + nuevoNumero, String(config.numUsuario));
     }
   }
+  
+  // --- SETTIME (solo receptor) ---
+  else if (comando.indexOf("SET#TIME=") != -1) {
+    // Extraer "YYYY-MM-DD HH:MM:SS"
+    String tiempoRTC = comando.substring(9);
+    tiempoRTC.trim();
+
+    bool exito = configurarRTCDesdeString(tiempoRTC);
+
+    if (!exito) {
+      enviarSMS(
+        "ERROR: formato de hora invalido\n"
+        "Use: SET#TIME=YYYY-MM-DD HH:MM:SS",
+        String(config.receptor)
+      );
+      return;
+    }
+
+    // RTC configurado correctamente
+    enviarSMS(
+      "RTC ACTUALIZADO\n"
+      "Hora: " + obtenerTiempoRTC(),
+      String(config.receptor)
+    );
+
+    if(config.numUsuario != ""){
+      enviarSMS(
+        "RTC ACTUALIZADO\n"
+        "Hora: " + obtenerTiempoRTC(),
+        String(config.numUsuario)
+      );
+    }
+
+    // Marcar RTC como valido (bandera persistente si usas EEPROM/Flash)
+    estadoSistema.rtcValido = true;
+  }
+
+  else if (comando.indexOf("SET#RTC=") != -1) {
+    if (comando.indexOf("SYNC") != -1) {
+      bool corregido = corregirRTC();
+      estadoSistema.rtcValido = rtcValido(rtc.now());
+      if (estadoSistema.rtcValido) {
+        enviarSMS(
+          "RTC CORREGIDO OK\nTIME: " + obtenerTiempoRTC(),
+          String(config.receptor)
+        );
+      } else {
+        enviarSMS(
+          "RTC NO CORREGIDO\nTIME ACTUAL: " + obtenerTiempoRTC(),
+          String(config.receptor)
+        );
+      }
+    }
+  }
+
+
+  // ------ Obtener valores ------
   
   // --- Config ---
   else if (comando.indexOf("GET#CONFIG") != -1) {
@@ -1386,79 +1570,110 @@ String hexToDec(String hexStr) {
   return String(decVal);
 }
 
+void aplicarModo(ModoOperacion modo) {
+  switch (modo) {
+
+    case MODO_AHORRO:
+      configurarModoAhorroEnergia();
+      break;
+
+    case MODO_CONTINUO:
+      configurarRastreoContinuo(45);
+      break;
+
+    case MODO_OFF:
+    default:
+      enviarComando("AT+CNMI=1,2,0,0,0");
+      break;
+  }
+}
+
 void setup() {
-  // Inicializar puertos seriales
+
+  // ================================
+  // 1️⃣ Inicialización básica
+  // ================================
   Wire.begin();
   _buffer.reserve(50);
   A7670SA.begin(115200);
   NEO8M.begin(9600);
 
-  /* Configuracion de puertos */
   pinMode(SLEEP_PIN, OUTPUT);
   pinMode(SQW_PIN, INPUT_PULLUP);
   pinMode(STM_LED, OUTPUT);
   analogReadResolution(12);
-
   digitalWrite(STM_LED, LOW);
 
-  // Detectar si el MCU reinició por Watchdog
+  // ================================
+  // 2️⃣ Watchdog reset
+  // ================================
   if (IWatchdog.isReset()) {
     resetPorWatchdog = true;
     IWatchdog.clearReset();
   }
 
-  if (!rtc.begin()) {        // si falla la inicializacion del modulo
-    //Serial.println("Modulo RTC no encontrado !");  // muestra mensaje de error
-    while (1);         // bucle infinito que detiene ejecucion del programa
+  // ================================
+  // 3️⃣ RTC
+  // ================================
+  if (!rtc.begin()) {
+    while (1);  // RTC crítico
   }
 
-  if(rtc.lostPower()) {
-      DateTime localTime(__DATE__, __TIME__);
-      DateTime utcTime = localTime + TimeSpan(6 * 3600); // Convertir a UTC sumando 6 horas
-      // Ajustar el RTC a la fecha y hora de compilación en UTC
-      rtc.adjust(utcTime);
+  if (rtc.lostPower()) {
+    DateTime localTime(__DATE__, __TIME__);
+    DateTime utcTime = localTime + TimeSpan(6 * 3600);
+    rtc.adjust(utcTime);
   }
 
   rtc.disable32K();
   rtc.writeSqwPinMode(DS3231_OFF);
 
-  // Configuración de EEPROM para STM32
+  // ================================
+  // 4️⃣ EEPROM
+  // ================================
   EEPROM.begin();
 
-  // Intentar leer configuración guardada
   if (!leerConfigEEPROM()) {
-    // Si no hay configuración válida, cargar defaults
     cargarConfiguracionPorDefecto();
   }
 
-  // Iniciar A7670SA
+  // ================================
+  // 5️⃣ Estado del sistema (CLAVE)
+  // ================================
+  estadoSistema.modoActual = MODO_OFF;
+  estadoSistema.rtcValido = rtcValido(rtc.now());
+
+  // ================================
+  // 6️⃣ Modem
+  // ================================
   iniciarA7670SA();
-
   delay(5000);
-
-  enviarComando("AT+CMGF=1",1000); // modo texto
-
-  // Esperar un poco a que la red registre
+  enviarComando("AT+CMGF=1",1000);
   delay(2000);
 
   if (resetPorWatchdog) {
     corregirRTC();
-    resetPorWatchdog = false;  // ya atendido
+    resetPorWatchdog = false;
   }
+
+  sincronizarRTCconRed(60);
 
   notificarEncendido();
 
-  sincronizarRTCconRed(60); // margen de 60 segundos
+  // ================================
+  // 7️⃣ DECISIÓN DE MODO REAL
+  // ================================
+  if (config.modo == MODO_AHORRO && !estadoSistema.rtcValido) {
 
-  if(config.modo == MODO_AHORRO){
-    configurarModoAhorroEnergia();
-  }else if(config.modo == MODO_CONTINUO){
-    configurarRastreoContinuo(45); // Cada 45 segundos
-  }else{
-    enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
+    entrarModoSeguro();
+
+  } else {
+
+    estadoSistema.modoActual = config.modo;
+    aplicarModo(estadoSistema.modoActual);
   }
 
-  digitalWrite(STM_LED,HIGH);
+  digitalWrite(STM_LED, HIGH);
 }
 
 void procesarSMS(String resp, String banco) {
