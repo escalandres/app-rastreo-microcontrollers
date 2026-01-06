@@ -1037,7 +1037,14 @@ void aplicarModo(ModoOperacion modo) {
 
     case MODO_OFF:
     default:
-      enviarComando("AT+CNMI=1,2,0,0,0");
+      // ---------- Limpiar estado previo ----------
+      detachInterrupt(digitalPinToInterrupt(SQW_PIN));
+      desactivarAlarmaRTC();
+
+      // ---------- Configuración del módem ----------
+      enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000); // Usar memoria interna del módem
+      enviarComando("AT+CNMI=1,2,0,0,0");    // Notificaciones SMS en vivo
+
       break;
   }
 }
@@ -1307,83 +1314,6 @@ void procesarComando(String mensaje) {
       }
     }
   }
-
-  // else if (comando.indexOf("RASTREAR") != -1) {
-  //   if (comando.indexOf("ON") != -1) {
-  //     // Si ya está activado el rastreo, seguir.
-  //     if(config.rastreoActivo) return;
-
-  //     config.rastreoActivo = true;
-  //     config.firma = 0xCAFEBABE; // Asegurar firma válida
-  //     guardarConfigEEPROM();
-  //     if(!config.modoAhorro){
-  //       // Rastreo sin modo ahorro
-  //       configurarRastreoContinuo(59); // Cada 59 segundos
-  //       enviarSMS("Rastreo Continuo ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
-
-  //       if(strlen(config.numUsuario) > 0){
-  //         enviarSMS("^_^ Rastreo Continuo ACTIVADO.\nIntervalo de activacion: 59 segundos", String(config.numUsuario));
-  //       }
-  //     }else{
-  //       // Rastreo con modo ahorro
-  //       String intervalo = String(config.intervaloDias) + "D" +
-  //                 String(config.intervaloHoras) + "H" +
-  //                 String(config.intervaloMinutos) + "M" +
-  //                 String(config.intervaloSegundos) + "S";
-  //       enviarSMS("Rastreo con Modo Ahorro ACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC() + ". INT: " + intervalo, String(config.receptor));
-  //       if(strlen(config.numUsuario) > 0){
-  //         enviarSMS("^_^ Rastreo con Modo Ahorro ACTIVADO.\nIntervalo de activacion: " + intervalo, String(config.numUsuario));
-  //       }
-  //       configurarModoAhorroEnergia();
-  //     }
-  //   } else if (comando.indexOf("OFF") != -1) {
-  //     // Si ya está desactivado el rastreo, seguir.
-  //     if(!config.rastreoActivo) return;
-
-  //     config.rastreoActivo = false;
-  //     config.modoAhorro = false;
-  //     config.firma = 0xCAFEBABE;
-  //     // Leer mensajes desde la memoria interna
-  //     enviarComando("AT+CPMS=\"ME\",\"ME\",\"ME\"", 1000);
-  //     enviarComando("AT+CNMI=1,2,0,0,0"); // Configurar notificaciones SMS en vivo
-  //     guardarConfigEEPROM();
-  //     enviarSMS("Rastreo DESACTIVADO. Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC(), String(config.receptor));
-  //     if(strlen(config.numUsuario) > 0){
-  //       enviarSMS("-_- Rastreo DESACTIVADO.", String(config.numUsuario));
-  //     }
-  //   }
-  // }
-  
-  // // --- MODO AHORRO ---
-  // else if (comando.indexOf("MODOAHORRO=") != -1) {
-  //   if (comando.indexOf("ON") != -1) {
-  //     // Si ya está activado el modo ahorro, seguir.
-  //     if(config.modoAhorro) return;
-  //     // Activar modo ahorro
-  //     config.modoAhorro = true;
-  //   } else if (comando.indexOf("OFF") != -1) {
-  //     // Si ya está desactivado el modo ahorro, seguir.
-  //     if(!config.modoAhorro) return;
-  //     // Desactivar modo ahorro
-  //     config.modoAhorro = false;
-  //   } else {
-  //     if(strlen(config.numUsuario) > 0){
-  //       enviarSMS("Use: MODOAHORRO=ON o OFF");
-  //     }
-  //     return;
-  //   }
-    
-  //   config.firma = 0xCAFEBABE;
-  //   guardarConfigEEPROM();
-    
-  //   String msg = "Modo ahorro: ";
-  //   msg += config.modoAhorro ? "ON" : "OFF";
-  //   msg += ". Rastreador: " + String(config.idRastreador) + ". Time: " + obtenerTiempoRTC();
-  //   // enviarSMS(msg, String(config.receptor));
-  //   if(strlen(config.numUsuario) > 0){
-  //     enviarSMS(msg, String(config.numUsuario));
-  //   }
-  // }
 
   // ------ Configurar valores ------
   
