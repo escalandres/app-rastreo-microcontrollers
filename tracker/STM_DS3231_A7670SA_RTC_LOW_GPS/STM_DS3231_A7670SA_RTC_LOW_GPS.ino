@@ -849,7 +849,8 @@ void procesarComando(String mensaje) {
   
   // --- SETNUM (solo receptor) ---
   else if (comando.indexOf("SET#NUM=") != -1) {
-    String nuevoNumero = comando.substring(7);
+    enviarSMS("Comando SET#NUM recibido.");
+    String nuevoNumero = comando.substring(8);
     nuevoNumero.trim();
     
     // Validar formato
