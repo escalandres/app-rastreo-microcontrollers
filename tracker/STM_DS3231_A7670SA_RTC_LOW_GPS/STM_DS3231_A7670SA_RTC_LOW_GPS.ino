@@ -726,18 +726,20 @@ void procesarComando(String mensaje) {
   }
 
   else if (comando.indexOf("TIMECELL") != -1) {
-    String fechaHora = obtenerFechaHoraRed();
+    String fechaHoraLocal = obtenerFechaHoraRedISO("LOCAL");
+    String fechaHoraUTC = obtenerFechaHoraRedISO("UTC");
     String mensaje;
 
-    if (fechaHora != "") {
-        mensaje = "Tiempo de la red: " + fechaHora;
+    if (fechaHoraLocal != "") {
+      mensaje = "Tiempo de la red: " + fechaHoraLocal;
+      mensaje += " (LOCAL)\n" + fechaHoraUTC + " (UTC)";
     } else {
-        mensaje = "Error: no se pudo leer hora de red";
+      mensaje = "Error: no se pudo leer hora de red";
     }
 
     if (config.numUsuario != "") {
         enviarSMS(mensaje, String(config.numUsuario));
-    }
+  }
   }
   
   // --- COMANDO NO RECONOCIDO ---
@@ -972,7 +974,7 @@ void notificarEncendido()
   digitalWrite(STM_LED, LOW);
 
   String currentTime = obtenerTiempoRTC();
-  String horaRed = obtenerFechaHoraRed();
+  String horaRed = obtenerFechaHoraRedISO("LOCAL");
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
   SMS += " esta encendido. Tiempo: " + currentTime + ".";
@@ -1046,9 +1048,9 @@ bool rtcValido(DateTime t) {
 
 // Devuelve la fecha/hora de la red en formato ISO (YYYY-MM-DDTHH:MM:SS)
 // Retorna "" si hubo error al leer o parsear
-String obtenerFechaHoraRed() {
+String obtenerFechaHoraRedISO(const char* modo = "UTC", int defaultTZQuarters = -24) {
     String resp = enviarComandoConRetorno("AT+CCLK?", 2000);
-    
+
     int idx = resp.indexOf("+CCLK:");
     if (idx == -1) return "";
 
@@ -1057,8 +1059,6 @@ String obtenerFechaHoraRed() {
     if (q1 == -1 || q2 == -1) return "";
 
     String s = resp.substring(q1 + 1, q2);
-    // Ejemplo: 26/01/02,18:25:30-24
-
     if (s.length() < 17) return "";
 
     int yy = s.substring(0, 2).toInt();
@@ -1067,12 +1067,19 @@ String obtenerFechaHoraRed() {
     int hh = s.substring(9, 11).toInt();
     int mm = s.substring(12, 14).toInt();
     int ss = s.substring(15, 17).toInt();
-    int tz = s.substring(18).toInt(); // cuartos de hora respecto a UTC
+
+    // tz en cuartos de hora
+    int tz = 0;
+    if (s.length() >= 19) {
+        tz = s.substring(18).toInt();
+    }
+    // Fallback para CDMX si tz es 0
+    int tzEffective = (tz == 0 ? defaultTZQuarters : tz);
 
     int year = 2000 + yy;
 
-    // Validaciones defensivas
-    if (year < 2020 || year > 2030) return "";
+    // Validaciones
+    if (year < 2020 || year > 2035) return "";
     if (MM < 1 || MM > 12) return "";
     if (dd < 1 || dd > 31) return "";
     if (hh < 0 || hh > 23) return "";
@@ -1080,21 +1087,26 @@ String obtenerFechaHoraRed() {
     if (ss < 0 || ss > 59) return "";
 
     DateTime localTime(year, MM, dd, hh, mm, ss);
+    int offsetSeconds = tzEffective * 15 * 60;
 
-    // tz está en cuartos de hora → convertir a segundos
-    int offsetSeconds = tz * 15 * 60;
+    DateTime outTime;
+    if (strcmp(modo, "UTC") == 0) {
+        // UTC = local - offset
+        outTime = localTime - TimeSpan(offsetSeconds);
+    } else {
+        // LOCAL = tal cual
+        outTime = localTime;
+    }
 
-    // Para obtener UTC: localTime - offset
-    DateTime netTime = localTime - TimeSpan(offsetSeconds);
-
-    // Formatear a ISO
     char buffer[21];
     sprintf(buffer, "%04d-%02d-%02dT%02d:%02d:%02d",
-            netTime.year(), netTime.month(), netTime.day(),
-            netTime.hour(), netTime.minute(), netTime.second());
+            outTime.year(), outTime.month(), outTime.day(),
+            outTime.hour(), outTime.minute(), outTime.second());
 
     return String(buffer);
 }
+
+
 
 bool obtenerHoraRed(DateTime &netTime) {
   String resp = enviarComandoConRetorno("AT+CCLK?", 1500);
