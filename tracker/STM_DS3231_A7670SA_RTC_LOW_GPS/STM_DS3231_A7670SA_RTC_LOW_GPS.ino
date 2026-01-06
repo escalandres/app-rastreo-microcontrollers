@@ -406,7 +406,7 @@ int nivelSenal() {
 }
 
 HoraRedISO obtenerHoraRedISO(int fallbackTZQuarters = -24) {
-  HoraRed out = { DateTime((uint32_t)0), DateTime((uint32_t)0), "", "", false };
+  HoraRedISO out = { DateTime((uint32_t)0), DateTime((uint32_t)0), "", "", false };
 
   String resp = enviarComandoConRetorno("AT+CCLK?", 2000);
 
