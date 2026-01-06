@@ -1102,7 +1102,8 @@ void notificarEncendido()
   digitalWrite(STM_LED, LOW);
 
   String currentTime = obtenerTiempoRTC();
-  HoraRedISO horaRed = obtenerFechaHoraRedISO("LOCAL");
+  // HoraRedISO horaRed = obtenerFechaHoraRedISO("LOCAL");
+  HoraRedISO horaRed = obtenerHoraRedISO();
 
   String SMS = "El rastreador: " + String(config.idRastreador) + ",";
   SMS += " esta encendido. Tiempo: " + currentTime + ".";
@@ -1358,7 +1359,6 @@ float leerVoltaje(int pin) {
   return voltajeBateria;
 }
 
-
 int calcularNivelBateria(float v) {
   if (v >= 4.10) return 100;
   else if (v >= 4.05) return 95;
@@ -1383,13 +1383,6 @@ String obtenerVoltajeBateria() {
   String sms = "bat:" + String(nivelBateria);
   return sms;
 }
-
-/* Configuración de puertos */
-void inicializarModemHora() {
-    enviarComando("AT+CTZU=1"); // habilita actualización automática
-    enviarComando("AT+CTZR=1"); // habilita notificación de cambios
-}
-
 
 void setup() {
   // Inicializar puertos seriales
