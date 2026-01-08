@@ -65,6 +65,7 @@ struct Config {
   ModoOperacion modo;          // OFF / AHORRO / CONTINUO
   char pin[8];              // PIN para aceptar comandos SMS
   bool configurado;         // Indica si el rastreador ha sido configurado
+  bool resetPendiente;          // Indica si se debe resetear la configuración al iniciar
 };
 
 Config config;
@@ -117,7 +118,8 @@ void cargarConfiguracionPorDefecto() {
   memset(&config, 0, sizeof(Config)); // Limpiar toda la estructura
   config.firma = CONFIG_FIRMA;
   config.version = CONFIG_VERSION;
-  config.idRastreador = 59102473;
+  config.idRastreador = 48273619;
+  // config.idRastreador = 59102473;
   strcpy(config.receptor, "+525620577634");
   config.numUsuario[0] = '\0';
   config.intervaloSegundos = 0;
@@ -579,6 +581,22 @@ void entrarModoSeguro() {
 
   // 4️⃣ Limpiar alarma RTC
   desactivarAlarmaRTC();
+
+  // 5️⃣ Configurar estado sistema
+  estadoSistema.modoActual = MODO_OFF;
+  estadoSistema.rtcValido = false;
+  estadoSistema.alarmaProgramada = false;
+  estadoSistema.despertarPorRTC = false;
+
+  // Watchdog para reinciar rastreador
+  if (!IWatchdog.isEnabled()) {
+    IWatchdog.begin(30000); // 30 s
+  }
+
+  // 7️⃣ ⛔ NO alimentar watchdog → reset garantizado
+  while (true) {
+    delay(1000);
+  }
 }
 
 void configurarModoAhorroEnergia() {
@@ -1517,7 +1535,6 @@ void procesarComando(String mensaje) {
     }
   }
 
-
   // --- STATUS ---
   else if (comando.indexOf("GET#STATUS") != -1) {
     char msg[160];
@@ -1590,7 +1607,6 @@ void procesarComando(String mensaje) {
     }
   }
 
-
   else if (comando.indexOf("GET#TIMECELL") != -1) {
     char msg[150];
     size_t len = 0;
@@ -1640,6 +1656,14 @@ void procesarComando(String mensaje) {
     }
 
     cargarConfiguracionPorDefecto();
+  }
+
+  else if (comando.indexOf("REBOOT") != -1) {
+    if(strlen(config.numUsuario) > 0){
+      enviarSMS("!_! Reiniciando rastreador....", String(config.numUsuario));
+    }
+
+    entrarModoSeguro();
   }
   
   // --- COMANDO NO RECONOCIDO ---
@@ -1717,11 +1741,17 @@ void setup() {
   delay(2000);
 
   if (resetPorWatchdog) {
-    corregirRTC();
+    config.resetPendiente = false;
+    guardarConfigEEPROM();
     resetPorWatchdog = false;
+    corregirRTC();
   }
 
-  sincronizarRTCconRed(60);
+  if (IWatchdog.isEnabled()) {
+    IWatchdog.reload();
+  }
+
+  // sincronizarRTCconRed(60);
 
   notificarEncendido();
 
