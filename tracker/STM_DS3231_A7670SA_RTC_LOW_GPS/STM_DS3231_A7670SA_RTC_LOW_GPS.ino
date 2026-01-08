@@ -174,7 +174,8 @@ void configurarAlarma(int dias = 0, int horas = 0, int minutos = 5, int segundos
     //Set Alarm to be trigged in X
     rtc.setAlarm2(nextAlarm, DS3231_A2_Minute);  // this mode triggers the alarm when the seconds match.
   }
-
+  estadoSistema.alarmaProgramada = true;
+  estadoSistema.despertarPorRTC = true;
   alarmFired = false;
 }
 
@@ -1745,6 +1746,11 @@ void setup() {
     guardarConfigEEPROM();
     resetPorWatchdog = false;
     corregirRTC();
+
+    bool rtcAhoraValido = rtcValido(rtc.now());
+    if (rtcAhoraValido && !estadoSistema.rtcValido) {
+      estadoSistema.rtcValido = true;
+    }
   }
 
   if (IWatchdog.isEnabled()) {
