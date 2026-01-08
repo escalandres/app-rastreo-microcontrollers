@@ -119,7 +119,7 @@ void cargarConfiguracionPorDefecto() {
   config.firma = CONFIG_FIRMA;
   config.version = CONFIG_VERSION;
   config.idRastreador = 48273619;
-  // config.idRastreador = 59102473;
+  //config.idRastreador = 59102473;
   strcpy(config.receptor, "+525620577634");
   config.numUsuario[0] = '\0';
   config.intervaloSegundos = 0;
@@ -1757,7 +1757,7 @@ void setup() {
     IWatchdog.reload();
   }
 
-  // sincronizarRTCconRed(60);
+  sincronizarRTCconRed(60);
 
   notificarEncendido();
 
