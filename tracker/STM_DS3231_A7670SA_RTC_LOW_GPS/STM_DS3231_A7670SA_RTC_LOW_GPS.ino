@@ -118,8 +118,9 @@ void cargarConfiguracionPorDefecto() {
   memset(&config, 0, sizeof(Config)); // Limpiar toda la estructura
   config.firma = CONFIG_FIRMA;
   config.version = CONFIG_VERSION;
-  config.idRastreador = 48273619;
+  //config.idRastreador = 48273619;
   //config.idRastreador = 59102473;
+  config.idRastreador = 93456781;
   strcpy(config.receptor, "+525620577634");
   config.numUsuario[0] = '\0';
   config.intervaloSegundos = 0;
